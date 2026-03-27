@@ -1,0 +1,36 @@
+{
+  "name": "@protrader/platform",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@protrader/ui": "workspace:*",
+    "@protrader/types": "workspace:*",
+    "@protrader/utils": "workspace:*",
+    "next": "15.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
+    "@hookform/resolvers": "^3.9.0",
+    "@tanstack/react-query": "^5.59.0",
+    "zustand": "^5.0.1",
+    "socket.io-client": "^4.8.0",
+    "zod": "^3.23.8",
+    "axios": "^1.7.7",
+    "lightweight-charts": "^4.2.0",
+    "date-fns": "^4.1.0"
+  },
+  "devDependencies": {
+    "@protrader/config": "workspace:*",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.0"
+  }
+}

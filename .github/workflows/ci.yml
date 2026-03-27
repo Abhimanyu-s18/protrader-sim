@@ -1,0 +1,243 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
+jobs:
+  # ── JOB 1: Type Check ──────────────────────────────────────
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @protrader/db db:generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
+      - name: Type check all packages
+        run: pnpm turbo typecheck
+
+  # ── JOB 2: Lint ─────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint all packages
+        run: pnpm turbo lint
+
+  # ── JOB 3: Test ─────────────────────────────────────────────
+  test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: protrader
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: protrader_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @protrader/db db:generate
+        env:
+          DATABASE_URL: postgresql://protrader:test_password@localhost:5432/protrader_test
+          DIRECT_URL: postgresql://protrader:test_password@localhost:5432/protrader_test
+
+      - name: Run migrations
+        run: pnpm --filter @protrader/db db:migrate
+        env:
+          DATABASE_URL: postgresql://protrader:test_password@localhost:5432/protrader_test
+          DIRECT_URL: postgresql://protrader:test_password@localhost:5432/protrader_test
+
+      - name: Run tests
+        run: pnpm turbo test
+        env:
+          DATABASE_URL: postgresql://protrader:test_password@localhost:5432/protrader_test
+          DIRECT_URL: postgresql://protrader:test_password@localhost:5432/protrader_test
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+          JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY_TEST }}
+          JWT_PUBLIC_KEY: ${{ secrets.JWT_PUBLIC_KEY_TEST }}
+
+  # ── JOB 4: Build ────────────────────────────────────────────
+  build:
+    name: Build All Apps
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @protrader/db db:generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
+      - name: Build all apps
+        run: pnpm turbo build
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_WS_URL: ${{ secrets.NEXT_PUBLIC_WS_URL }}
+
+  # ── JOB 5: Deploy to Railway (Staging) ──────────────────────
+  deploy-staging:
+    name: Deploy to Staging (Railway)
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy API to Railway
+        run: railway up --service api
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Health check staging
+        run: |
+          sleep 30
+          curl -f ${{ secrets.STAGING_API_URL }}/health || exit 1
+
+  # ── JOB 6: Deploy to Production (AWS ECS) ───────────────────
+  deploy-production:
+    name: Deploy to Production (AWS ECS)
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and push API image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/protrader-api:$IMAGE_TAG -f apps/api/Dockerfile .
+          docker push $ECR_REGISTRY/protrader-api:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/protrader-api:$IMAGE_TAG $ECR_REGISTRY/protrader-api:latest
+          docker push $ECR_REGISTRY/protrader-api:latest
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster protrader-prod \
+            --service protrader-api \
+            --force-new-deployment \
+            --region eu-west-1
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster protrader-prod \
+            --services protrader-api \
+            --region eu-west-1
+
+      - name: Post-deploy health check
+        run: curl -f ${{ secrets.PROD_API_URL }}/health || exit 1

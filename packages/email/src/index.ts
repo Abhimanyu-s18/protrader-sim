@@ -1,0 +1,7 @@
+export { sendEmail } from './send'
+export { WelcomeEmail } from './templates/Welcome'
+export { KycApprovedEmail } from './templates/KycApproved'
+export { KycRejectedEmail } from './templates/KycRejected'
+export { DepositConfirmedEmail } from './templates/DepositConfirmed'
+export { MarginCallEmail } from './templates/MarginCall'
+export { PasswordResetEmail } from './templates/PasswordReset'

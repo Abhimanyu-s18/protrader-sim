@@ -1,0 +1,613 @@
+// ProTraderSim — Complete Database Schema
+// PRECISION RULE: ALL money = BIGINT cents. ALL prices = BIGINT scaled x100000.
+// NEVER use Decimal/Float/Double for any financial field.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgcrypto]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────
+
+enum KycStatus {
+  NOT_STARTED
+  PENDING
+  APPROVED
+  REJECTED
+  ADDITIONAL_REQUIRED
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum StaffRole {
+  SUPER_ADMIN
+  ADMIN
+  IB_TEAM_LEADER
+  AGENT
+}
+
+enum AssetClass {
+  FOREX
+  STOCK
+  INDEX
+  COMMODITY
+  CRYPTO
+}
+
+enum OrderType {
+  MARKET
+  ENTRY
+}
+
+enum TradeDirection {
+  BUY
+  SELL
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+  PENDING
+  CANCELLED
+}
+
+enum ClosedBy {
+  USER
+  STOP_LOSS
+  TAKE_PROFIT
+  TRAILING_STOP
+  MARGIN_CALL
+  STOP_OUT
+  ADMIN
+  EXPIRED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  WITHDRAWAL_REVERSAL
+  TRADE_CLOSE
+  ROLLOVER
+  TRADING_BENEFIT
+  CASHBACK
+  MANUAL_ADJUSTMENT
+  DIVIDEND
+  TAX
+  COMMISSION
+  FEE
+  STOCK_SPLIT_ROUNDING
+  TRANSFER
+  BONUS
+  NEGATIVE_BALANCE_PROTECTION
+}
+
+enum DepositStatus {
+  PENDING
+  CONFIRMING
+  COMPLETED
+  REJECTED
+  EXPIRED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
+enum KycDocumentCategory {
+  IDENTITY
+  ADDRESS
+  MISCELLANEOUS
+}
+
+enum KycDocumentStatus {
+  UPLOADED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum AlertType {
+  PRICE_ABOVE
+  PRICE_BELOW
+  PRICE_REACHES
+  PCT_CHANGE_ABOVE
+  PCT_CHANGE_BELOW
+}
+
+enum AlertStatus {
+  ACTIVE
+  TRIGGERED
+  EXPIRED
+  CANCELLED
+}
+
+enum CommissionStatus {
+  PENDING
+  PAID
+}
+
+enum SignalType {
+  BUY
+  SELL
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.1 USERS
+// Balance, equity, margin — NOT stored here. Computed from ledger.
+// ─────────────────────────────────────────────────────────────────
+model User {
+  id                 BigInt        @id @default(autoincrement())
+  accountNumber      String        @unique @map("account_number") @db.VarChar(20)
+  leadId             String        @unique @map("lead_id") @db.VarChar(20)
+  email              String        @unique @db.VarChar(255)
+  passwordHash       String        @map("password_hash") @db.VarChar(255)
+  fullName           String        @map("full_name") @db.VarChar(255)
+  phone              String        @db.VarChar(30)
+  country            String        @db.VarChar(100)
+  addressLine1       String?       @map("address_line1") @db.VarChar(255)
+  addressCity        String?       @map("address_city") @db.VarChar(100)
+  addressCountry     String?       @map("address_country") @db.VarChar(100)
+  dateOfBirth        DateTime?     @map("date_of_birth") @db.Date
+  tradingExperience  String?       @map("trading_experience") @db.VarChar(50)
+  profession         String?       @db.VarChar(100)
+  languagePreference String        @default("en") @map("language_preference") @db.VarChar(10)
+  financialCapability String?      @map("financial_capability") @db.VarChar(50)
+  motive             String?       @db.Text
+  goal               String?       @db.Text
+  kycStatus          KycStatus     @default(NOT_STARTED) @map("kyc_status")
+  accountStatus      AccountStatus @default(ACTIVE) @map("account_status")
+  emailVerified      Boolean       @default(false) @map("email_verified")
+  popupSoundEnabled  Boolean       @default(true) @map("popup_sound_enabled")
+  avatarUrl          String?       @map("avatar_url") @db.Text
+  // IB: which agent this trader belongs to (nullable)
+  agentId            BigInt?       @map("agent_id")
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  agent              Staff?               @relation("AgentTraders", fields: [agentId], references: [id])
+  sessions           Session[]
+  trades             Trade[]
+  ledgerTransactions LedgerTransaction[]
+  deposits           Deposit[]
+  withdrawals        Withdrawal[]
+  kycDocuments       KycDocument[]
+  alerts             Alert[]
+  watchlist          WatchlistItem[]
+  notifications      Notification[]
+  ibCommissions      IbCommission[]       @relation("TraderCommissions")
+
+  @@index([email])
+  @@index([kycStatus])
+  @@index([agentId])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.2 STAFF (Admins + IB roles)
+// ─────────────────────────────────────────────────────────────────
+model Staff {
+  id           BigInt    @id @default(autoincrement())
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  fullName     String    @map("full_name") @db.VarChar(255)
+  role         StaffRole
+  // For AGENTs: references their IB Team Leader
+  teamLeaderId BigInt?   @map("team_leader_id")
+  // Commission rates in basis points (for AGENT and IB_TEAM_LEADER only)
+  commissionRateBps Int  @default(0) @map("commission_rate_bps")
+  overrideRateBps   Int  @default(0) @map("override_rate_bps")
+  refCode      String?   @unique @map("ref_code") @db.VarChar(20)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  teamLeader          Staff?         @relation("TeamLeaderAgents", fields: [teamLeaderId], references: [id])
+  agents              Staff[]        @relation("TeamLeaderAgents")
+  traders             User[]         @relation("AgentTraders")
+  sessions            Session[]
+  processedDeposits   Deposit[]      @relation("ProcessedDeposits")
+  processedWithdrawals Withdrawal[]  @relation("ProcessedWithdrawals")
+  reviewedDocuments   KycDocument[]  @relation("ReviewedDocuments")
+  ledgerCreatedBy     LedgerTransaction[] @relation("StaffLedger")
+  agentCommissions    IbCommission[] @relation("AgentCommissions")
+  staffNotifications  Notification[]
+
+  @@index([role])
+  @@index([teamLeaderId])
+  @@map("staff")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.3 SESSIONS
+// ─────────────────────────────────────────────────────────────────
+model Session {
+  id           BigInt    @id @default(autoincrement())
+  // One of userId or staffId populated
+  userId       BigInt?   @map("user_id")
+  staffId      BigInt?   @map("staff_id")
+  refreshToken String    @unique @map("refresh_token") @db.VarChar(512)
+  ipAddress    String?   @map("ip_address") @db.VarChar(45)
+  userAgent    String?   @map("user_agent") @db.Text
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  staff Staff? @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([staffId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.4 INSTRUMENTS
+// ─────────────────────────────────────────────────────────────────
+model Instrument {
+  id                BigInt     @id @default(autoincrement())
+  symbol            String     @unique @db.VarChar(20)
+  displayName       String     @map("display_name") @db.VarChar(100)
+  assetClass        AssetClass @map("asset_class")
+  baseCurrency      String     @map("base_currency") @db.VarChar(10)
+  quoteCurrency     String     @map("quote_currency") @db.VarChar(10)
+  contractSize      Int        @map("contract_size")  // 100000 for Forex, 1 for stocks
+  leverage          Int        // e.g. 500
+  minUnits          Int        @map("min_units")
+  maxUnits          Int        @map("max_units")
+  unitStep          Int        @map("unit_step")
+  spreadPips        Int        @map("spread_pips")    // integer pips
+  spreadType        String     @default("VARIABLE") @map("spread_type") @db.VarChar(10)
+  pipDecimalPlaces  Int        @map("pip_decimal_places")  // 4 for EURUSD, 2 for USDJPY
+  // Swap rates in basis points (signed — negative = debit to trader)
+  swapBuyBps        BigInt     @map("swap_buy_bps")
+  swapSellBps       BigInt     @map("swap_sell_bps")
+  marginCallBps     BigInt     @default(10000) @map("margin_call_bps")  // 100.00%
+  stopOutBps        BigInt     @default(5000) @map("stop_out_bps")      // 50.00%
+  tradingHoursStart String?    @map("trading_hours_start") @db.VarChar(5)  // "HH:MM" UTC
+  tradingHoursEnd   String?    @map("trading_hours_end") @db.VarChar(5)
+  tradingDays       String     @default("12345") @map("trading_days") @db.VarChar(7)
+  isActive          Boolean    @default(true) @map("is_active")
+  twelveDataSymbol  String?    @map("twelve_data_symbol") @db.VarChar(30)
+  countryFlagCode   String?    @map("country_flag_code") @db.VarChar(5)
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  trades         Trade[]
+  alerts         Alert[]
+  watchlistItems WatchlistItem[]
+  signals        Signal[]
+  ohlcvCandles   OhlcvCandle[]
+  swapRates      SwapRate[]
+
+  @@index([assetClass])
+  @@index([isActive])
+  @@map("instruments")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.5 OHLCV CANDLES (TradingView chart history)
+// ─────────────────────────────────────────────────────────────────
+model OhlcvCandle {
+  id           BigInt     @id @default(autoincrement())
+  instrumentId BigInt     @map("instrument_id")
+  interval     String     @db.VarChar(10)  // 1min/5min/15min/1h/4h/1day/1week
+  openScaled   BigInt     @map("open_scaled")
+  highScaled   BigInt     @map("high_scaled")
+  lowScaled    BigInt     @map("low_scaled")
+  closeScaled  BigInt     @map("close_scaled")
+  volume       BigInt?
+  candleTime   DateTime   @map("candle_time") @db.Timestamptz
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+
+  @@unique([instrumentId, interval, candleTime])
+  @@index([instrumentId, interval, candleTime(sort: Desc)])
+  @@map("ohlcv_candles")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.7 TRADES
+// ─────────────────────────────────────────────────────────────────
+model Trade {
+  id                       BigInt         @id @default(autoincrement())
+  userId                   BigInt         @map("user_id")
+  instrumentId             BigInt         @map("instrument_id")
+  orderType                OrderType      @map("order_type")
+  direction                TradeDirection
+  units                    BigInt
+  // Prices stored as BIGINT scaled x100000
+  openRateScaled           BigInt         @map("open_rate_scaled")
+  closeRateScaled          BigInt?        @map("close_rate_scaled")
+  entryRateScaled          BigInt?        @map("entry_rate_scaled")  // for ENTRY orders
+  stopLossScaled           BigInt?        @map("stop_loss_scaled")
+  takeProfitScaled         BigInt?        @map("take_profit_scaled")
+  trailingStopPips         Int?           @map("trailing_stop_pips")
+  isProtected              Boolean        @default(false) @map("is_protected")
+  protectionFeeCents       BigInt         @default(0) @map("protection_fee_cents")
+  // Money stored as BIGINT cents
+  marginRequiredCents      BigInt         @map("margin_required_cents")
+  unrealizedPnlCents       BigInt         @default(0) @map("unrealized_pnl_cents")
+  realizedPnlCents         BigInt?        @map("realized_pnl_cents")
+  rolloverAccumulatedCents BigInt         @default(0) @map("rollover_accumulated_cents")
+  overnightCount           Int            @default(0) @map("overnight_count")
+  commissionCents          BigInt         @default(0) @map("commission_cents")
+  status                   TradeStatus    @default(OPEN)
+  openAt                   DateTime       @default(now()) @map("open_at") @db.Timestamptz
+  closeAt                  DateTime?      @map("close_at") @db.Timestamptz
+  closedBy                 ClosedBy?      @map("closed_by")
+  expiryAt                 DateTime?      @map("expiry_at") @db.Timestamptz
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id])
+  instrument   Instrument   @relation(fields: [instrumentId], references: [id])
+  ibCommission IbCommission?
+
+  @@index([userId, status])
+  @@index([instrumentId], map: "idx_trades_instrument_open")
+  @@index([status, openAt])
+  @@map("trades")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.8 LEDGER TRANSACTIONS (immutable audit trail of all money movements)
+// ─────────────────────────────────────────────────────────────────
+model LedgerTransaction {
+  id                BigInt          @id @default(autoincrement())
+  userId            BigInt          @map("user_id")
+  transactionType   TransactionType @map("transaction_type")
+  amountCents       BigInt          @map("amount_cents")   // positive = credit, negative = debit
+  currency          String          @default("USD") @db.VarChar(10)
+  balanceAfterCents BigInt          @map("balance_after_cents")  // snapshot balance
+  referenceId       BigInt?         @map("reference_id")   // FK to trade/deposit/withdrawal
+  referenceType     String?         @map("reference_type") @db.VarChar(30)
+  description       String?         @db.Text
+  createdBy         BigInt?         @map("created_by")     // staff id if admin-initiated
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  user         User   @relation(fields: [userId], references: [id])
+  staffCreator Staff? @relation("StaffLedger", fields: [createdBy], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([transactionType])
+  @@map("ledger_transactions")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.9 DEPOSITS
+// ─────────────────────────────────────────────────────────────────
+model Deposit {
+  id                    BigInt        @id @default(autoincrement())
+  userId                BigInt        @map("user_id")
+  amountCents           BigInt        @map("amount_cents")
+  cryptoCurrency        String        @map("crypto_currency") @db.VarChar(10)
+  cryptoAmountScaled    BigInt        @map("crypto_amount_scaled")  // crypto x 10^8
+  nowpaymentsInvoiceId  String?       @unique @map("nowpayments_invoice_id") @db.VarChar(255)
+  nowpaymentsPaymentId  String?       @unique @map("nowpayments_payment_id") @db.VarChar(255)
+  status                DepositStatus @default(PENDING)
+  bonusCents            BigInt        @default(0) @map("bonus_cents")
+  processedBy           BigInt?       @map("processed_by")
+  processedAt           DateTime?     @map("processed_at") @db.Timestamptz
+  notes                 String?       @db.Text
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  user      User   @relation(fields: [userId], references: [id])
+  processor Staff? @relation("ProcessedDeposits", fields: [processedBy], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("deposits")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.10 WITHDRAWALS
+// ─────────────────────────────────────────────────────────────────
+model Withdrawal {
+  id                   BigInt           @id @default(autoincrement())
+  userId               BigInt           @map("user_id")
+  amountCents          BigInt           @map("amount_cents")
+  cryptoCurrency       String           @map("crypto_currency") @db.VarChar(10)
+  walletAddress        String           @map("wallet_address") @db.VarChar(255)
+  reason               String?          @db.Text
+  status               WithdrawalStatus @default(PENDING)
+  nowpaymentsPayoutId  String?          @map("nowpayments_payout_id") @db.VarChar(255)
+  processedBy          BigInt?          @map("processed_by")
+  processedAt          DateTime?        @map("processed_at") @db.Timestamptz
+  rejectionReason      String?          @map("rejection_reason") @db.Text
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  user      User   @relation(fields: [userId], references: [id])
+  processor Staff? @relation("ProcessedWithdrawals", fields: [processedBy], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("withdrawals")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.11 KYC DOCUMENTS
+// ─────────────────────────────────────────────────────────────────
+model KycDocument {
+  id               BigInt              @id @default(autoincrement())
+  userId           BigInt              @map("user_id")
+  documentCategory KycDocumentCategory @map("document_category")
+  documentType     String              @map("document_type") @db.VarChar(50)
+  r2Key            String              @map("r2_key") @db.VarChar(512)
+  fileName         String              @map("file_name") @db.VarChar(255)
+  fileSizeBytes    Int                 @map("file_size_bytes")
+  mimeType         String              @map("mime_type") @db.VarChar(100)
+  isPrimary        Boolean             @default(true) @map("is_primary")
+  status           KycDocumentStatus   @default(UPLOADED)
+  rejectionReason  String?             @map("rejection_reason") @db.Text
+  reviewedBy       BigInt?             @map("reviewed_by")
+  reviewedAt       DateTime?           @map("reviewed_at") @db.Timestamptz
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  user     User   @relation(fields: [userId], references: [id])
+  reviewer Staff? @relation("ReviewedDocuments", fields: [reviewedBy], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("kyc_documents")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.12 ALERTS
+// ─────────────────────────────────────────────────────────────────
+model Alert {
+  id                   BigInt      @id @default(autoincrement())
+  userId               BigInt      @map("user_id")
+  instrumentId         BigInt      @map("instrument_id")
+  alertType            AlertType   @map("alert_type")
+  triggerScaled        BigInt      @map("trigger_scaled")  // trigger price x100000
+  notificationChannels String      @default("in_app,email") @map("notification_channels") @db.VarChar(100)
+  status               AlertStatus @default(ACTIVE)
+  triggeredAt          DateTime?   @map("triggered_at") @db.Timestamptz
+  expiresAt            DateTime?   @map("expires_at") @db.Timestamptz
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  user       User       @relation(fields: [userId], references: [id])
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+
+  @@index([instrumentId, status], map: "idx_alerts_active")
+  @@index([userId])
+  @@map("alerts")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.13 WATCHLIST
+// ─────────────────────────────────────────────────────────────────
+model WatchlistItem {
+  id           BigInt     @id @default(autoincrement())
+  userId       BigInt     @map("user_id")
+  instrumentId BigInt     @map("instrument_id")
+  sortOrder    Int        @default(0) @map("sort_order")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  user       User       @relation(fields: [userId], references: [id])
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+
+  @@unique([userId, instrumentId])
+  @@index([userId, sortOrder])
+  @@map("watchlist")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.14 IB COMMISSIONS
+// ─────────────────────────────────────────────────────────────────
+model IbCommission {
+  id          BigInt           @id @default(autoincrement())
+  agentId     BigInt           @map("agent_id")
+  traderId    BigInt           @map("trader_id")
+  tradeId     BigInt           @unique @map("trade_id")
+  amountCents BigInt           @map("amount_cents")
+  rateBps     Int              @map("rate_bps")
+  status      CommissionStatus @default(PENDING)
+  paidAt      DateTime?        @map("paid_at") @db.Timestamptz
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  agent  Staff @relation("AgentCommissions", fields: [agentId], references: [id])
+  trader User  @relation("TraderCommissions", fields: [traderId], references: [id])
+  trade  Trade @relation(fields: [tradeId], references: [id])
+
+  @@index([agentId, status])
+  @@index([traderId])
+  @@map("ib_commissions")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.15 NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────────
+model Notification {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt?  @map("user_id")
+  staffId   BigInt?  @map("staff_id")
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(255)
+  message   String   @db.Text
+  channels  String?  @db.VarChar(100)  // comma-separated: in_app,email,sms
+  isRead    Boolean  @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user  User?  @relation(fields: [userId], references: [id])
+  staff Staff? @relation(fields: [staffId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([staffId])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.16 SIGNALS
+// ─────────────────────────────────────────────────────────────────
+model Signal {
+  id           BigInt     @id @default(autoincrement())
+  instrumentId BigInt     @map("instrument_id")
+  signalType   SignalType @map("signal_type")
+  patternType  String?    @map("pattern_type") @db.VarChar(100)
+  interval     String     @db.VarChar(10)
+  entryScaled  BigInt?    @map("entry_scaled")
+  targetScaled BigInt?    @map("target_scaled")
+  stopLossScaled BigInt?  @map("stop_loss_scaled")
+  isActive     Boolean    @default(true) @map("is_active")
+  generatedAt  DateTime   @map("generated_at") @db.Timestamptz
+  expiresAt    DateTime?  @map("expires_at") @db.Timestamptz
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+
+  @@index([instrumentId, isActive])
+  @@map("signals")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.17 LEGAL DOCUMENTS
+// ─────────────────────────────────────────────────────────────────
+model LegalDocument {
+  id            BigInt   @id @default(autoincrement())
+  documentName  String   @map("document_name") @db.VarChar(255)
+  documentType  String   @map("document_type") @db.VarChar(50)
+  r2Key         String   @map("r2_key") @db.VarChar(512)
+  version       String   @db.VarChar(20)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([documentType, isActive])
+  @@map("legal_documents")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 3.18 SWAP RATES (for rollover engine)
+// ─────────────────────────────────────────────────────────────────
+model SwapRate {
+  id            BigInt     @id @default(autoincrement())
+  instrumentId  BigInt     @map("instrument_id")
+  direction     TradeDirection
+  rateBps       BigInt     @map("rate_bps")   // basis points, signed
+  effectiveFrom DateTime   @map("effective_from") @db.Date
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+
+  @@unique([instrumentId, direction, effectiveFrom])
+  @@map("swap_rates")
+}
