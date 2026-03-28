@@ -1,0 +1,21 @@
+{
+  "name": "orchestrator-feedback",
+  "description": "Provide real-time feedback about Orchestrator workflow compliance",
+  "event": "PostToolUse",
+  "condition": {
+    "type": "workflow_compliance_check",
+    "criteria": {
+      "task_was_complex": true,
+      "orchestrator_not_used": true,
+      "specialist_agents_involved": true
+    }
+  },
+  "action": {
+    "type": "provide_feedback",
+    "message": "💡 **Workflow Tip**: This complex task involved multiple specialist agents. For optimal coordination and to ensure all aspects are properly addressed, consider using the Orchestrator agent next time:\n\n**Recommended workflow:**\n1. `@orchestrator [describe your task]`\n2. Orchestrator will decompose and coordinate with appropriate specialists\n3. Ensures completeness, proper sequencing, and comprehensive coverage\n\n**Benefits of using Orchestrator:**\n✅ Proper task decomposition\n✅ Parallel agent coordination\n✅ Progress tracking\n✅ Comprehensive result consolidation",
+    "suggestion": "Try using '@orchestrator' for complex multi-agent tasks",
+    "learning_opportunity": true
+  },
+  "priority": "low",
+  "enabled": true
+}

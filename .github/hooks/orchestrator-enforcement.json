@@ -1,0 +1,22 @@
+{
+  "name": "orchestrator-enforcement",
+  "description": "Ensure complex tasks are routed through Orchestrator agent for proper decomposition and agent coordination",
+  "event": "PreToolUse",
+  "condition": {
+    "type": "task_complexity_check",
+    "criteria": {
+      "min_subtasks": 2,
+      "involves_multiple_layers": true,
+      "cross_cutting_concern": true,
+      "affects_multiple_agents": true
+    }
+  },
+  "action": {
+    "type": "block_and_redirect",
+    "message": "Complex task detected. This requires coordination through the Orchestrator agent for proper decomposition and agent assignment. Please use '@orchestrator' to coordinate this multi-agent task.",
+    "redirect_to": "orchestrator",
+    "suggestion": "Use: '@orchestrator [describe your complex task]'"
+  },
+  "priority": "high",
+  "enabled": true
+}

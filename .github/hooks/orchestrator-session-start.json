@@ -1,0 +1,15 @@
+{
+  "name": "orchestrator-session-start",
+  "description": "Inject Orchestrator guidance at session start for complex ProTraderSim development workflows",
+  "event": "SessionStart",
+  "action": {
+    "type": "inject_context",
+    "context": {
+      "title": "ProTraderSim Development Workflow",
+      "message": "🎯 **Welcome to ProTraderSim Development!**\n\nFor complex tasks involving multiple agents, layers, or cross-cutting concerns, please start by using the **@orchestrator** agent. The Orchestrator will:\n\n✅ Decompose complex tasks into atomic subtasks\n✅ Assign each subtask to the appropriate specialist agent\n✅ Coordinate parallel workstreams and track progress\n✅ Consolidate results and ensure completeness\n\n**When to use Orchestrator:**\n• Building new features end-to-end\n• Handling cross-cutting concerns (auth + DB + frontend + tests)\n• Planning sprints or multi-agent workflows\n• When unsure which agent to use\n\n**Quick start:** `@orchestrator [describe your complex task]`\n\nFor simple, single-agent tasks, you can proceed directly with specialized agents.",
+      "suggestion": "Use '@orchestrator' for complex multi-agent tasks"
+    }
+  },
+  "priority": "medium",
+  "enabled": true
+}

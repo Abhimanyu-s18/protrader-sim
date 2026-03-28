@@ -1,0 +1,42 @@
+{
+  "name": "orchestrator-workflow",
+  "description": "Enforce proper Orchestrator workflow for ProTraderSim multi-agent development",
+  "event": "PreToolUse",
+  "condition": {
+    "type": "orchestrator_workflow_check",
+    "criteria": {
+      "task_involves_multiple_agents": true,
+      "cross_cutting_concern": true,
+      "requires_coordination": true
+    }
+  },
+  "action": {
+    "type": "enforce_workflow",
+    "steps": [
+      {
+        "step": "1",
+        "action": "check_orchestrator_involvement",
+        "message": "Complex task detected. Orchestrator coordination required.",
+        "validation": "task_must_use_orchestrator"
+      },
+      {
+        "step": "2", 
+        "action": "verify_task_decomposition",
+        "message": "Ensure task is properly decomposed into subtasks",
+        "validation": "subtasks_identified"
+      },
+      {
+        "step": "3",
+        "action": "confirm_agent_assignment",
+        "message": "Verify appropriate specialist agents are assigned",
+        "validation": "agents_assigned"
+      }
+    ],
+    "fallback": {
+      "action": "provide_guidance",
+      "message": "For complex ProTraderSim tasks, please use the Orchestrator agent:\n\n1. Start with: '@orchestrator [describe your task]'\n2. Orchestrator will decompose and coordinate with specialist agents\n3. Specialist agents: @coding, @frontend, @schema, @security, @test, @documentation\n\nExample: '@orchestrator Build a trailing stop loss feature for the trading platform'"
+    }
+  },
+  "priority": "high",
+  "enabled": true
+}

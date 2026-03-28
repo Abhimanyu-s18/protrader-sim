@@ -1,0 +1,84 @@
+#!/bin/bash
+
+# Orchestrator Task Complexity Checker
+# Analyzes incoming tasks to determine if they require Orchestrator coordination
+
+# Read the task description from stdin
+TASK_DESCRIPTION=$(cat)
+
+# Complexity scoring thresholds
+COMPLEXITY_THRESHOLD=3
+MIN_SUBTASKS_THRESHOLD=2
+MULTI_LAYER_THRESHOLD=2
+MULTI_AGENT_THRESHOLD=2
+
+# Keywords that indicate complexity
+COMPLEXITY_KEYWORDS=(
+    "build" "implement" "create" "develop" "add" "feature" "flow" "system"
+    "integration" "api" "database" "frontend" "backend" "ui" "auth"
+    "payment" "kyc" "trading" "position" "margin" "leverage" "instrument"
+    "multi" "cross" "across" "between" "and" "or"
+)
+
+# Keywords indicating multiple layers
+LAYER_KEYWORDS=(
+    "frontend" "backend" "api" "database" "ui" "client" "server"
+    "react" "next" "express" "prisma" "postgres" "redis"
+)
+
+# Keywords indicating multiple agents
+AGENT_KEYWORDS=(
+    "security" "test" "documentation" "performance" "deploy"
+    "auth" "validation" "audit" "monitoring" "logging"
+)
+
+# Score complexity
+complexity_score=0
+
+# Check for complexity keywords
+for keyword in "${COMPLEXITY_KEYWORDS[@]}"; do
+    if [[ "$TASK_DESCRIPTION" =~ $keyword ]]; then
+        complexity_score=$((complexity_score + 1))
+    fi
+done
+
+# Check for multiple layers
+layer_count=0
+for keyword in "${LAYER_KEYWORDS[@]}"; do
+    if [[ "$TASK_DESCRIPTION" =~ $keyword ]]; then
+        layer_count=$((layer_count + 1))
+    fi
+done
+
+# Check for multiple agents
+agent_count=0
+for keyword in "${AGENT_KEYWORDS[@]}"; do
+    if [[ "$TASK_DESCRIPTION" =~ $keyword ]]; then
+        agent_count=$((agent_count + 1))
+    fi
+done
+
+# Determine if task is complex
+is_complex=false
+requires_orchestrator=false
+
+if [ $complexity_score -ge $COMPLEXITY_THRESHOLD ]; then
+    is_complex=true
+fi
+
+if [ $layer_count -ge $MULTI_LAYER_THRESHOLD ] || [ $agent_count -ge $MULTI_AGENT_THRESHOLD ]; then
+    requires_orchestrator=true
+fi
+
+# Output JSON result
+cat << EOF
+{
+  "task_description": "$TASK_DESCRIPTION",
+  "complexity_score": $complexity_score,
+  "layer_count": $layer_count,
+  "agent_count": $agent_count,
+  "is_complex": $is_complex,
+  "requires_orchestrator": $requires_orchestrator,
+  "recommendation": $([ "$requires_orchestrator" = true ] && echo "use_orchestrator" || echo "direct_agent")
+}
+EOF
