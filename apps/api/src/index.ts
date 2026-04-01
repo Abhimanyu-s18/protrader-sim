@@ -24,6 +24,14 @@ import { webhooksRouter } from './routes/webhooks.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { requestLogger } from './middleware/requestLogger.js'
 import { registerSocketHandlers } from './lib/socket.js'
+import { prisma } from './lib/prisma.js'
+import { getRedis } from './lib/redis.js'
+import { createLogger } from './lib/logger.js'
+import { scheduleRecurringJobs } from './lib/queues.js'
+import { startMarketData, stopMarketData } from './services/market-data.js'
+import './workers/rollover.js'
+
+const log = createLogger('server')
 
 const app = express()
 const httpServer = createServer(app)
@@ -35,6 +43,7 @@ export const io = new SocketIOServer(httpServer, {
       process.env['PLATFORM_URL'] ?? 'http://localhost:3002',
       process.env['ADMIN_URL'] ?? 'http://localhost:3003',
       process.env['IB_PORTAL_URL'] ?? 'http://localhost:3004',
+      process.env['AUTH_APP_URL'] ?? 'http://localhost:3005',
     ],
     methods: ['GET', 'POST'],
     credentials: true,
@@ -123,8 +132,62 @@ app.use(errorHandler)
 const PORT = parseInt(process.env['PORT'] ?? '4000', 10)
 
 httpServer.listen(PORT, () => {
-  console.log(`[API] ProTraderSim API running on port ${PORT}`)
-  console.log(`[API] Environment: ${process.env['NODE_ENV'] ?? 'development'}`)
+  log.info({ port: PORT, env: process.env['NODE_ENV'] ?? 'development' }, 'ProTraderSim API started')
+
+  // Schedule BullMQ recurring jobs (rollover, PnL snapshot, KYC reminder)
+  scheduleRecurringJobs().catch((err) => {
+    log.error({ err }, 'Failed to schedule recurring jobs')
+  })
+
+  // Start market data pipeline (Twelve Data WebSocket → Redis → Socket.io)
+  startMarketData(io).catch((err) => {
+    log.error({ err }, 'Failed to start market data pipeline')
+  })
 })
+
+// ── Graceful Shutdown ─────────────────────────────────────────────
+let isShuttingDown = false
+
+async function shutdown(signal: string): Promise<void> {
+  if (isShuttingDown) return
+  isShuttingDown = true
+
+  log.info({ signal }, 'Graceful shutdown initiated')
+
+  // Stop market data pipeline
+  stopMarketData()
+
+  // Stop accepting new connections
+  httpServer.close(() => {
+    log.info('HTTP server closed')
+  })
+
+  // Close Socket.io
+  io.close(() => {
+    log.info('Socket.io closed')
+  })
+
+  // Disconnect Prisma
+  try {
+    await prisma.$disconnect()
+    log.info('Prisma disconnected')
+  } catch (err) {
+    log.error({ err }, 'Error disconnecting Prisma')
+  }
+
+  // Close Redis
+  try {
+    await getRedis().quit()
+    log.info('Redis disconnected')
+  } catch (err) {
+    log.error({ err }, 'Error disconnecting Redis')
+  }
+
+  log.info('Shutdown complete')
+  process.exit(0)
+}
+
+process.on('SIGTERM', () => void shutdown('SIGTERM'))
+process.on('SIGINT', () => void shutdown('SIGINT'))
 
 export default app
