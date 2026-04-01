@@ -172,8 +172,13 @@ router.post(
 **JWT (RS256) — Primary**
 ```typescript
 // middleware/auth.ts
+import { Request, Response, NextFunction } from 'express'
+import { verifyJWT } from '../lib/jwt'  // or appropriate path
+import { JWT_PUBLIC_KEY } from '../config/keys'
+import { apiError } from '../lib/response'
+
 export function authenticate() {
-  return (req, res, next) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     const token = req.headers.authorization?.split(' ')[1]
     if (!token) return res.status(401).json(apiError('NO_TOKEN'))
     
@@ -233,30 +238,8 @@ authorize(['TRADER'], (req, user) => {
 ## ✅ Input Validation (Zod)
 
 ### Schema Definitions
+### Schema Definitions
 
-```typescript
-// routes/deposits.ts
-import { z } from 'zod'
-
-const CreateDepositSchema = z.object({
-  amount: z
-    .string()
-    .regex(/^\d+(\.\d{1,2})?$/, 'Invalid amount format')
-    .refine((val) => {
-      const cents = dollarsToCents(val)
-      return cents >= 100n && cents <= 99999999n
-    }, 'Amount must be $0.01 to $999,999.99'),
-  
-  currency: z.enum(['USDT', 'ETH']),
-  
-  metadata: z.object({
-    ip_address: z.string().ip(),
-    device_id: z.string().uuid().optional()
-  }).optional()
-})
-
-type CreateDepositRequest = z.infer<typeof CreateDepositSchema>
-```
 
 ### Validation Middleware
 
@@ -360,6 +343,22 @@ router.get('/', authenticate(), async (req, res) => {
   
   res.json({
     success: true,
+router.get('/', authenticate(), async (req, res) => {
+  const limit = parseInt(req.query.limit as string) || 50
+  const cursor = req.query.cursor as string | undefined
+  
+  const items = await prisma.position.findMany({
+    where: { user_id: req.user.id },
+    skip: cursor ? 1 : 0,
+    cursor: cursor ? { id: cursor } : undefined,
+    take: limit + 1  // +1 to detect has_more
+  })
+  
+  const hasMore = items.length > limit
+  const data = items.slice(0, limit)
+  
+  res.json({
+    success: true,
     data,
     pagination: {
       next_cursor: hasMore ? data[data.length - 1].id : null,
@@ -368,25 +367,6 @@ router.get('/', authenticate(), async (req, res) => {
     }
   })
 })
-```
-
----
-
-## 🚨 Error Handling
-
-### Standardized Error Class
-
-```typescript
-// lib/errors.ts
-export class ApiError extends Error {
-  constructor(
-    public code: string,
-    public statusCode: number,
-    message: string,
-    public context?: Record<string, any>
-  ) {
-    super(message)
-    this.name = 'ApiError'
   }
 }
 

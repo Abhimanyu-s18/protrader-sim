@@ -51,7 +51,7 @@ IB Team Leaders are created by Super Admin only.
    - Generate and assign a unique `ref_code` (used for referral links)
 3. Save the record
 4. Send the Team Leader their login credentials via secure channel
-5. Send them this document and PTS-IB-001 for onboarding
+5. Send them this onboarding guide for reference
 
 **Important:** The IB_TEAM_LEADER role grants access only to `ib.protrader.com`. Team Leaders cannot access the admin panel.
 
@@ -83,10 +83,18 @@ IB Agents are created by Super Admin. Each Agent must be assigned to a Team Lead
 Every IB Agent (and Team Leader who directly refers traders) has a unique Pool Code. This is the mechanism that:
 
 1. Links every new trader to their referring Agent at the moment of registration
-2. Enforces the IB-only model — registrations without a valid Pool Code are rejected
+2. Enforces the IB-only model — registrations must include a valid Pool Code unless the account is legacy, created by admin, or manually assigned by staff
 3. Automatically sets `users.agent_id` to the correct staff record
 
 **Pool Code format:** Alphanumeric string, no spaces. Example: `IB_TL_001`, `AGT_DUBAI_007`. There is no strict format requirement — use something meaningful for your team.
+
+### Exceptions to Pool Code Requirement
+
+The following account types are exempt from the Pool Code validation requirement and can be created or remediated without one:
+
+- **Legacy Accounts**: Existing traders imported from prior systems before the IB model was enforced
+- **Admin-Created Accounts**: Accounts created directly by SUPER_ADMIN or ADMIN staff for testing, staff accounts, or special partner relationships
+- **Staff-Assigned Corrections**: Traders whose Pool Code or agent assignment must be manually corrected due to registration errors or business disputes. Use **Staff Management → Edit User** to assign the correct agent. This is the supported workflow for remediation.
 
 **Creating a Pool Code:**
 
@@ -118,7 +126,9 @@ The registration API returns error `INVALID_POOL_CODE`. The trader must re-attem
 Commission is calculated on every trade open. Two records are inserted per trade (one for the Agent, one for their Team Leader):
 
 ```
-trade_notional_cents = units × contract_size × open_rate × 100 / 100000
+trade_notional_cents = units × contract_size × open_rate_scaled × 100 / 100000
+
+Where open_rate_scaled = open_rate × 100000 (e.g., 1.08500 = 108500)
 
 agent_commission_cents = trade_notional_cents × agent.commission_rate_bps / 10000
 tl_commission_cents    = trade_notional_cents × tl.override_rate_bps / 10000
@@ -128,9 +138,10 @@ tl_commission_cents    = trade_notional_cents × tl.override_rate_bps / 10000
 - Agent commission rate: 20 bps (0.20%)
 - Team Leader override rate: 5 bps (0.05%)
 - Trade: BUY 10,000 units EURUSD at 1.08500
-- Notional: 10,000 × 100,000 × 1.08500 = $108,500
-- Agent earns: $108,500 × 0.20% = **$217.00**
-- Team Leader earns: $108,500 × 0.05% = **$54.25**
+- Contract size (for this example): 1
+- Notional: 10,000 × 1 × 1.08500 = $10,850
+- Agent earns: $10,850 × 0.20% = **$21.70**
+- Team Leader earns: $10,850 × 0.05% = **$5.43**
 
 ### Commission by asset class
 

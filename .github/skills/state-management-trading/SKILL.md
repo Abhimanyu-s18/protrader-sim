@@ -149,21 +149,39 @@ export function useClosePosition() {
 
 ## 2️⃣ Socket.io: Real-Time Updates
 
-### Socket Connection & Auth
+### Socket Connection Manager
 
 ```typescript
 // platform/src/lib/socket.ts
-import io from 'socket.io-client'
-import { useQuery } from '@tanstack/react-query'
+import io, { Socket } from 'socket.io-client'
 
-let socket: ReturnType<typeof io> | null = null
+let socket: Socket | null = null
+let connectionPromise: Promise<Socket> | null = null
 
-export function useSocket() {
-  return useQuery({
-    queryKey: ['socket'],
-    queryFn: async () => {
-      const token = localStorage.getItem('auth_token')
-      
+/**
+ * Initialize or return existing socket connection
+ * Handles token updates and automatic reconnection
+ */
+export async function initializeSocket(token: string): Promise<Socket> {
+  // Return existing connected socket if available and same token
+  if (socket?.connected && (socket as any).auth?.token === token) {
+    return socket
+  }
+
+  // Disconnect old socket if token changed
+  if (socket) {
+    socket.disconnect()
+    socket = null
+  }
+
+  // Return pending connection if already initiated
+  if (connectionPromise) {
+    return connectionPromise
+  }
+
+  // Create new connection
+  connectionPromise = new Promise((resolve, reject) => {
+    try {
       socket = io('http://localhost:4000', {
         auth: { token },
         transports: ['websocket', 'polling'],
@@ -173,15 +191,76 @@ export function useSocket() {
         reconnectionAttempts: 10
       })
 
-      return socket
-    },
-    staleTime: Infinity,  // Keep connection forever
-    refetchOnWindowFocus: false
+      socket.on('connect', () => {
+        console.log('Socket connected')
+        connectionPromise = null
+        resolve(socket!)
+      })
+
+      socket.on('connect_error', (err) => {
+        console.error('Socket connection error:', err)
+        connectionPromise = null
+        reject(err)
+      })
+    } catch (err) {
+      connectionPromise = null
+      reject(err)
+    }
   })
+
+  return connectionPromise
 }
 
-export function getSocket() {
+/**
+ * Get current socket instance (does not create new connection)
+ */
+export function getSocket(): Socket | null {
   return socket
+}
+
+/**
+ * Disconnect socket and clean up
+ */
+export function disconnectSocket(): void {
+  if (socket) {
+    socket.disconnect()
+    socket = null
+  }
+  connectionPromise = null
+}
+```
+
+### Hook: Manage Socket Lifecycle
+
+```typescript
+// hooks/useSocketManager.ts
+import { useEffect } from 'react'
+import { useAuthStore } from '@/stores/auth'
+import { initializeSocket, disconnectSocket } from '@/lib/socket'
+
+/**
+ * Initialize socket connection on mount, reconnect when auth token changes
+ */
+export function useSocketManager() {
+  const token = useAuthStore((s) => s.token)
+
+  useEffect(() => {
+    if (!token) {
+      // No token = disconnect
+      disconnectSocket()
+      return
+    }
+
+    // Initialize or reconnect with new token
+    initializeSocket(token)
+      .catch(err => console.error('Failed to connect socket:', err))
+
+    // Cleanup on unmount
+    return () => {
+      // Don't disconnect on unmount; keep connection alive across components
+      // Only disconnect when token becomes null/undefined
+    }
+  }, [token])
 }
 ```
 
@@ -189,21 +268,38 @@ export function getSocket() {
 
 ```typescript
 // hooks/usePriceUpdates.ts
-import { useEffect, useState } from 'react'
-import { useSocket } from '@/lib/socket'
+import { useEffect, useRef } from 'react'
+import { getSocket } from '@/lib/socket'
 import { usePriceStore } from '@/stores/priceStore'
 
 export function usePriceUpdates(symbols: string[]) {
-  const { data: socket } = useSocket()
   const updatePrices = usePriceStore((s) => s.updatePrices)
+  const previousSymbolsRef = useRef<string[]>([])
 
   useEffect(() => {
-    if (!socket || !symbols.length) return
+    const socket = getSocket()
+    if (!socket?.connected) {
+      console.warn('Socket not connected, price updates unavailable')
+      return
+    }
 
-    // Subscribe to prices
+    // Only re-subscribe if symbols actually changed (deep equality)
+    const symbolsChanged = JSON.stringify(symbols) !== JSON.stringify(previousSymbolsRef.current)
+    
+    if (!symbolsChanged || !symbols.length) {
+      return
+    }
+
+    // Unsubscribe from old symbols
+    if (previousSymbolsRef.current.length > 0) {
+      socket.emit('unsubscribe:prices', { symbols: previousSymbolsRef.current })
+    }
+
+    // Subscribe to new symbols
     socket.emit('subscribe:prices', { symbols })
+    previousSymbolsRef.current = [...symbols]
 
-    // Listen for updates
+    // Handle price updates
     const handlePriceUpdate = (data: PriceUpdate) => {
       updatePrices(data)
     }
@@ -212,10 +308,9 @@ export function usePriceUpdates(symbols: string[]) {
 
     // Cleanup
     return () => {
-      socket.emit('unsubscribe:prices', { symbols })
       socket.off('price:update', handlePriceUpdate)
     }
-  }, [socket, symbols, updatePrices])
+  }, [symbols, updatePrices])
 }
 ```
 
@@ -380,22 +475,45 @@ import { usePriceUpdates, useAccountMetricsSocket } from '@/hooks'
 import { usePriceStore, useAccountStore } from '@/stores'
 import { useUiStore } from '@/stores/uiStore'
 
-export function OpenPositions() {
-  // Server state
-  const { data: positions, isLoading, error } = useOpenPositions()
-  const { data: metrics } = useAccountMetrics()
+// Helper function to get sort value from position, handling computed fields
+function getSortValue(
+  position: Position,
+  field: 'openTime' | 'pnl' | 'margin' | 'symbol',
+  currentPrice?: PriceData
+): number | string {
+  switch (field) {
+    case 'openTime':
+      return new Date(position.created_at).getTime()
+    case 'pnl':
+      // Compute P&L from current price
+      if (!currentPrice) return 0
+      const priceDiff = position.direction === 'BUY'
+        ? currentPrice.bid - position.open_rate_scaled
+        : position.open_rate_scaled - currentPrice.ask
+      return Number(
+        (priceDiff * position.units * BigInt(position.contract_size) * 100n) / 100000n
+      )
+    case 'margin':
+      return Number(position.margin_used_cents)
+    case 'symbol':
+      return position.symbol.toLowerCase()
+    default:
+      return 0
+  }
+}
 
-  // Real-time updates via Socket.io
-  const subscribedSymbols = positions?.map(p => p.symbol) || []
-  usePriceUpdates(subscribedSymbols)
-  useAccountMetricsSocket()
-
-  // Client state (Zustand)
-  const prices = usePriceStore((s) => s.prices)
-  const accountMetrics = useAccountStore((s) => s.metrics)
-  const isMarginCall = useAccountStore((s) => s.isMarginCall)
-  const filters = useUiStore((s) => s.filters)
-  const sorting = useUiStore((s) => s.sorting)
+// Type-safe comparison function
+function compareValues(a: number | string, b: number | string, ascending: boolean): number {
+  const direction = ascending ? 1 : -1
+  
+  if (typeof a === 'string' && typeof b === 'string') {
+    return a.localeCompare(b) * direction
+  }
+  
+  const aNum = typeof a === 'number' ? a : 0
+  const bNum = typeof b === 'number' ? b : 0
+  return (aNum - bNum) * direction
+}
 
   if (isLoading) return <div>Loading...</div>
   if (error) return <div>Error loading positions</div>
@@ -409,10 +527,10 @@ export function OpenPositions() {
   })
 
   filtered = filtered.sort((a, b) => {
-    const aVal = a[sorting.field]
-    const bVal = b[sorting.field]
-    const dir = sorting.direction === 'asc' ? 1 : -1
-    return aVal > bVal ? dir : -dir
+    const aVal = getSortValue(a, sorting.field, prices[a.symbol])
+    const bVal = getSortValue(b, sorting.field, prices[b.symbol])
+    const isAscending = sorting.direction === 'asc'
+    return compareValues(aVal, bVal, isAscending)
   })
 
   return (

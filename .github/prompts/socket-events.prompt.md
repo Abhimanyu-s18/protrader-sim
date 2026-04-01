@@ -1,7 +1,6 @@
 ---
 name: Socket.io Event Agent
 description: Ensures Socket.io events follow authentication and room naming conventions
-applyTo: "apps/api/src/lib/socket.ts"
 ---
 
 # Socket.io Event Agent
@@ -45,8 +44,18 @@ io.use(async (socket, next) => {
 ```typescript
 // Subscribe to price feeds (max 20 symbols)
 socket.on('subscribe:prices', ({ symbols }: { symbols: string[] }) => {
-  if (symbols.length > 20) {
-    socket.emit('error', { message: 'Max 20 symbols allowed' })
+  // Validate symbols
+  if (!Array.isArray(symbols) || symbols.some(s => typeof s !== 'string' || !s.trim())) {
+    socket.emit('error', { message: 'Invalid symbols array' })
+    return
+  }
+  
+  // Get current price rooms
+  const currentPriceRooms = Array.from(socket.rooms).filter(r => r.startsWith('prices:'))
+  const totalAfterSubscribe = currentPriceRooms.length + symbols.length
+  
+  if (totalAfterSubscribe > 20) {
+    socket.emit('error', { message: `Max 20 price subscriptions allowed (currently ${currentPriceRooms.length})` })
     return
   }
   symbols.forEach(symbol => socket.join(`prices:${symbol}`))
@@ -82,27 +91,32 @@ emitToAdmin(io, 'kyc:submitted', { userId, documentCount })
 
 ## Payload Shapes
 
+**Type Definitions** (from `@protrader/types`):
+- `MoneyString`: String representation of cents (e.g., `"10050"` = $100.50)
+- `PriceString`: String representation of scaled price (e.g., `"108500"` = 1.08500)
+- `ClosedBy`: Enum (values: `'USER'`, `'STOP_LOSS'`, `'TAKE_PROFIT'`, `'TRAILING_STOP'`, `'MARGIN_CALL'`, `'STOP_OUT'`, `'ADMIN'`, `'EXPIRED'`)
+
 ### PriceUpdate
 ```typescript
 {
   symbol: string           // e.g., "EURUSD"
-  bid_scaled: string      // PriceString (scaled ×100000)
-  ask_scaled: string      // PriceString
-  mid_scaled: string      // PriceString
-  change_bps: string     // Basis points change
-  ts: string             // Unix timestamp ms
+  bid_scaled: PriceString  // Scaled price ×100000 (e.g., "108450")
+  ask_scaled: PriceString  // Scaled price ×100000
+  mid_scaled: PriceString  // Scaled price ×100000
+  change_bps: string       // Basis points change (e.g., "15")
+  ts: string               // Unix timestamp ms
 }
 ```
 
 ### AccountMetrics
 ```typescript
 {
-  balance_cents: MoneyString
-  unrealized_pnl_cents: MoneyString
-  equity_cents: MoneyString
-  used_margin_cents: MoneyString
-  available_cents: MoneyString
-  margin_level_bps: MoneyString | null
+  balance_cents: MoneyString           // Account balance in cents
+  unrealized_pnl_cents: MoneyString    // Unrealized P&L
+  equity_cents: MoneyString            // Balance + unrealized P&L
+  used_margin_cents: MoneyString       // Margin locked by positions
+  available_cents: MoneyString         // Balance - used margin
+  margin_level_bps: MoneyString | null // Basis points (null if no positions)
 }
 ```
 
@@ -111,8 +125,8 @@ emitToAdmin(io, 'kyc:submitted', { userId, documentCount })
 {
   trade_id: string
   status: 'OPEN' | 'CLOSED'
-  pnl_cents?: MoneyString
-  close_reason?: ClosedBy
+  pnl_cents?: MoneyString         // Profit/loss in cents
+  close_reason?: ClosedBy          // Why trade closed (enum)
 }
 ```
 
@@ -129,15 +143,7 @@ io.on('connection', socket => { /* no auth! */ })
 socket.join(userId)  // Should be `user:${userId}`
 
 // ❌ WRONG: Unlimited subscriptions
-socket.on('subscribe', ({ symbols }) => {
-  symbols.forEach(s => socket.join(s))  // No limit check!
-})
 
-// ❌ WRONG: Sending numbers instead of strings
-socket.emit('price', { bid: 1.08500 })  // Should be '108500'
-```
-
-## Testing with Socket.io
 
 ```bash
 # Use socket.io-client in tests

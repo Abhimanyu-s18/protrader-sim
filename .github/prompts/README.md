@@ -107,8 +107,16 @@ To add a new agent:
 - Try explicitly mentioning the agent name in your prompt
 
 **Conflicting agents?**
-- Agents are applied in alphabetical order by filename
-- Most specific `applyTo` pattern wins
+When multiple agents could handle a task, the following precedence applies:
+1. **Domain-specific precedence**: Agent with the most specific domain match (e.g., Security agent overrides General agent for auth tasks)
+2. **`applyTo` specificity**: Among agents with equal domain priority, the agent with the most specific `applyTo` glob pattern is selected (e.g., `**/auth/**/*.ts` is more specific than `**/*.ts`)
+3. **Alphabetical tie-breaker**: If multiple agents have equal domain priority and equal `applyTo` specificity, agents are applied in alphabetical order by filename
+
+**Example**: For a financial calculation file:
+- Financial-Calculations agent (most specific domain) wins over General Coding agent
+- Within security checks, `security-auth.agent.md` (more specific pattern `**/auth/**`) wins over `security.agent.md` (pattern `**`)
+- Between `agent-a.md` and `agent-b.md` with identical specificity, `agent-a.md` runs first
+
 - Use explicit agent mention: "Using the Financial Calculation Agent..."
 
 ## Related Documentation

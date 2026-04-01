@@ -60,8 +60,7 @@ Any table that records a financial event must have:
 ```prisma
 created_at  DateTime  @default(now())
 updated_at  DateTime  @updatedAt
-created_by  String?   // user ID who triggered the event
-```
+created_by  String    // user ID who triggered the event (mandatory for audit compliance)
 High-value tables (withdrawals, deposits, balance adjustments) also need a separate
 `audit_log` entry — never rely on soft-delete or update history alone.
 
@@ -101,6 +100,7 @@ model User {
   kyc_status       KycStatus @default(PENDING)
   kyc_rejection_count Int    @default(0)  // Lifetime counter, never reset
   is_active        Boolean   @default(true)
+  deleted_at       DateTime?              // Soft-delete timestamp (null = active)
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
 }
@@ -113,6 +113,7 @@ model IbAgent {
   team_leader_id   String
   team_leader      User      @relation(fields: [team_leader_id], references: [id])
   is_active        Boolean   @default(true)
+  deleted_at       DateTime?              // Soft-delete timestamp (null = active)
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
 }
@@ -134,9 +135,10 @@ model TraderWallet {
   equity           BigInt    @default(0)   // balance + unrealized P&L (cents)
   margin_used      BigInt    @default(0)   // cents
   free_margin      BigInt    @default(0)   // cents
+  created_by       String                  // User ID who created this wallet (audit trail)
+  created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
 }
-
 model Position {
   id               String          @id @default(cuid())
   trader_id        String
@@ -157,6 +159,7 @@ model Position {
   closed_at        DateTime?
   close_price      BigInt?         // cents
   realized_pnl     BigInt?         // cents — set on close
+  created_by       String                  // User ID who created this position (audit trail)
   created_at       DateTime        @default(now())
   updated_at       DateTime        @updatedAt
 }
@@ -201,6 +204,7 @@ model WithdrawalRequest {
   admin_note      String?
   processed_by    String?            // Admin user ID
   processed_at    DateTime?
+  created_by      String                  // User ID who created this withdrawal request (audit trail)
   created_at      DateTime           @default(now())
   updated_at      DateTime           @updatedAt
 

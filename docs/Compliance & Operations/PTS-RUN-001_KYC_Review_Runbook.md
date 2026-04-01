@@ -197,7 +197,7 @@ When one or more checklist items fail:
 | `DOC_EXPIRED` | Document expiry date has passed |
 | `NAME_MISMATCH` | Name on document does not match registered name |
 | `ADDRESS_MISMATCH` | Address on document does not match registered address |
-| `DOC_OUTDATED` | Address document is older than 3 months (or 12 months for tax bills) |
+| `DOC_OUTDATED` | Address document is older than the accepted timeframe (3 months, or up to 12 months for Local Authority Tax Bill) | "Your address document is dated more than the accepted timeframe. Please submit a document issued within the last 3 months (or 12 months for Local Authority Tax Bill)." | kyc_status → REQUIRES_RESUBMIT |
 | `PARTIAL_VISIBILITY` | Required fields, corners, or sections not fully visible |
 | `UNSUPPORTED_TYPE` | Document type is not on the accepted list |
 
@@ -250,7 +250,7 @@ Your notes go directly to the trader. Write them clearly and helpfully.
 | Address document is 89 days old | Approve — within 3 months. |
 | Address document is 94 days old | Reject with `DOC_OUTDATED`. |
 | Middle name on document but not on registration | Approve if first and last name match exactly. Add a review note: "Approved — middle name present on document but not on registration; first and last name match exactly." |
-| Document is in a non-English language | Approve if all required fields are identifiable (dates, names, and addresses are typically readable across languages). Use Google Translate for verification if needed. Do not reject solely for language. Contact Krishantha if you cannot verify the required fields. |
+| Document is in a non-English language | Approve if all required fields are identifiable (names, dates, and addresses are typically readable across languages). Use Google Translate for basic field identification only (names, dates, addresses). **Do not use Google Translate for legal/nuanced interpretation**. Any legal, identity-sensitive, or regulator-facing documents require a professional certified translation. If uncertain, stop processing, flag the document, and escalate to Krishantha with the translated screenshot and original file. |
 | Phone photo of a document (not scanned) | Acceptable if clear and legible. Reject with `DOC_QUALITY_POOR` only if quality genuinely prevents verification. |
 | Document shows a PO Box, not a residential address | Reject with `ADDRESS_MISMATCH`. Note: "Address documents must show a residential address. A PO Box is not accepted. Please submit a document showing your physical residential address." |
 | Two people listed on a bank statement | Acceptable if the trader's name appears on the statement and their address is shown. Approve. |
@@ -295,12 +295,12 @@ If a trader makes or attempts a deposit greater than $10,000 USD while their KYC
 
 | Situation | Primary Contact | Method | Timeframe |
 |---|---|---|---|
-| Suspected forgery | Krishantha (Legal) then George (Executive) | Phone first, then encrypted email | Immediately |
-| PEP / Sanctions match | Krishantha (Legal) | Phone first, then encrypted email | Immediately |
-| High-value deposit (>$10K) | Victor (Operations) + Krishantha | Email | Same business day |
-| AML behavioural trigger | Krishantha (Legal) | Written escalation report | Within 4 hours |
-| Account suspension dispute | Krishantha + Victor | Email | Within 24 hours |
-| System error during review | Victor (Operations) | Slack / phone | As soon as possible |
+| Suspected forgery | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@...<br>Backup: George [LastName], Executive Director, +<phone>, george@... | Phone first, then encrypted email | Immediately |
+| PEP / Sanctions match | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@... | Phone first, then encrypted email | Immediately |
+| High-value deposit (>$10K) | Victor [LastName], Operations Manager, +<phone>, victor@...<br>Backup: Krishantha [LastName], Legal Counsel, +<phone>, krishantha@... | Email | Same business day |
+| AML behavioural trigger | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@... | Written escalation report | Within 4 hours |
+| Account suspension dispute | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@...<br>Backup: Victor [LastName], Operations Manager, +<phone>, victor@... | Email | Within 24 hours |
+| System error during review | Victor [LastName], Operations Manager, +<phone>, victor@... | Slack / phone | As soon as possible |
 
 ---
 

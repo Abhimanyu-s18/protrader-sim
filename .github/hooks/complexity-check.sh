@@ -8,7 +8,6 @@ TASK_DESCRIPTION=$(cat)
 
 # Complexity scoring thresholds
 COMPLEXITY_THRESHOLD=3
-MIN_SUBTASKS_THRESHOLD=2
 MULTI_LAYER_THRESHOLD=2
 MULTI_AGENT_THRESHOLD=2
 
@@ -35,25 +34,31 @@ AGENT_KEYWORDS=(
 # Score complexity
 complexity_score=0
 
-# Check for complexity keywords
+# Convert task description to lowercase for case-insensitive matching
+task_lower=$(echo "$TASK_DESCRIPTION" | tr '[:upper:]' '[:lower:]')
+
+# Check for complexity keywords (word boundary, case-insensitive)
 for keyword in "${COMPLEXITY_KEYWORDS[@]}"; do
-    if [[ "$TASK_DESCRIPTION" =~ $keyword ]]; then
+    keyword_lower=$(echo "$keyword" | tr '[:upper:]' '[:lower:]')
+    if [[ "$task_lower" =~ \\b$keyword_lower\\b ]]; then
         complexity_score=$((complexity_score + 1))
     fi
 done
 
-# Check for multiple layers
+# Check for multiple layers (word boundary, case-insensitive)
 layer_count=0
 for keyword in "${LAYER_KEYWORDS[@]}"; do
-    if [[ "$TASK_DESCRIPTION" =~ $keyword ]]; then
+    keyword_lower=$(echo "$keyword" | tr '[:upper:]' '[:lower:]')
+    if [[ "$task_lower" =~ \\b$keyword_lower\\b ]]; then
         layer_count=$((layer_count + 1))
     fi
 done
 
-# Check for multiple agents
+# Check for multiple agents (word boundary, case-insensitive)
 agent_count=0
 for keyword in "${AGENT_KEYWORDS[@]}"; do
-    if [[ "$TASK_DESCRIPTION" =~ $keyword ]]; then
+    keyword_lower=$(echo "$keyword" | tr '[:upper:]' '[:lower:]')
+    if [[ "$task_lower" =~ \\b$keyword_lower\\b ]]; then
         agent_count=$((agent_count + 1))
     fi
 done
@@ -70,15 +75,26 @@ if [ $layer_count -ge $MULTI_LAYER_THRESHOLD ] || [ $agent_count -ge $MULTI_AGEN
     requires_orchestrator=true
 fi
 
+# Escape JSON string values
+escape_json_string() {
+  local string="$1"
+  string="${string//\\/\\\\}"  # Escape backslashes
+  string="${string//\"}\\\"}"  # Escape quotes
+  string="${string//$'\n'/\\n}"   # Escape newlines
+  echo "\"$string\""
+}
+
 # Output JSON result
+recommendation=$([ "$requires_orchestrator" = true ] && echo '"use_orchestrator"' || echo '"direct_agent"')
 cat << EOF
 {
-  "task_description": "$TASK_DESCRIPTION",
+  "task_description": $(escape_json_string "$TASK_DESCRIPTION"),
   "complexity_score": $complexity_score,
   "layer_count": $layer_count,
   "agent_count": $agent_count,
   "is_complex": $is_complex,
   "requires_orchestrator": $requires_orchestrator,
-  "recommendation": $([ "$requires_orchestrator" = true ] && echo "use_orchestrator" || echo "direct_agent")
+  "recommendation": $recommendation
 }
 EOF
+

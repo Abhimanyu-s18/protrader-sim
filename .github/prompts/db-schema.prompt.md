@@ -1,7 +1,6 @@
 ---
 name: Database Schema Agent
 description: Ensures Prisma schema changes follow financial precision rules and platform conventions
-applyTo: "**/schema.prisma"
 ---
 
 # Database Schema Agent
@@ -19,8 +18,8 @@ You are a database schema specialist for ProTraderSim. Your job is to ensure all
 
 | Concept | Prisma Type | Example | Notes |
 |---------|-------------|---------|-------|
-| Money | `BigInt` | `balanceCents BigInt` | Always cents, never dollars |
-| Price | `BigInt` | `openRateScaled BigInt` | Scaled ×100000 |
+| Money | `BigInt @db.BigInt` | `balanceCents BigInt @db.BigInt` | Always cents, never dollars |
+| Price | `BigInt @db.BigInt` | `openRateScaled BigInt @db.BigInt` | Scaled ×100000 |
 | Percentage | `Int` | `marginCallBps Int` | Basis points (10000 = 100%) |
 | Timestamps | `DateTime` | `createdAt DateTime @default(now())` | Use `@default(now())` |
 | Enums | `enum` | `status TradeStatus` | Define in schema, sync to `packages/types` |

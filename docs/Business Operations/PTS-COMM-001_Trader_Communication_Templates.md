@@ -351,7 +351,7 @@ Your stop loss has been triggered and your position has been closed automaticall
 - Open Rate: {{open_rate}}
 - Close Rate: {{close_rate}} (Stop Loss Level)
 - Realized P&L: {{realized_pnl}}
-- Closed At: {{close_at}}
+- Closed At: {{closed_at}}
 
 **Account Balance:** {{new_balance}}
 
@@ -381,7 +381,7 @@ Congratulations — your take profit target has been reached and your position h
 - Open Rate: {{open_rate}}
 - Close Rate: {{close_rate}} (Take Profit Level)
 - Realized P&L: {{realized_pnl}}
-- Closed At: {{close_at}}
+- Closed At: {{closed_at}}
 
 **Account Balance:** {{new_balance}}
 
@@ -438,13 +438,20 @@ Your account margin level fell below the stop-out threshold (50%) and one or mor
 
 **Stop-Out Summary:**
 - Positions Closed: {{positions_closed_count}}
-- Stop-Out Time: {{stop_out_at}}
+- Stop-Out Time: {{stopped_out_at}}
 - Final Balance: {{final_balance}}
 
 **Positions closed:**
-{{#each closed_positions}}
-- {{symbol}} {{direction}} {{units}} units — Realized P&L: {{realized_pnl}}
-{{/each}}
+```jsx
+// React Email TSX equivalent:
+{closed_positions.map(position => (
+  <Text key={position.id}>
+    {position.symbol} {position.direction} {position.units} units — Realized P&L: {position.realized_pnl}
+  </Text>
+))}
+```
+
+> **Note:** The Handlebars template above is pseudocode for documentation. In `.tsx` React Email components, convert Handlebars `{{#each}}` loops to `.map()` with JSX elements. Always use a unique key (e.g., `position.id`) for each mapped element.
 
 **What happens next:**
 Your account remains active. You can continue trading once you have reviewed your account balance and available margin.
@@ -653,7 +660,7 @@ Messages shown inline in forms when validation fails.
 | Password — missing number | Password must include at least one number |
 | Confirm password — mismatch | Passwords do not match |
 | Pool Code — invalid | This referral code is not valid. Please check and try again. |
-| Pool Code — missing | A referral code is required to register. Please contact your IB for your code. |
+| Pool Code — missing | A pool code is required to register. Please contact your IB for your code. |
 | Terms — not accepted | You must accept the Terms and Conditions to create an account |
 | Units — below minimum | Minimum trade size for {{symbol}} is {{min_units}} units |
 | Units — above maximum | Maximum trade size for {{symbol}} is {{max_units}} units |

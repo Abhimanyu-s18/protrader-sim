@@ -119,11 +119,17 @@ import crypto from 'crypto'
 
 router.post('/nowpayments', express.raw({ type: 'application/json' }), (req, res) => {
   const signature = req.headers['x-nowpayments-sig'] as string
+  if (!signature) return res.status(401).json({ error: 'MISSING_SIGNATURE' })
+  
   const hmac = crypto.createHmac('sha512', process.env.NOWPAYMENTS_IPN_SECRET!)
   hmac.update(JSON.stringify(sortObject(JSON.parse(req.body))))  // NowPayments sorts keys
   const expectedSig = hmac.digest('hex')
 
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+  const sigBuffer = Buffer.from(signature, 'hex')
+  const expectedBuffer = Buffer.from(expectedSig, 'hex')
+  
+  if (sigBuffer.length !== expectedBuffer.length || 
+      !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
     return res.status(401).json({ error: 'INVALID_SIGNATURE' })
     // Log this attempt — repeated failures indicate replay attack
   }
@@ -157,6 +163,22 @@ await prisma.$transaction(async (tx) => {
 
 ### File Upload Validation
 ```typescript
+// Validate magic bytes against MIME type
+function isValidMagicBytes(magicBytes: Buffer, mimetype: string): boolean {
+  const hex = magicBytes.toString('hex').toUpperCase()
+  
+  switch (mimetype) {
+    case 'image/jpeg':
+      return hex.startsWith('FFD8FF')  // JPEG signature
+    case 'image/png':
+      return hex.startsWith('89504E47')  // PNG signature
+    case 'application/pdf':
+      return hex.startsWith('25504446')  // PDF signature
+    default:
+      return false  // Unknown MIME type
+  }
+}
+
 // Validate BEFORE storing to R2
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  // 10MB

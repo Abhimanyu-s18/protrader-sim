@@ -203,7 +203,7 @@ database-schema-design
 
 ## 🚀 Next Steps
 
-### Phase 2 (8 skills) — Ready When You Are
+### Phase 2 (7 skills) — Ready When You Are
 - rbac-implementation (Role-based access control)
 - trading-calculations (Advanced formulas)
 - socket-io-real-time (WebSocket setup)

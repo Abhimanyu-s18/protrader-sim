@@ -154,7 +154,7 @@ export async function uploadKycDocument(
 
   // Generate secure filename
   const timestamp = Date.now()
-  const userId hex = crypto.randomBytes(4).toString('hex')
+  const randomHex = crypto.randomBytes(4).toString('hex')
   const ext = file.originalname.split('.').pop()
   const filename = `kyc/${userId}/${docType}_${timestamp}_${randomHex}.${ext}`
 
@@ -222,8 +222,15 @@ export default function AdminKycPage() {
   useEffect(() => {
     // Fetch pending KYC submissions
     fetch('/api/admin/kyc/pending')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
       .then(data => setPendingUsers(data.data))
+      .catch(err => {
+        console.error('Failed to load pending KYC submissions:', err)
+        alert('Error loading submissions: ' + err.message)
+      })
   }, [])
 
   return (
@@ -245,6 +252,7 @@ function KycReviewCard({ user }) {
     try {
       await fetch(`/api/admin/kyc/${user.id}/approve`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           notes: 'Documents verified'
         })
@@ -265,6 +273,7 @@ function KycReviewCard({ user }) {
     try {
       await fetch(`/api/admin/kyc/${user.id}/reject`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rejection_reason: reason
         })
@@ -352,6 +361,16 @@ export async function adminApproveKyc(
     }
   })
 
+  // Fetch user before making any updates (critical: fail fast if user not found)
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { email: true }
+  })
+  
+  if (!user) {
+    throw new Error('User not found')
+  }
+
   // Update user KYC status
   await db.user.update({
     where: { id: userId },
@@ -360,8 +379,7 @@ export async function adminApproveKyc(
       kyc_approved_at: new Date()
     }
   })
-
-  // Email user
+  
   await resend.emails.send({
     from: 'noreply@protrader.com',
     to: user.email,
@@ -400,6 +418,16 @@ export async function adminRejectKyc(
     throw new ApiError('FORBIDDEN', 403)
   }
 
+  // Fetch user before making any updates (critical: fail fast if user not found)
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { email: true }
+  })
+  
+  if (!user) {
+    throw new Error('User not found')
+  }
+
   // Mark documents as rejected
   const documents = await db.kycDocument.updateMany({
     where: { user_id: userId, status: 'SUBMITTED' },
@@ -416,8 +444,7 @@ export async function adminRejectKyc(
     where: { id: userId },
     data: { kyc_status: 'REJECTED' }
   })
-
-  // Email user with reason
+  
   await resend.emails.send({
     from: 'noreply@protrader.com',
     to: user.email,
@@ -477,30 +504,45 @@ async function scanForMalware(buffer: Buffer) {
 ### Access Control
 
 ```typescript
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
+
 // Only admins can view documents
 app.get('/kyc/documents/:file_key', async (req, res) => {
-  // Verify admin role
-  if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
-    return res.status(403).json({ error: 'FORBIDDEN' })
+  // Verify authentication
+  if (!req.user) {
+    return res.status(401).json({ error: 'UNAUTHORIZED' })
   }
 
-  // Verify user owns document OR user is admin
+  // Verify admin role
+  const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN'
+  
+  // Fetch the document to check access rights
   const doc = await db.kycDocument.findUnique({
     where: { file_key: req.params.file_key }
   })
+  
+  if (!doc) {
+    return res.status(404).json({ error: 'DOCUMENT_NOT_FOUND' })
+  }
 
+  // Allow access if owner or admin
   if (req.user.id !== doc.user_id && !isAdmin) {
     return res.status(403).json({ error: 'FORBIDDEN' })
   }
 
   // Stream from R2
-  const file = await r2.send(new GetObjectCommand({
-    Bucket: CLOUDFLARE_R2_BUCKET,
-    Key: file_key
-  }))
+  try {
+    const file = await r2.send(new GetObjectCommand({
+      Bucket: CLOUDFLARE_R2_BUCKET,
+      Key: req.params.file_key
+    }))
 
-  res.setHeader('Content-Type', file.ContentType)
-  file.Body.pipe(res)
+    res.setHeader('Content-Type', file.ContentType || 'application/octet-stream')
+    file.Body.pipe(res)
+  } catch (err) {
+    console.error('R2 download error:', err)
+    res.status(500).json({ error: 'DOWNLOAD_FAILED' })
+  }
 })
 ```
 

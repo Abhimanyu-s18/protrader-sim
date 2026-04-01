@@ -32,6 +32,11 @@ The Orchestrator agent is the central coordination point for complex multi-agent
 
 **Action**: Validates proper workflow steps and provides fallback guidance
 
+**Hook Execution Order**: Both `orchestrator-enforcement.json` and `orchestrator-workflow.json` register for the PreToolUse event. The hook runner respects the `priority` field to resolve conflicts:
+- `orchestrator-enforcement.json` has **priority: high** and **runs first** to block complex tasks
+- `orchestrator-workflow.json` has **priority: high** but uses different criteria, serving as a fallback validation mechanism
+- When both conditions match, `orchestrator-enforcement.json` executes its block-and-redirect action, preventing `orchestrator-workflow.json` from running
+
 ### 4. complexity-check.sh
 **Purpose**: Companion script for task complexity analysis
 

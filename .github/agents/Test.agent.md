@@ -80,7 +80,7 @@ interface CreateUserOptions {
 export async function createTestUser(opts: CreateUserOptions = {}) {
   return prisma.user.create({
     data: {
-      email: `test-${Date.now()}@protrader.test`,
+      email: `test-${Date.now()}-${Math.random().toString(36).slice(2)}@protrader.test`,
       password_hash: await bcrypt.hash('TestPass123!', 10),
       role: opts.role ?? 'TRADER',
       pool_code: opts.poolCode ?? 'TEST001',
@@ -108,7 +108,7 @@ export async function createTestPosition(traderId: string, instrumentId: string,
       instrument_id: instrumentId,
       direction: 'BUY',
       lot_size: 0.1,
-      open_price: 1_85000n,    // 1.85000 scaled
+      open_price: 185000n,     // 1.85000 (scaled by 100000)
       current_price: 1_85000n,
       margin: 1_85000n,        // cents
       unrealized_pnl: 0n,
@@ -173,7 +173,7 @@ describe('TradingService', () => {
       // Set wallet to nearly zero
       await prisma.traderWallet.update({
         where: { trader_id: trader.id },
-        data: { free_margin: 100n }  // $0.01 — not enough for any real trade
+        data: { free_margin: 1n }    // $0.01 — not enough for any real trade
       })
 
       await expect(
@@ -256,23 +256,23 @@ describe('Financial Calculations', () => {
       const pnl = calculateUnrealizedPnL({
         direction: 'BUY',
         openPrice: 1_10000n,
-        currentPrice: 1_11000n,  // +10 pips
+        currentPrice: 1_11000n,  // +100 pips (0.01 move from 1.10000 to 1.11000)
         lotSize: 1.0,
         contractSize: 100_000,
       })
-      // 10 pips × 1 lot × $10/pip = +$100
-      expect(pnl).toBe(100_00n)  // $100.00 in cents
+      // 100 pips × 1 lot × $10/pip = +$1000
+      expect(pnl).toBe(1000_00n)  // $1000.00 in cents
     })
 
     it('should calculate negative P&L for BUY when price goes down', () => {
       const pnl = calculateUnrealizedPnL({
         direction: 'BUY',
         openPrice: 1_10000n,
-        currentPrice: 1_09000n,  // -10 pips
+        currentPrice: 1_09000n,  // -100 pips (0.01 move from 1.10000 to 1.09000)
         lotSize: 1.0,
         contractSize: 100_000,
       })
-      expect(pnl).toBe(-100_00n)  // -$100.00 in cents
+      expect(pnl).toBe(-1000_00n)  // -$1000.00 in cents
     })
 
     it('should invert P&L direction for SELL trades', () => {
@@ -348,7 +348,7 @@ describe('POST /api/withdrawals', () => {
 
   it('should return 400 when balance is insufficient', async () => {
     const brokeTrader = await createTestUser({ kycStatus: 'APPROVED' })
-    await createTestWallet(brokeTrader.id, 100n)  // $0.01 balance
+    await createTestWallet(brokeTrader.id, 1n)    // $0.01 balance
     const brokeToken = generateTestToken({ sub: brokeTrader.id, role: 'TRADER' })
 
     const response = await request(app)

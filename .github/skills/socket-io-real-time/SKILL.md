@@ -22,8 +22,24 @@ import { Server as SocketServer } from 'socket.io'
 const app = express()
 const server = http.createServer(app)
 
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3002',
+  'https://app.protrader.com',
+  'https://platform.protrader.com'
+]
+
 const io = new SocketServer(server, {
-  cors: { origin: '*', credentials: true },
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        callback(null, true)
+      } else {
+        callback(new Error('CORS_NOT_ALLOWED'))
+      }
+    },
+    credentials: true
+  },
   transports: ['websocket', 'polling'],  // Fallback to polling
   maxHttpBufferSize: 1e6  // 1 MB max message
 })
@@ -42,6 +58,12 @@ server.listen(4000, () => {
 // lib/socket.ts
 import jwt from 'jsonwebtoken'
 import { io } from '../index'
+
+// Load JWT public key for token verification
+const JWT_PUBLIC_KEY = process.env.JWT_PUBLIC_KEY
+if (!JWT_PUBLIC_KEY) {
+  throw new Error('JWT_PUBLIC_KEY environment variable is required')
+}
 
 // Authenticate on connection
 io.use(async (socket, next) => {
@@ -198,7 +220,7 @@ export function emitAccountMetrics(
 }
 
 // Usage: After every position change
-async function openPose(traderId: string, ...) {
+async function openPosition(traderId: string, ...) {
   // Open trade...
   const metrics = await calculateMetrics(traderId)
   emitAccountMetrics(traderId, metrics)
@@ -305,8 +327,8 @@ const MAX_CONNECTIONS_PER_USER = 3  // Allow 3 devices
 
 io.use((socket, next) => {
   const userId = socket.data.userId
-  const existingConnections = io.sockets.sockets
-    .values()
+  // Convert iterator to array before filtering
+  const existingConnections = Array.from(io.sockets.sockets.values())
     .filter(s => s.data.userId === userId)
   
   if (existingConnections.length >= MAX_CONNECTIONS_PER_USER) {

@@ -69,8 +69,8 @@
 | full_name | VARCHAR(255) | No | Staff member's full name. |
 | role | VARCHAR(30) | No | Access level. Valid: `SUPER_ADMIN`, `ADMIN`, `IB_TEAM_LEADER`, `AGENT`. |
 | team_leader_id | BIGINT (FK→staff.id) | Yes | For AGENT role: their Team Leader's ID. Null for all other roles. |
-| commission_rate_bps | INTEGER | No | For AGENT: per-trade commission in basis points. 10 bps = 0.10% of notional. Default: 0. |
-| override_rate_bps | INTEGER | No | For IB_TEAM_LEADER: override commission rate on all agent network trades. Default: 0. |
+| commission_rate_bps | BIGINT | No | For AGENT: per-trade commission in basis points. 10 bps = 0.10% of notional. Default: 0. |
+| override_rate_bps | BIGINT | No | For IB_TEAM_LEADER: override commission rate on all agent network trades. Default: 0. |
 | ref_code | VARCHAR(50) | Yes | Unique referral code for registration URL (?ref={ref_code}). |
 | pool_code | VARCHAR(50) | Yes | Unique Pool Code required for trader registration. Traders must provide a valid pool_code to register. Unique. |
 | is_active | BOOLEAN | No | Whether account can log in. Default: true. |
@@ -115,7 +115,7 @@
 | swap_buy_bps | BIGINT | No | Daily BUY (long) swap in basis points. Negative = debit, positive = credit. |
 | swap_sell_bps | BIGINT | No | Daily SELL (short) swap in basis points. |
 | margin_call_bps | BIGINT | No | Margin level triggering warning. Default: 10000 (100.00%). |
-| stop_out_bps | BIGINT | No | Margin level triggering auto-liquidation. Default: 5000 (50.00%). OPEN DECISION: may change to 2000 (20%) before Sprint 5. |
+| stop_out_bps | BIGINT | No | Margin level triggering auto-liquidation. Default: 5000 (50.00%). |
 | commission_type | VARCHAR(20) | No | Valid: `none` (forex), `per_lot` (indices, commodities), `per_share` (stocks), `percentage` (crypto). |
 | commission_rate | BIGINT | No | Rate value: per_lot = cents per std lot; per_share = cents per share; percentage = basis points of notional. |
 | trading_hours_start | TIME | Yes | UTC start of trading window. Null = 24-hour instrument (crypto). |
@@ -253,7 +253,7 @@ Every financial movement in the platform. Balance = SUM of this table per user.
 | trader_id | BIGINT (FK→users.id) | No | Trader whose trade generated this commission. |
 | trade_id | BIGINT (FK→trades.id) | No | Trade that triggered this commission. |
 | amount_cents | BIGINT | No | Commission earned in cents. = trade_notional × rate_bps / 10000. |
-| rate_bps | INTEGER | No | Rate applied in basis points. Snapshot of staff.commission_rate_bps at trade time. |
+| rate_bps | BIGINT | No | Rate applied in basis points. Snapshot of staff.commission_rate_bps at trade time. |
 | status | VARCHAR(20) | No | Valid: `PENDING` (earned, not paid), `PAID` (payout processed by Super Admin). Default: `PENDING`. |
 | paid_at | TIMESTAMPTZ | Yes | When marked PAID. Null if PENDING. |
 | created_at | TIMESTAMPTZ | No | Created at trade open time. |

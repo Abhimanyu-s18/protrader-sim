@@ -10,7 +10,7 @@
 
 ### 4 Critical Skills for ProTraderSim
 
-Each skill is **1,500+ lines** of comprehensive documentation, checklists, code examples, and best practices:
+Each skill is **350-500 lines** of comprehensive documentation, checklists, code examples, and best practices:
 
 ```
 .github/skills/
@@ -207,7 +207,7 @@ Answer: @security Use the bigint-money-handling skill
   ✓ api-route-creation (layering)
   ✓ financial-calculations (correctness)
   ✓ bigint-money-handling (safety)
-  ✓ api-response-design (format)
+  ✓ api-route-creation (layering)
 ```
 
 ---

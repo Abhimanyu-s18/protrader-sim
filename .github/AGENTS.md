@@ -7,7 +7,7 @@ description: "Master registry and coordination guide for the ProTrader AI agent 
 
 ## 🎯 Overview
 
-This framework provides **7 specialized AI agents** that work together to optimize development of the ProTrader CFD trading platform. Each agent has deep expertise in a specific domain and coordinates with others through a central Orchestrator Agent.
+This framework provides **14 specialized AI agents** that work together to optimize development of the ProTrader CFD trading platform. Each agent has deep expertise in a specific domain and coordinates with others through a central Orchestrator Agent.
 
 **Key Principle**: Use the Orchestrator Agent as the entry point for complex tasks. It will automatically route to specialized agents and coordinate results.
 
@@ -226,7 +226,7 @@ Each agent deeply understands:
 
 ### Architecture Reality
 - **Tech Stack**: Turborepo, Next.js 15, Express.js, PostgreSQL 17, Redis 7, Socket.io
-- **6 Next.js Apps**: web, auth, platform (dashboard), admin, ib-portal
+- **5 Next.js apps**: web, auth, platform (dashboard), admin, ib-portal
 - **1 Express API**: Serves all frontends on port 4000
 - **Real-time**: Socket.io for prices, trades, notifications
 - **Jobs**: BullMQ for margin calls, swaps, settlement
@@ -255,7 +255,7 @@ Your ProTrader agent framework is working well when:
 ## 🔗 File Organization
 
 ```
-.vscode/agents/
+.github/
 ├── AGENTS.md                    ← This file (master registry)
 ├── QUICK_REFERENCE.md           ← Quick activation guide
 │
@@ -276,7 +276,6 @@ Your ProTrader agent framework is working well when:
 ├── documentation.agent.md       ← API docs & knowledge mgmt (v1.0)
 ├── performance.agent.md         ← Optimization & profiling (v1.0)
 └── devops.agent.md              ← CI/CD & infrastructure (v1.0)
-```
 
 **14 agents total** | **6 agents at v1.1** | **8 agents at v1.0** | All production-ready
 

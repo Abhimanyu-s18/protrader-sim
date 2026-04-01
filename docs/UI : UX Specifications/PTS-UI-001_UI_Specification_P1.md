@@ -112,13 +112,17 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 - Country: dropdown (auto-detected or manual)
 - Email (email input)
 - Password (show/hide eye icon, 8+ characters hint)
-- Pool Code / Verification Code (optional field — becomes mandatory if required by IB)
+- Pool Code / Verification Code (conditional): Mandatory if IB configuration flag set at registration. Format: alphanumeric, case-insensitive, length 6-12, expiry timestamp checked server-side. Backend controller key (flag name): `pool_code_required` in staff settings or account configuration. Validation: return INVALID_POOL_CODE error for invalid format or expired code. Enforce at registration time (Step 2). UX: visible field when required, optional otherwise; tooltip explains "Required by your IB" if mandatory.
 - Terms checkbox: "I agree with the Terms and Conditions" (linked)
 - CTA: "CREATE AN ACCOUNT" — full-width orange button
 - Language selector: top-right dropdown
 
 **Validation:**
-- Password minimum 8 characters
+- Password minimum 12 characters (or 8+ with complexity: upper, lower, digit, symbol)
+- Character variety required: at least one uppercase, one lowercase, one digit, one symbol (@!#$%^&*)
+- Check against breached-password database (e.g., Have I Been Pwned API) and common-password denylist
+- No restrictive maximum length (recommend up to 128 characters for future-proofing)
+- Rate limiting on repeated failed password attempts: lock account after 5 consecutive failures for 15 minutes
 - Terms checkbox must be checked before submission
 - Pool Code: validated against active staff records server-side
 
@@ -222,7 +226,7 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 
 | Column | Data | Notes |
 |---|---|---|
-| Symbol | Logo/flag + code + full name | Asset-class icon rules (see Section 4) |
+| Symbol | Logo/flag + code + full name | Asset-class icon rules (see attached icon table below for asset class designations) |
 | Change | % + trend direction | Red = down, green = up |
 | 1D Low/High | Price range with visual bar | Shows position in daily range |
 | Sell | Red-bordered button with bid price | Click opens sell order in trade panel |
@@ -310,7 +314,7 @@ Paginated feed of all account events: trades opened, closed, deposits, withdrawa
 
 | Element | Details |
 |---|---|
-| Symbol header | Asset-class logo/flag + code + name + % change (red/green) + "Protected!" badge + Bell + Eye icons |
+| Symbol header | Asset-class logo/flag + code + name + % change (red/green). Optionally includes "Protected!" badge if account-level trade protection is active (investor protection scheme or capital guarant shield flag set on account). Badge: green pill-shaped background, white text "Protected!", right-aligned in header. Tooltip on hover: "Your account benefits from investor protection insurance." Bell + Eye icons. |
 | Tab bar | Trade \| Positions \| Info \| Chart \| Features \| Signals \| Alerts |
 | SELL direction | Large SELL price (red text). Red underline when selected. |
 | BUY direction | Large BUY price (gray when unselected). Click to activate. |
@@ -346,7 +350,7 @@ Submit button text changes to: "Sell [SYMBOL] at {order_rate}" (faded until vali
 - Each row: drag handle (left) + metric name + red minus button (remove from header)
 
 **Section 2 — "Data shown in the dropdown menu":**
-- Metrics not in header (default: Exposure, Buying Power, Realized P&L, Used)
+- Metrics not in header (default: Exposure, Buying Power, Realized P&L, Used Margin)
 - Each row: green plus button (promote to header) + metric name
 
 **Action buttons:** Cancel (gray), Save (orange)
@@ -431,13 +435,51 @@ Submit button text changes to: "Sell [SYMBOL] at {order_rate}" (faded until vali
 **Modal:**
 - Title: "Documents"
 - Description: "We may contact you if we need additional documentation."
-- Row 1: "Your ID" + "Upload →" orange link → opens ID Verification sub-modal
-- Row 2: "Your address" + "Upload →" orange link → opens Address Verification sub-modal
-- Row 3: "Other documents (optional)" + "Upload →" → opens Miscellaneous sub-modal
+- Row 1: "Your ID" + "Upload →" orange link → opens ID Verification sub-modal (Screen 16)
+- Row 2: "Your address" + "Upload →" orange link → opens Address Verification sub-modal (Screen 17)
+- Row 3: "Other documents (optional)" + "Upload →" → opens Miscellaneous sub-modal (Screen 18)
 - CANCEL (outlined orange) — dismisses modal
 - UPLOAD ALL (solid orange) — batch confirmation for all three categories
 
 Each "Upload →" click replaces modal content with the specific sub-modal (same modal frame, no new layer).
+
+### Screen 16 — ID Verification Sub-Modal
+
+**Entry:**Triggered by "Your ID" → "Upload →" in Documents Hub (Screen 15).
+
+**Modal:**
+- Title: "ID Verification"
+- Instruction: "Upload a scanned copy of your personal ID"
+- Radio options (mutually exclusive): Passport (default), National ID, Driver's License, Residence Permit
+- Upload Zones: Identical dual-zone layout to legacy KYC (Zone 1: "Front of {selected document}", Zone 2: "Back of {selected document}")
+- File requirements: JPEG, PNG, PDF; max 10MB per file; min 800×600px for images
+- Compliance note: "Must be: clear and legible, issued by government authority, not expired or expiring within 3 months"
+- Document state: uploaded → under_review → approved/rejected (with ability to re-upload if rejected)
+- CANCEL (outlined) / CONTINUE (solid orange, disabled until Zone 1 has a file)
+
+### Screen 17 — Address Verification Sub-Modal
+
+**Entry:** Triggered by "Your address" → "Upload →" in Documents Hub (Screen 15).
+
+**Modal:** Same structure as Screen 16.
+- Title: "Address Verification"
+- Instruction: "Upload a personal document showing your current address"
+- Radio options: Utility Bill (default), Bank Statement, Credit Card Statement, Local Authority Tax Bill, Other
+- Upload Zones: Identical dual-zone layout. Zone 1 label matches selected radio type.
+- Compliance note: "Document must show: full legal name + current residential address. Must be dated within 3 months."
+- CANCEL / CONTINUE: Same behavior as ID Verification
+
+### Screen 18 — Miscellaneous Documents Sub-Modal
+
+**Entry:** Triggered by "Other documents (optional)" → "Upload →" in Documents Hub (Screen 15).
+
+**Modal:** Same structure as Screens 16–17.
+- Title: "Miscellaneous"
+- Instruction: "Upload any document requested and not included above"
+- Radio option: "Other" (pre-selected, single choice)
+- Upload Zones: Same dual-zone layout. Zone 1 label: "Document".
+- Use cases: Tax residency certificate, source-of-funds documentation, court orders, enhanced due diligence requests
+- CANCEL / CONTINUE: Same behavior
 
 ---
 

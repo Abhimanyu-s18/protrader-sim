@@ -1,7 +1,6 @@
 ---
 name: Trade Lifecycle Agent
 description: Ensures trade operations follow the complete lifecycle with proper validation and calculations
-applyTo: "apps/api/src/lib/tradeLifecycle.ts"
 ---
 
 # Trade Lifecycle Agent
@@ -74,8 +73,8 @@ const marginCents = calcMarginCents(
 )
 
 // 8. Check available margin
-const available = equity - usedMargin
-if (marginCents > available) throw new InsufficientMarginError()
+const availableCents = BigInt(equity) - BigInt(usedMargin)
+if (marginCents > availableCents) throw new InsufficientMarginError()
 
 // 9. Create trade
 const trade = await prisma.trade.create({
@@ -142,7 +141,12 @@ const pnlCents = calcPnlCents(
   instrument.contractSize
 )
 
-// 3. Create ledger transaction
+// 3. Compute new balance after P&L
+const balanceBeforeCents = await calculateBalance(userId)
+const profitAndLossCents = pnlCents // P&L already calculated in step 2
+const newBalance = balanceBeforeCents + profitAndLossCents
+
+// 4. Create ledger transaction
 await prisma.ledgerTransaction.create({
   data: {
     userId,
@@ -220,6 +224,7 @@ const MIN_DISTANCE_PIPS = 10
 // Validate entry order distance from market
 const validateEntryRate = (
   direction: 'BUY' | 'SELL',
+  orderType: 'LIMIT' | 'STOP',
   entryRate: bigint,
   bid: bigint,
   ask: bigint,
@@ -229,14 +234,28 @@ const validateEntryRate = (
   const pipSize = BigInt(10 ** (5 - pipDecimals))
   const minDistance = BigInt(minPips) * pipSize
   
-  if (direction === 'BUY') {
-    // Entry must be below current bid
-    if (entryRate >= bid) return { valid: false, hint: 'Entry must be below market for BUY' }
-    if (bid - entryRate < minDistance) return { valid: false, hint: 'Entry too close to market' }
+  if (orderType === 'LIMIT') {
+    // LIMIT orders: entry must be away from market in the opposite direction
+    if (direction === 'BUY') {
+      // BUY LIMIT: Entry must be below current bid
+      if (entryRate >= bid) return { valid: false, hint: 'BUY LIMIT entry must be below market' }
+      if (bid - entryRate < minDistance) return { valid: false, hint: 'Entry too close to market' }
+    } else {
+      // SELL LIMIT: Entry must be above current ask
+      if (entryRate <= ask) return { valid: false, hint: 'SELL LIMIT entry must be above market' }
+      if (entryRate - ask < minDistance) return { valid: false, hint: 'Entry too close to market' }
+    }
   } else {
-    // Entry must be above current ask
-    if (entryRate <= ask) return { valid: false, hint: 'Entry must be above market for SELL' }
-    if (entryRate - ask < minDistance) return { valid: false, hint: 'Entry too close to market' }
+    // STOP orders: entry must be beyond market in the entry direction
+    if (direction === 'BUY') {
+      // BUY STOP: Entry must be above current ask
+      if (entryRate <= ask) return { valid: false, hint: 'BUY STOP entry must be above market' }
+      if (entryRate - ask < minDistance) return { valid: false, hint: 'Entry too close to market' }
+    } else {
+      // SELL STOP: Entry must be below current bid
+      if (entryRate >= bid) return { valid: false, hint: 'SELL STOP entry must be below market' }
+      if (bid - entryRate < minDistance) return { valid: false, hint: 'Entry too close to market' }
+    }
   }
   
   return { valid: true }

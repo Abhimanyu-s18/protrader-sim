@@ -430,7 +430,7 @@ aws ecr get-login-password --region eu-west-1 | \
 
 # Build and push (example for api service)
 docker build -f apps/api/Dockerfile -t protrader-sim/api:$(git rev-parse --short HEAD) .
-docker tag protrader-sim/api:latest \
+docker tag protrader-sim/api:$(git rev-parse --short HEAD) \
   {AWS_ACCOUNT_ID}.dkr.ecr.eu-west-1.amazonaws.com/protrader-sim/api:$(git rev-parse --short HEAD)
 docker push {AWS_ACCOUNT_ID}.dkr.ecr.eu-west-1.amazonaws.com/protrader-sim/api:$(git rev-parse --short HEAD)
 ```
@@ -505,10 +505,15 @@ KYC documents are stored in a private Cloudflare R2 bucket.
 
 ### Bucket lifecycle policy (production)
 
-Files in the `kyc/` prefix must be protected from deletion. Add a lifecycle rule in the R2 dashboard:
-- Prefix: `kyc/`
-- Action: No automatic deletion (disable expiry)
-- Minimum storage duration: 5 years (1,825 days)
+KYC documents require long-term retention and protection from accidental deletion.
+
+**Lifecycle policy recommendations:**
+- Lifecycle policies are designed for automatic expiration of non-critical objects and cannot prevent user-initiated deletion
+- **Do NOT** add deletion rules for the `kyc/` prefix — instead, protect KYC objects using:
+  1. **Bucket policies and IAM permissions** — restrict deletion to admin roles only
+  2. **Object versioning** — enable in R2 bucket settings to maintain object history
+  3. **Audit logging** — log all access/deletions in CloudWatch for compliance audit trail
+  4. **Retention documentation** — add compliance procedures documenting KYC retention requirements (minimum 5 years per FSC/FSA regulations)
 
 ---
 

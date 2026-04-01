@@ -68,7 +68,7 @@ What's your task?
 ### Tier 5: Quality & Operations
 | Agent | Activation Keywords | Use When |
 |-------|---------------------|----------|
-| **Security** | audit, vulnerability, compliance, kYc, secrets, encryption | Security audit; compliance check; vulnerability scan; KYC review |
+| **Security** | audit, vulnerability, compliance, KYC, secrets, encryption | Security audit; compliance check; vulnerability scan; KYC review |
 | **Test** | test, unit test, e2e, coverage, precision validation, financial test | Need test suite; coverage analysis; financial precision validation |
 | **Schema** | database design, migration, query, index, ledger, transaction | Design/modify database schema; optimize queries; ledger architecture |
 | **Debug** | debug, bug, error, root cause, diagnosis, stack trace | Fix bugs; diagnose errors; find root cause; regression analysis |

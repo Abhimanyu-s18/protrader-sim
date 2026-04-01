@@ -138,24 +138,27 @@
 }
 ```
 
-**Trade execution flow:**
+**Trade execution flow (CRITICAL: race condition mitigation):**
 1. requireAuth + requireKYC middleware
 2. Fetch instrument (check is_active, trading hours, contract_size, leverage)
 3. Fetch current price from Redis: `GET prices:{symbol}`
 4. Apply spread: open_rate = ask_scaled (BUY) or bid_scaled (SELL)
-5. Calculate margin: `margin_cents = (units × contract_size × open_rate_scaled × 100) / (leverage × 100000)`
-6. Calculate current account metrics from ledger + open trades
-7. Validate: available_cents >= margin_cents → else 409 INSUFFICIENT_MARGIN
-8. Validate SL/TP placement (min_stop_distance enforced)
-9. BEGIN DB TRANSACTION:
-   - INSERT trades record
+5. Calculate required margin: `margin_cents = (units × open_rate_scaled × 100) / (leverage × 100000)` (see "Margin Formula" section)
+6. **VALIDATION BEFORE TRANSACTION:** Validate SL/TP placement (min_stop_distance enforced)
+7. **BEGIN DB TRANSACTION (with row-level lock):**
+   - `SELECT balance_cents, unrealized_pnl_cents, used_margin_cents FROM account_state WHERE user_id = $1 FOR UPDATE` (acquire lock on user row)
+   - Recalculate available_cents = (balance_cents + unrealized_pnl_cents) - used_margin_cents *UNDER LOCK*
+   - Validate: available_cents >= margin_cents → else 409 INSUFFICIENT_MARGIN
+   - INSERT trades record (order_type, direction, units, open_rate_scaled, etc.)
    - INSERT ib_commissions if agent assigned
    - INSERT ledger entry for commission if applicable
-10. COMMIT
-11. Add user to Redis `margin_watch:{instrument_id}` set
-12. Emit trade:opened to user:{user_id} Socket.io room
-13. Emit account:metrics with updated values
-14. Return 201 with full trade object
+8. **COMMIT transaction** — relinquish lock; other concurrent trade requests waiting on this user's lock resume
+9. After successful commit, add user to Redis `margin_watch:{instrument_id}` set (may update concurrently; eventual consistency acceptable)
+10. Emit trade:opened to user:{user_id} Socket.io room
+11. Emit account:metrics with updated values (from ledger + live prices)
+12. Return 201 with full trade object
+
+**Race Condition Safeguard:** Step 7's row-level lock (`FOR UPDATE`) ensures that concurrent requests cannot both read and mutate the user's available balance without serialization. If available balance changes during the lock hold period (e.g., another trade is opened or closed), the lock holder observes the updated balance and cannot proceed if insufficient.
 
 ---
 
@@ -177,18 +180,41 @@
 3. NowPayments returns invoice_id + payment_url
 4. INSERT deposits record (status=PENDING)
 5. Response: { deposit_id, payment_url, qr_code_url }
-6. NowPayments webhook fires on payment events → HMAC verified
-7. On payment_status='finished': INSERT ledger (transaction_type='DEPOSIT'), emit account:metrics, send email
+6. NowPayments webhook fires on payment events → HMAC-SHA512 verified
+7. **Handle each NowPayments webhook payment_status:**
+   - `waiting`: Awaiting blockchain transaction. No action; hold deposits record in PENDING.
+   - `confirming`: Blockchain transaction detected; awaiting confirmations. No action; hold deposits record in PENDING.
+   - `confirmed`: 1+ blockchain confirmation received. UPDATE deposits status=CONFIRMING.
+   - `finished`: Sufficient confirmations received (defined by NowPayments). INSERT ledger (transaction_type='DEPOSIT', amount_cents), UPDATE deposits status=COMPLETED, emit account:metrics, send email "Deposit confirmed".
+   - `failed`: Payment failed (insufficient funds, network error, etc.). UPDATE deposits status=REJECTED, send email "Deposit failed".
+   - `refunded`: Payment refunded by user or system. UPDATE deposits status=REJECTED, send email "Deposit refunded".
+   - `expired`: Invoice not paid within 60 minutes. UPDATE deposits status=EXPIRED, no ledger entry (no funds received).
 
 **Withdrawal flow:**
 1. POST /v1/withdrawals with { amount_cents, crypto_currency, wallet_address, reason }
-2. Validate: amount <= available_cents, KYC approved, no pending withdrawals
-3. INSERT withdrawals record (status=PENDING)
-4. INSERT ledger entry (transaction_type='WITHDRAWAL', amount_cents=-amount) — deducts immediately
-5. Admin notified of new withdrawal request
-6. Admin approves: PUT /v1/admin/withdrawals/:id with status=APPROVED
-7. System calls NowPayments Payout API
-8. On webhook completion: update withdrawal status=COMPLETED, send email
+2. Validate: amount <= available_cents, KYC approved (kyc_level >= 2), no pending withdrawals
+3. INSERT withdrawals record (status=PENDING, reason, wallet_address)
+4. INSERT ledger entry (transaction_type='WITHDRAWAL', amount_cents=-amount) — deducts immediately (balance reduced by requested amount)
+5. Admin notified via email of new withdrawal request
+6. Admin reviews and approves/rejects: PUT /v1/admin/withdrawals/:id with { status, admin_reason (if rejecting) }
+
+**Admin Approval Path:**
+- PUT /v1/admin/withdrawals/:id → { status='APPROVED' }: System calls NowPayments Payout API; UPDATE withdrawals status=PROCESSING
+- On payout webhook: UPDATE withdrawals status=COMPLETED, send email "Withdrawal processed"
+
+**Admin Rejection Path:**
+- PUT /v1/admin/withdrawals/:id → { status='REJECTED', admin_reason='...' }: 
+  - INSERT ledger_transactions (transaction_type='WITHDRAWAL_REFUND', amount_cents=+original_amount) to restore funds
+  - UPDATE withdrawals (status='REJECTED', rejection_reason=admin_reason)
+  - Emit account:metrics to user (balance restored)
+  - Send email "Your withdrawal request was rejected: [admin_reason]"
+
+**Payout Failure/Error Handling:**
+- If NowPayments payout API call fails or webhook indicates payout failure (failed, expired, etc.):  
+  - INSERT ledger_transactions (transaction_type='WITHDRAWAL_REFUND', amount_cents=+original_amount)
+  - UPDATE withdrawals (status='FAILED', failure_reason='NowPayments payout failed: [reason]')
+  - Emit account:metrics to user (balance restored)
+  - Send email "Your withdrawal could not be processed. Funds have been refunded to your account."
 
 ---
 
@@ -311,6 +337,31 @@ admin:deposits       // New deposit notifications to admin panel
 
 ---
 
+## 4.1. Margin Formula
+
+The margin required to open a trade depends on:
+- **Units:** number of units being traded
+- **Price:** current market price of the instrument (in scaled format: price × 100000)
+- **Leverage:** specified leverage multiplier for the instrument
+
+**Formula:**
+```
+margin_cents = (units × open_rate_scaled × 100) / (leverage × PRICE_SCALE)
+```
+
+Where `PRICE_SCALE = 100000`.
+
+**Worked Example:** BUY 10,000 units EURUSD at 1.08500 (open_rate_scaled = 108500), leverage 500:
+```
+margin_cents = (10000 × 108500 × 100) / (500 × 100000)
+             = 1,085,000,000 / 50,000,000
+             = 2,170 cents = $21.70
+```
+
+**Key Point:** Note that `contract_size` does NOT appear in the margin formula. Margin is always calculated as (units × price) / leverage, regardless of the instrument's contract_size.
+
+---
+
 ## 5. Authentication Architecture
 
 ### JWT Specification
@@ -329,7 +380,7 @@ admin:deposits       // New deposit notifications to admin panel
 ### Registration Flow
 
 1. POST /v1/auth/register with { email, password, full_name, phone, country, pool_code, terms_accepted }
-2. Validate: pool_code matches active staff record, email unique, password meets requirements
+2. Validate: pool_code matches active staff record, email unique, **password meets requirements** (see "Password Requirements" section below)
 3. Hash password with bcrypt (cost factor 12)
 4. Generate account_number: 'PT' + zero-padded 8-digit sequence
 5. Generate lead_id: 'LEAD' + zero-padded 10-digit sequence
@@ -350,6 +401,19 @@ admin:deposits       // New deposit notifications to admin panel
 5. If EXISTS: link OAuth to existing account, issue tokens
 6. If NEW: create account (no password), generate account_number + lead_id, issue tokens
 7. Email is considered verified via OAuth (provider guarantees email ownership)
+
+### Password Requirements
+
+**All passwords must satisfy the following criteria:**
+- **Minimum length:** 12 characters
+- **Character composition:** At least one uppercase letter (A–Z), one lowercase letter (a–z), one digit (0–9), and one special symbol (!@#$%^&*-_=+)
+- **Banned passwords:** Any password matching a common dictionary word or appearing in a known public breach list (checked against a maintained blacklist)
+- **Password history:** Users cannot reuse any of their last 5 passwords when changing their password
+- **Enforcement:** Server-side validation only. Client may implement real-time hints but must not rely on client-side validation.
+
+**Examples:**
+- ✓ Valid: `MyP@ssw0rd!`, `Tr@ding2026Key`, `SecureXyz#12`
+- ✗ Invalid: `password123` (no uppercase), `PASSWORD123` (no lowercase), `MyPassword` (no digit/symbol), `password` (less than 12 chars), `admin123456` (common word)
 
 ### RBAC Middleware
 
@@ -388,10 +452,20 @@ Super Admin
 ### Commission Calculation
 
 ```
-trade_notional_cents = units × contract_size × open_rate_scaled × 100 / 100000
+Price (decimal) = open_rate_scaled / 100000
+trade_notional_cents = units × Price × 100
+                     = units × (open_rate_scaled / 100000) × 100
+                     = (units × open_rate_scaled × 100) / 100000
 
 agent_commission_cents = trade_notional_cents × agent.commission_rate_bps / 10000
 tl_commission_cents    = trade_notional_cents × tl.override_rate_bps / 10000
+```
+
+**Worked Example:** BUY 10,000 units EURUSD at 1.08500 (open_rate_scaled = 108500), agent commission rate = 20 bps (0.20%):
+```
+Price = 108500 / 100000 = 1.08500
+trade_notional_cents = 10000 × 1.08500 × 100 = 1,085,000 cents = $10,850.00
+agent_commission_cents = 1,085,000 × 20 / 10000 = 2,170 cents = $21.70
 ```
 
 **Commission trigger:**
@@ -458,7 +532,7 @@ ws.on('open', () => {
 | deposit-confirm | Event-driven (NowPayments webhook) | Process confirmed deposits |
 | pnl-snapshot | Cron: `0 0 * * *` (midnight UTC) | Store daily equity snapshot for performance charts |
 | report-generator | On-demand (admin trigger) | Generate CSV/Excel reports and email download link |
-| inactivity-check | Cron: `1 0 1 * *` (00:01 UTC 1st of month) | Charge inactivity fee to qualifying accounts |
+| inactivity-check | Cron: `1 0 1 * *` (00:01 UTC 1st of month) | Charge inactivity fee ($25.00 USD) to qualifying accounts; send pre-charge notification 7 days prior |
 
 ---
 

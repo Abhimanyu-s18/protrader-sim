@@ -74,8 +74,8 @@ CREATE TABLE staff (
   full_name            VARCHAR(255) NOT NULL,
   role                 VARCHAR(30) NOT NULL,              -- SUPER_ADMIN / ADMIN / IB_TEAM_LEADER / AGENT
   team_leader_id       BIGINT REFERENCES staff(id),       -- for AGENTs: their team leader
-  commission_rate_bps  INTEGER DEFAULT 0,                 -- agent per-trade commission in basis points
-  override_rate_bps    INTEGER DEFAULT 0,                 -- team leader override rate in basis points
+  commission_rate_bps  BIGINT DEFAULT 0,                  -- agent per-trade commission in basis points
+  override_rate_bps    BIGINT DEFAULT 0,                  -- team leader override rate in basis points
   ref_code             VARCHAR(50) UNIQUE,                -- referral code for registration links
   pool_code            VARCHAR(50) UNIQUE,                -- pool code for trader registration
   is_active            BOOLEAN DEFAULT TRUE,
@@ -92,12 +92,16 @@ CREATE TABLE staff (
 CREATE TABLE sessions (
   id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id         BIGINT REFERENCES users(id),
-  staff_id        BIGINT REFERENCES staff(id),             -- one of user_id or staff_id is populated
+  staff_id        BIGINT REFERENCES staff(id),
   refresh_token   VARCHAR(512) UNIQUE NOT NULL,
   ip_address      INET,
   user_agent      TEXT,
   expires_at      TIMESTAMPTZ NOT NULL,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT chk_user_or_staff_exclusive CHECK (
+    (user_id IS NOT NULL AND staff_id IS NULL) OR
+    (user_id IS NULL AND staff_id IS NOT NULL)
+  )
 );
 ```
 
@@ -124,7 +128,7 @@ CREATE TABLE instruments (
   swap_buy_bps          BIGINT NOT NULL,                   -- daily swap rate BUY (basis points)
   swap_sell_bps         BIGINT NOT NULL,                   -- daily swap rate SELL (basis points)
   margin_call_bps       BIGINT DEFAULT 10000,              -- 100.00% = 10000 bps
-  stop_out_bps          BIGINT DEFAULT 5000,               -- 50.00% = 5000 bps (OPEN DECISION: may change to 2000)
+  stop_out_bps          BIGINT DEFAULT 5000,               -- 50.00% = 5000 bps — CONFIRMED default value
   commission_type       VARCHAR(20) DEFAULT 'none',        -- none / per_lot / per_share / percentage
   commission_rate       BIGINT DEFAULT 0,                  -- rate value; interpretation depends on commission_type
   trading_hours_start   TIME,                             -- UTC. NULL = 24h
@@ -139,13 +143,17 @@ CREATE TABLE instruments (
 
 ### Commission Type Reference
 
-| Asset Class | commission_type | commission_rate | Applied When |
-|---|---|---|---|
-| Forex (15 pairs) | `none` | 0 | Spread is the sole cost |
-| Indices (15) | `per_lot` | 100 (= $1.00 per lot per side) | Open AND close separately |
-| Commodities (15) | `per_lot` | 150 (= $1.50 per lot per side) | Open AND close separately |
-| Stocks (30) | `per_share` | 2 (= $0.02 per share) | Open AND close separately |
-| Crypto (12) | `percentage` | 10 (= 0.10% of notional) | Open AND close separately |
+| Asset Class | commission_type | commission_rate | Applied When | Rate Units |
+|---|---|---|---|---|
+| Forex (15 pairs) | `none` | 0 | Spread is the sole cost | N/A |
+| Indices (15) | `per_lot` | 100 | Open AND close separately | cents per lot (e.g., 100 = $1.00 per lot) |
+| Commodities (15) | `per_lot` | 150 | Open AND close separately | cents per lot (e.g., 150 = $1.50 per lot) |
+| Stocks (30) | `per_share` | 2 | Open AND close separately | cents per share (e.g., 2 = $0.02 per share) |
+| Crypto (12) | `percentage` | 10 | Open AND close separately | basis points (e.g., 10 = 0.10% of notional value) |
+
+**Rate Units Clarification:**
+- For `per_lot` and `per_share` commission types: commission_rate is stored in **cents** (e.g., 100 = $1.00, 2 = $0.02). To calculate commission, multiply the number of lots/shares by this rate in cents.
+- For `percentage` commission type: commission_rate is stored in **basis points** (e.g., 10 = 0.10%), following the RATE field convention. To calculate commission, multiply the notional value (in cents) by rate_bps / 10000.
 
 ---
 
@@ -203,7 +211,7 @@ CREATE TABLE trades (
   entry_rate_scaled            BIGINT,                  -- for ENTRY orders: target trigger price
   stop_loss_scaled             BIGINT,
   take_profit_scaled           BIGINT,
-  trailing_stop_distance       BIGINT,                  -- trailing stop distance in pips × 100 (null if not set)
+  trailing_stop_distance       BIGINT,                  -- trailing stop distance: pips × 100 for sub-pip precision; null if not set
   peak_price_scaled            BIGINT,                  -- highest (BUY) or lowest (SELL) price since open
   is_protected                 BOOLEAN DEFAULT FALSE,
   protection_fee_cents         BIGINT DEFAULT 0,
@@ -389,7 +397,7 @@ CREATE TABLE ib_commissions (
   trader_id     BIGINT REFERENCES users(id) NOT NULL,
   trade_id      BIGINT REFERENCES trades(id) NOT NULL,
   amount_cents  BIGINT NOT NULL,    -- commission earned on this trade
-  rate_bps      INTEGER NOT NULL,   -- commission rate applied (basis points)
+  rate_bps      BIGINT NOT NULL,    -- commission rate applied (basis points)
   status        VARCHAR(20) DEFAULT 'PENDING',   -- PENDING / PAID
   paid_at       TIMESTAMPTZ,
   created_at    TIMESTAMPTZ DEFAULT NOW()
@@ -511,7 +519,7 @@ This view is the canonical source of truth for account balances. The balance is 
 | USDZAR | USD / South African Rand | 1:200 | 5.0 | 24/5 | -2.0% to -3.5% | -0.5% to +1.0% |
 | USDSGD | USD / Singapore Dollar | 1:200 | 3.0 | 24/5 | -2.0% to -3.5% | -0.5% to +1.0% |
 
-*Non-major cross rates to be confirmed with Victor (Operations) and IB Team Leaders at onboarding.*
+**Swap Rates Resolution:** The ranges shown for GBPJPY, AUDJPY, USDCNH, EURAUD, USDZAR, USDSGD are **placeholder ranges** pending finalization with Victor (Operations) and IB Team Leaders. Before Phase 2 launch, each pair will be assigned a single canonical swap_buy_bps and swap_sell_bps value (recommended: use the midpoint of the range). [TICKET-TBD: Confirm swap rates for non-major crosses]
 
 ### Indices — 15 Instruments
 

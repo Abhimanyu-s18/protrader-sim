@@ -77,7 +77,7 @@ Create a structured todo list and update it as agents complete work:
 - [ ] SUBTASK-003: [description] → @frontend
 
 ### In Progress
-- [~] SUBTASK-00X: [description] → @agent-name
+- [ ] ⏳ SUBTASK-00X: [description] → @agent-name
 
 ### Completed
 - [x] SUBTASK-00X: [description] ✓

@@ -54,20 +54,31 @@ ask_scaled = 108500 + 10 = 108510  →  1.08510
 ## 3. Margin Calculation
 
 ```
-margin_cents = (units × contract_size × open_rate_scaled × 100)
-               / (leverage × 100000)
+margin_cents = (units × open_rate_scaled × 100) / (leverage × PRICE_SCALE)
 ```
 
-`×100` converts scaled price to cents. `/100000` removes price scale. `/leverage` applies leverage.
+Where `PRICE_SCALE = 100000` for all instruments. The formula applies leverage reduction to the notional value:
+- `units × open_rate_scaled` = notional value in scaled price units
+- `× 100` converts to cents (standard US currency precision)
+- `/ PRICE_SCALE` removes the price scaling multiplier
+- `/ leverage` applies the leverage factor
 
-**Example:** BUY 4000 units AUDCAD at 0.95770 (scaled: 95770), leverage 500, contract 100,000:
+**Worked Example:** BUY 10,000 units EURUSD at 1.08500 (open_rate_scaled = 108500), leverage 500:
 ```
-margin_cents = (4000 × 100000 × 95770 × 100) / (500 × 100000)
-             = 38,308,000,000,000 / 50,000,000
-             = 766,160 cents  =  $7,661.60
+margin_cents = (10000 × 108500 × 100) / (500 × 100000)
+             = 1,085,000,000 / 50,000,000
+             = 2,170 cents  =  $21.70
 ```
 
-**Test case (mandatory):** BUY 10,000 units EURUSD at 1.08500, leverage 500 → margin = $21.70 (2170 cents)
+**Additional Example (AUDCAD):** BUY 4000 units AUDCAD at 0.95770 (scaled: 95770), leverage 500, contract_size 100000:
+```
+margin_cents = (4000 × 95770 × 100) / (500 × 100000)
+             = 383,080,000 / 50,000,000
+             = 766 cents  =  $7.66
+```
+Note: contract_size does NOT appear in the margin formula. Margin depends only on units, price, and leverage.
+
+**Test case (mandatory):** BUY 10,000 units EURUSD at 1.08500, leverage 500 → margin = $21.70 (2170 cents) ✓
 
 ---
 
@@ -75,13 +86,13 @@ margin_cents = (4000 × 100000 × 95770 × 100) / (500 × 100000)
 
 **BUY position:**
 ```
-pnl_cents = (current_bid_scaled - open_rate_scaled) × units × contract_size × 100 / 100000
+pnl_cents = (current_bid_scaled - open_rate_scaled) × units × 100 / 100000
 ```
-Subtract open rate from current bid (where the position can be closed).
+Subtract open rate from current bid (where the position can be closed). Note: contract_size does NOT multiply P&L; P&L is always in units of the base currency.
 
 **SELL position:**
 ```
-pnl_cents = (open_rate_scaled - current_ask_scaled) × units × contract_size × 100 / 100000
+pnl_cents = (open_rate_scaled - current_ask_scaled) × units × 100 / 100000
 ```
 Subtract current ask (where the position can be closed) from open rate.
 
@@ -122,8 +133,12 @@ available_cents    = equity_cents - used_margin_cents
 margin_level_bps   = IF used_margin_cents = 0: NULL (display as '--')
                      ELSE: (equity_cents × 10000) / used_margin_cents
                      -- 10000 = 100.00% in basis points. 15000 bps = 150.00%
-buying_power_cents = (available_cents × leverage) / 100
-exposure_cents     = SUM(units × contract_size × current_price_scaled × 100 / 100000) over open trades
+buying_power_cents = available_cents × leverage
+                     -- leverage is a unitless multiplier (e.g., 500 = 500:1 leverage)
+                     -- With $1000 available and leverage 500, buying_power = $500,000
+exposure_cents     = SUM(units × current_price_scaled × 100 / 100000) over open trades
+                     -- Note: exposure does NOT multiply by contract_size to align with margin/P&L formulas
+                     -- Exposure represents traded notional in base currency, not contracted size
 ```
 
 **Test cases (mandatory):**
@@ -137,9 +152,10 @@ exposure_cents     = SUM(units × contract_size × current_price_scaled × 100 /
 Rollover is applied to all open positions at 22:00 UTC server time. Positions opened AND closed before 22:00 on the same day do not incur a charge.
 
 ```
-daily_swap_cents = (units × contract_size × open_rate_scaled × 100 / 100000)
-                   × swap_rate_bps / 10000 / 365
+daily_swap_cents = (units × open_rate_scaled × 100 / 100000) × swap_rate_bps / 10000 / 365
 ```
+
+Note: contract_size does NOT multiply swap charges. Swap is charged on the notional value (units × price), not on the contract size multiple.
 
 `swap_rate_bps` is direction-specific (BUY or SELL rate from swap_rates table).
 Negative result = debit from account. Positive result = credit to account.
@@ -248,27 +264,29 @@ The trailing stop is a dynamic stop-loss that moves with price to lock in profit
 **Phase 1 scope:** Trailing Stop available for Market orders only (not on pending/entry orders).
 
 **Storage:** `trades.trailing_stop_distance BIGINT` — distance in integer pips × 100.
-**State:** `trades.peak_price_scaled BIGINT` — highest (BUY) or lowest (SELL) price since trade open.
+**State:** `trades.extreme_price_scaled BIGINT` — highest price since open (BUY) or lowest price since open (SELL).
 
 **Algorithm (evaluated on every price tick for trades with trailing_stop_distance set):**
 
+For BUY trades, extreme_price_scaled tracks the highest price (peak) reached since trade open. For SELL trades, extreme_price_scaled tracks the lowest price (trough) reached since trade open.
+
 ```
-For BUY trades:
-    IF current_bid > peak_price_scaled:
-        peak_price_scaled = current_bid            -- update peak (favourable move)
-    stop_trigger = peak_price_scaled - (trailing_stop_distance × pip_size)
+For BUY trades (tracking peak):
+    IF current_bid > extreme_price_scaled:
+        extreme_price_scaled = current_bid         -- update peak (favourable move)
+    stop_trigger = extreme_price_scaled - (trailing_stop_distance × pip_size)
     IF current_bid <= stop_trigger:
         close_trade()                              -- trailing stop triggered
 
-For SELL trades:
-    IF current_ask < peak_price_scaled:
-        peak_price_scaled = current_ask            -- update trough (favourable move)
-    stop_trigger = peak_price_scaled + (trailing_stop_distance × pip_size)
+For SELL trades (tracking trough):
+    IF current_ask < extreme_price_scaled:
+        extreme_price_scaled = current_ask         -- update trough (favourable move)
+    stop_trigger = extreme_price_scaled + (trailing_stop_distance × pip_size)
     IF current_ask >= stop_trigger:
         close_trade()                              -- trailing stop triggered
 ```
 
-Trailing stop closure follows the same code path as a standard stop-loss trigger — same ledger entry, same notification, `closed_by = 'TRAILING_STOP'`.
+Trailing stop closure follows the same code path as stop-loss: `closed_by = 'TRAILING_STOP'`, ledger entry created, notification sent.
 
 ---
 
@@ -315,23 +333,65 @@ Pip value is displayed in the trading panel to help traders understand risk per 
 
 Commission is charged at trade open AND trade close separately. Inserted as a ledger transaction with `transaction_type = 'COMMISSION'`.
 
+**Key Definition:** A "lot" is one standard contract of the instrument, measured in units. For example:
+- 1 lot of EURUSD = 100,000 units (contract_size = 100,000)
+- 1 lot of a stock = 1 unit (contract_size = 1)
+- 1 lot of an index = 1 unit (contract_size = 1)
+
+### Notional Value — Two Variants (Critical Distinction)
+
+The term "notional value" is used in different contexts with different definitions:
+
+**Variant 1: notional_for_commission (used for indices/commodities platform commission)**
+```
+notional_for_commission = units × contract_size × price (in cents)
+```
+Used by:** per-lot commission calculations (indices, commodities standard lot definitions)
+
+**Variant 2: notional_for_margin_pnl_rollover_crypto (used for margin, P&L, rollover, and crypto commission)**
+```
+notional_for_margin_pnl_rollover_crypto = units × price (in cents)
+```
+Used by:**
+- Margin calculations (Section 3)
+- P&L calculations (Section 4)
+- Rollover/swap fee calculations (Section 6)
+- Crypto commission (see crypto formula below)
+
+**IB Commissions:** IB commissions use Variant 1 (notional with contract_size) for forex, indices, and commodities:
+```
+ib_commission_cents = (units × contract_size × price_scaled × 100 / PRICE_SCALE) × ib_rate_bps / 10000
+```
+For crypto IB commissions, use Variant 2 (no contract_size): `units × price`.
+
+**Why the distinction?** Indices and commodities charge commission per-lot (a fixed count of contracts), while margin and P&L scale with units directly (base currency amount), not by contract size. Crypto commissions are percentage-based on USD value (no contract_size component). Always verify which variant applies to the formula you're implementing.
+
+**Per-Asset-Class Commission:**
+
 ```
 -- Forex: no commission (spread only)
 commission_cents = 0
 
--- Indices (per_lot):
-notional_lots = (units × contract_size × open_rate_scaled) / (100 × 100000)
-commission_cents = notional_lots × commission_rate   -- rate = 100 cents = $1.00 per lot
+-- Indices (per_lot): charged based on standard lots
+standard_lots = units / contract_size                  -- e.g., 100 units / 1 = 100 lots
+commission_cents = standard_lots × commission_rate     -- e.g., 100 × 100 cents = $100.00
 
--- Commodities (per_lot):
-commission_cents = notional_lots × commission_rate   -- rate = 150 cents = $1.50 per lot
+-- Commodities (per_lot): charged per standard lot
+standard_lots = units / contract_size
+commission_cents = standard_lots × commission_rate     -- e.g., 10 × 150 cents = $15.00 per side
 
--- Stocks (per_share):
-commission_cents = MAX(units × commission_rate, 100)  -- rate = 2 cents per share; minimum $1.00
+-- Stocks (per_share): US stocks with minimum charge
+commission_cents = MAX(units × commission_rate, 100)   -- e.g., 500 shares × 2 cents = $10.00
 
--- Crypto (percentage of notional):
+-- Crypto (percentage of notional): based on USD notional (Variant 2: no contract_size)
 notional_cents = units × open_rate_scaled × 100 / 100000
-commission_cents = notional_cents × commission_rate / 10000  -- rate = 10 bps = 0.10%
+commission_cents = notional_cents × commission_rate / 10000  -- e.g., notional $5000 × 0.10% = $5.00
+```
+
+**Test Case (Indices — US500):** 100 units at 5,123.50 (scaled: 512350000), commission_rate = 100 cents:
+```
+standard_lots = 100 / 1 = 100 lots
+commission_cents = 100 × 100 = 10,000 cents = $100.00 per side (open + close = $200 total)
 ```
 
 ---
@@ -388,11 +448,27 @@ FROM trades WHERE user_id = $1 AND status = 'OPEN';
 SELECT COALESCE(SUM(margin_required_cents), 0) AS used_margin_cents
 FROM trades WHERE user_id = $1 AND status = 'OPEN';
 
--- Step 4: Derive all account metrics
-equity_cents       = balance_cents + unrealized_pnl_cents
-available_cents    = equity_cents - used_margin_cents
-margin_level_bps   = CASE WHEN used_margin_cents = 0 THEN NULL
-                         ELSE (equity_cents × 10000 / used_margin_cents) END
+-- Step 4: Compute all derived metrics in a single SELECT
+SELECT
+  $1 AS user_id,
+  balance_cents,
+  COALESCE(trades_agg.unrealized_pnl_cents, 0) AS unrealized_pnl_cents,
+  COALESCE(trades_agg.used_margin_cents, 0) AS used_margin_cents,
+  (balance_cents + COALESCE(trades_agg.unrealized_pnl_cents, 0)) AS equity_cents,
+  GREATEST(0, (balance_cents + COALESCE(trades_agg.unrealized_pnl_cents, 0) - COALESCE(trades_agg.used_margin_cents, 0))) AS available_cents,
+  CASE WHEN COALESCE(trades_agg.used_margin_cents, 0) = 0 THEN NULL
+       ELSE FLOOR((balance_cents + COALESCE(trades_agg.unrealized_pnl_cents, 0))::NUMERIC * 10000 / COALESCE(trades_agg.used_margin_cents, 0))::BIGINT
+  END AS margin_level_bps
+FROM (
+  SELECT COALESCE(SUM(amount_cents), 0) AS balance_cents
+  FROM ledger_transactions WHERE user_id = $1
+) AS lt
+LEFT JOIN (
+  SELECT
+    SUM(unrealized_pnl_cents) AS unrealized_pnl_cents,
+    SUM(margin_required_cents) AS used_margin_cents
+  FROM trades WHERE user_id = $1 AND status = 'OPEN'
+) AS trades_agg ON true;
 ```
 
 ---

@@ -84,9 +84,17 @@ RUN npm install -g pnpm@9
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Copy package files and install production dependencies only
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/server/package.json ./apps/server/
+COPY packages/database/package.json ./packages/database/
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/config/package.json ./packages/config/
+COPY packages/database/prisma ./packages/database/prisma
+RUN pnpm install --frozen-lockfile --prod
+RUN pnpm --filter @protrader/database generate
+
 COPY --from=builder /app/apps/server/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/database/prisma ./prisma
 
 EXPOSE 3001
 CMD ["node", "dist/index.js"]
@@ -249,9 +257,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: railway/deploy-action@v1
+      - uses: pnpm/action-setup@v3
+        with: { version: 9 }
+      - name: Run database migrations
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @protrader/database migrate:deploy
+        env:
+          DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+      - name: Deploy API to Railway
+        uses: railway/deploy-action@v1
         with:
           service: protrader-api
+          token: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Deploy Frontend to Railway
+        uses: railway/deploy-action@v1
+        with:
+          service: protrader-web
           token: ${{ secrets.RAILWAY_TOKEN }}
 
   deploy-production:
@@ -265,12 +287,72 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-1
-      - name: Build and push to ECR
+      - uses: pnpm/action-setup@v3
+        with: { version: 9 }
+      - name: Setup Node and pnpm
+        uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'pnpm' }
+      - name: Run database migrations
         run: |
-          aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
+          set -e
+          TASK_ARN=$(aws ecs run-task \
+            --cluster protrader-cluster \
+            --task-definition protrader-migrate \
+            --overrides '{"containerOverrides":[{"name":"migrate","command":["pnpm","--filter","@protrader/database","migrate:deploy"]}]}' \
+            --launch-type FARGATE \
+            --region eu-west-1 \
+            --query 'tasks[0].taskArn' \
+            --output text)
+          echo "Migration task started: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster protrader-cluster --tasks "$TASK_ARN" --region eu-west-1
+          echo "Migration task completed"
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+      - name: Build and push server image to ECR
+        run: |
           docker build -t protrader-server -f apps/server/Dockerfile .
+          docker tag protrader-server:latest $ECR_REGISTRY/protrader-server:latest
           docker tag protrader-server:latest $ECR_REGISTRY/protrader-server:$GITHUB_SHA
+          docker push $ECR_REGISTRY/protrader-server:latest
           docker push $ECR_REGISTRY/protrader-server:$GITHUB_SHA
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+      - name: Build and push web frontend image to ECR
+        run: |
+          docker build -t protrader-web -f apps/web/Dockerfile .
+          docker tag protrader-web:latest $ECR_REGISTRY/protrader-web:latest
+          docker tag protrader-web:latest $ECR_REGISTRY/protrader-web:$GITHUB_SHA
+          docker push $ECR_REGISTRY/protrader-web:latest
+          docker push $ECR_REGISTRY/protrader-web:$GITHUB_SHA
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+      - name: Update ECS task definition
+        run: |
+          # Fetch the current task definition
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition protrader-api \
+            --region eu-west-1 \
+            --query 'taskDefinition' \
+            --output json)
+          
+          # Update container images
+          UPDATED_DEF=$(echo $TASK_DEF | jq \
+            --arg SERVER_IMAGE "$ECR_REGISTRY/protrader-server:$GITHUB_SHA" \
+            --arg WEB_IMAGE "$ECR_REGISTRY/protrader-web:$GITHUB_SHA" \
+            '.containerDefinitions |= map(
+              if .name == "api" then .image = $SERVER_IMAGE
+              elif .name == "web" then .image = $WEB_IMAGE
+              else . end
+            ) | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+          
+          # Register the updated task definition
+          aws ecs register-task-definition \
+            --family protrader-api \
+            --region eu-west-1 \
+            --cli-input-json "$(echo $UPDATED_DEF | jq -c .)"
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
       - name: Deploy to ECS
@@ -299,19 +381,43 @@ aws ecs run-task \
   --overrides '{"containerOverrides":[{"name":"migrate","command":["pnpm","--filter","@protrader/database","migrate:deploy"]}]}' \
   --launch-type FARGATE \
   --region eu-west-1
-```
-
----
-
-## Environment Variables — Production Checklist
-
-Required in ECS Task Definition / Railway:
-```
 DATABASE_URL                 ← RDS connection string (prod: use connection pooler like PgBouncer)
+DB_POOL_MIN                  ← 2
+DB_POOL_MAX                  ← 10
 REDIS_URL                    ← ElastiCache Redis cluster endpoint
 JWT_SECRET                   ← Min 256-bit entropy, rotated quarterly
 JWT_EXPIRES_IN               ← 15m
 REFRESH_TOKEN_EXPIRES_IN     ← 7d
+ALLOWED_ORIGINS              ← Comma-separated list of allowed origins (e.g., "https://app.protrader-sim.com,https://admin.protrader-sim.com")
+                             -- This is the canonical CORS configuration variable.
+                             -- The application reads ALLOWED_ORIGINS and parses it as a comma-separated list.
+                             -- DEPRECATED: CORS_ORIGIN (single origin) - migrate to ALLOWED_ORIGINS by using a single-item list
+LOG_LEVEL                    ← info (or warn for production)
+
+# Rate Limiting Configuration (Tiered Strategy)
+# Global defaults - more permissive for trading platform workloads
+RATE_LIMIT_WINDOW_MS         ← 60000 (1 minute - more appropriate for trading)
+RATE_LIMIT_MAX_REQUESTS      ← 1000 (requests per window - adjustable per tier)
+
+# Tiered Rate Limits (per-user plan overrides)
+# Format: {plan}:{window_ms}:{max_requests}:{burst_capacity}
+RATE_LIMIT_TIER_FREE         ← 60000:300:50    # 300 req/min, 50 burst
+RATE_LIMIT_TIER_STANDARD     ← 60000:600:100   # 600 req/min, 100 burst
+RATE_LIMIT_TIER_PREMIUM      ← 60000:1200:200  # 1200 req/min, 200 burst
+RATE_LIMIT_TIER_VIP          ← 60000:3000:500  # 3000 req/min, 500 burst
+
+# Endpoint Category Limits (override tier limits for specific categories)
+# Format: {category}:{window_ms}:{max_requests}
+RATE_LIMIT_CATEGORY_MARKET_DATA   ← 60000:2000    # Higher for price feeds, instruments
+RATE_LIMIT_CATEGORY_TRADING       ← 60000:120     # Lower for order mutations (2/sec)
+RATE_LIMIT_CATEGORY_ACCOUNT       ← 60000:300     # Medium for balance, positions
+RATE_LIMIT_CATEGORY_AUTH          ← 300000:30     # Stricter for login/register (30 per 5 min)
+RATE_LIMIT_CATEGORY_WEBHOOK       ← 60000:5000    # Very high for NowPayments IPN
+
+# Rate Limit Monitoring (enable metrics collection)
+RATE_LIMIT_METRICS_ENABLED   ← true
+RATE_LIMIT_ALERT_THRESHOLD   ← 0.8  # Alert when user hits 80% of limit
+
 TWELVE_DATA_API_KEY          ← From Twelve Data dashboard
 NOWPAYMENTS_API_KEY          ← From NowPayments dashboard
 NOWPAYMENTS_IPN_SECRET       ← Webhook signature key

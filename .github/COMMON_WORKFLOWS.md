@@ -285,17 +285,38 @@ Provide the exact formula used and what's incorrect.
 
 Expected output:
 ```
-Root cause found: Division happens before final CENTS multiplication.
+Root cause found: Integer division before multiplication truncates cents.
 
-Current (WRONG):
-pnl = ((108543 - 108500) * 100000) / 100000 * 100
-    = (43 * 100000) / 100000 * 100
-    = 43 * 100  [precision loss before final conversion]
+Example: BUY 1 unit EURUSD, price delta = 0.00042 pips
+- priceScaled = 108542 (from 1.08542)
+- openPriceScaled = 108500 (from 1.08500)
+- contractSize = 100000
+- leverage = 50
 
-Correct:
-pnl = ((108543 - 108500) * 100000 * 100) / 100000
-    = (43 * 100000 * 100) / 100000
-    = 43 * 100 = 4300 cents (then final scale)
+Current (WRONG) — divides by PRICE_SCALE first:
+pnl = (108542 - 108500) * 100000 * 100 / 100000 / 50
+    = 42 * 100000 * 100 / 100000 / 50
+    = 42 * 100 / 50              [after first division]
+    = 4200 / 50
+    = 84 cents                    [integertruncates remainder]
+
+Correct — multiplies all integers before division:
+pnl = (108542 - 108500) * 100000 * 100 / (100000 * 50)
+    = 42 * 100000 * 100 / 5000000
+    = 420000000 / 5000000
+    = 84 cents                    [same result, but precise]
+
+Bigger precision gap example (larger price move):
+WITH price delta = 0.00567 pips:
+
+Wrong order (divides prematurely):
+    = 567 * 100 / 50 = 56700 / 50 = 1134 cents ← truncation occurred
+
+Correct order (no premature division):
+    = 567 * 100000 * 100 / 5000000 = 5670000000 / 5000000 = 1134 cents
+    
+Note: Both may match for this scale, but order matters when PRICE_SCALE
+is smaller (e.g., crypto with 10000 scale instead of 100000).
 ```
 
 ### Phase 4: Coding Agent Fixes
@@ -387,7 +408,7 @@ Expected output:
 ```sql
 -- Problem: Missing index on trades(user_id, status)
 -- Solution:
-CREATE INDEX idx_trades_user_status ON trades(user_id, status='OPEN');
+CREATE INDEX idx_trades_user_status ON trades(user_id, status);
 
 -- Prisma optimization: Use .include() to fetch instruments in one batch
 const positions = await prisma.trade.findMany({
@@ -933,7 +954,7 @@ describe('GET /api/positions — null wallet edge case', () => {
     const res = await request(app).get('/api/positions')
       .set('Authorization', `Bearer ${token}`)
     
-    expect(res.status).toBe(404 | 500)  // Clarify ideal behavior
+    expect([404, 500]).toContain(res.status)  // Verify either 404 or 500
     expect(res.body.error).toContain('wallet')
   })
 })

@@ -186,7 +186,7 @@ Each `.github/skills/*/SKILL.md` contains:
 - bigint-money-handling (money parsing, precision, validation)
 - financial-calculations (when implementing FIL formulas)
 - trading-calculations (when opening/closing positions)
-- rm-query-optimization (for efficient Prisma queries)
+- orm-query-optimization (for efficient Prisma queries)
 - rbac-implementation (role checks in routes)
 - payment-integration (for deposits/withdrawals)
 - socket-io-real-time (for broadcasting position updates)
@@ -342,5 +342,5 @@ To add a skill (e.g., after discovering a new critical pattern):
 
 - [AGENTS.md](./AGENTS.md) — Full agent registry
 - [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) — Quick agent selector
-- [Skills Directory](./.github/skills/) — All 12 skills
+- [Skills Directory](./skills/) — All 12 skills
 - [WORKSPACE_INSTRUCTIONS.md](./WORKSPACE_INSTRUCTIONS.md) — Onboarding & workflows

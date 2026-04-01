@@ -1,7 +1,6 @@
 ---
 name: KYC Compliance Agent
 description: Ensures KYC document handling follows compliance rules and security requirements
-applyTo: "apps/api/src/routes/kyc.ts"
 ---
 
 # KYC Compliance Agent
@@ -51,6 +50,9 @@ const upload = multer({
 router.post('/documents', upload.single('file'), async (req, res) => {
   if (!req.file) throw new Error('File is required')
   
+  // Extract from validated request
+  const { userId, category } = req.body // Validate these!
+  const ext = path.extname(req.file.originalname)
   const r2Key = `kyc/${userId}/${category}/${crypto.randomUUID()}${ext}`
   
   await r2.send(new PutObjectCommand({
@@ -113,12 +115,15 @@ if (idDocs > 0 && addrDocs > 0) {
 
 ```typescript
 // Generate presigned URLs for viewing (expires in 1 hour)
-const getSignedUrl = async (r2Key: string) => {
+import { getSignedUrl as generatePresignedUrl } from '@aws-sdk/s3-request-presigner'
+import { GetObjectCommand } from '@aws-sdk/client-s3'
+
+const getR2SignedUrl = async (r2Key: string) => {
   const command = new GetObjectCommand({
     Bucket: process.env['CLOUDFLARE_R2_BUCKET_NAME'],
     Key: r2Key,
   })
-  return await getSignedUrl(r2, command, { expiresIn: 3600 })
+  return await generatePresignedUrl(r2, command, { expiresIn: 3600 })
 }
 
 // Staff can only view documents for assigned users
@@ -171,7 +176,7 @@ await prisma.kycAuditLog.create({
     documentId: doc.id,
     ipAddress: req.ip,
     userAgent: req.headers['user-agent'],
-    metadata: { fileName, fileSize: req.file.size },
+    metadata: { fileName: req.file.originalname, fileSize: req.file.size },
   },
 })
 ```

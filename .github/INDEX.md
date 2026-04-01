@@ -150,7 +150,7 @@ Best practices & patterns for specialized areas. These load automatically with a
 
 ## Quick Jump
 
-** I'm ...**
+**I'm...**
 
 - [**New to ProTraderSim**](./WORKSPACE_INSTRUCTIONS.md#onboarding) → 30-minute onboarding
 - [**Building a feature**](./COMMON_WORKFLOWS.md) → Find your workflow

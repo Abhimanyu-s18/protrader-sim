@@ -95,7 +95,7 @@ export function PriceChart({ symbol, height = 400 }: PriceChartProps) {
     fetchCandles()
   }, [symbol])
 
-  // Initialize chart
+  // Initialize chart (only on height changes)
   useEffect(() => {
     if (!containerRef.current) return
 
@@ -120,20 +120,6 @@ export function PriceChart({ symbol, height = 400 }: PriceChartProps) {
       wickDownColor: '#ef4444'
     })
 
-    // Add historical candles
-    candlestickSeries.setData(
-      candles.map(c => ({
-        time: Math.floor(c.timestamp.getTime() / 1000),
-        open: Number(c.open_scaled) / 100000,
-        high: Number(c.high_scaled) / 100000,
-        low: Number(c.low_scaled) / 100000,
-        close: Number(c.close_scaled) / 100000
-      }))
-    )
-
-    // Auto-scale
-    chart.timeScale().fitContent()
-
     chartRef.current = chart
     seriesRef.current = candlestickSeries
 
@@ -154,12 +140,33 @@ export function PriceChart({ symbol, height = 400 }: PriceChartProps) {
     }
   }, [height])
 
+  // Update series data when candles change (no chart recreation)
+  useEffect(() => {
+    if (!seriesRef.current || !candles.length) return
+
+    seriesRef.current.setData(
+      candles.map(c => ({
+        time: Math.floor(new Date(c.timestamp).getTime() / 1000),
+        open: Number(c.open_scaled) / 100000,
+        high: Number(c.high_scaled) / 100000,
+        low: Number(c.low_scaled) / 100000,
+        close: Number(c.close_scaled) / 100000
+      }))
+    )
+
+    // Auto-scale (only when data changes, not on every render)
+    if (chartRef.current) {
+      chartRef.current.timeScale().fitContent()
+    }
+  }, [candles])
+
   // Update with real-time prices
   const prices = usePriceStore((s) => s.prices[symbol])
   useEffect(() => {
     if (!prices || !seriesRef.current) return
 
-    const lastTimestamp = Math.floor(Date.now() / 1000)
+    // Round down to nearest minute (60 seconds)
+    const lastTimestamp = Math.floor(Date.now() / 1000 / 60) * 60
     const mid = (Number(prices.bid) + Number(prices.ask)) / 2 / 100000
 
     // Add or update latest candle (1-minute candle)
@@ -212,7 +219,6 @@ export function ChartWithIndicators({ symbol }: { symbol: string }) {
       priceScale: 'right'  // Use right-side scale
     })
 
-    // Fetch candles + indicators
     fetch(`/api/instruments/${symbol}/candles?indicators=rsi,volume`)
       .then(res => res.json())
       .then(data => {
@@ -220,6 +226,9 @@ export function ChartWithIndicators({ symbol }: { symbol: string }) {
         volumeSeries.setData(data.volume)
         rsiSeries.setData(data.rsi)
         chart.timeScale().fitContent()
+      })
+      .catch(err => {
+        console.error('Failed to fetch candles with indicators:', err)
       })
 
     chartRef.current = chart

@@ -154,7 +154,7 @@ DevOps Agent            █████████            (Focus: database-
 
 #### 5. 🔐 **rbac-implementation**
 **Focus**: 4-tier role hierarchy, authorization middleware, permission checking
-- 4-tier RBAC: SUPER_ADMIN → ADMIN → IB_TEAM_LEADER → AGENT → TRADER
+- 5-tier RBAC: SUPER_ADMIN → ADMIN → IB_TEAM_LEADER → AGENT → TRADER
 - authorize() middleware pattern, service-level re-checking
 - Permission tables (16 models), staff hierarchy
 - Primary agents: @security, @coding

@@ -225,8 +225,12 @@ io.adapter(createAdapter(pubClient, subClient))
 ### Margin Recalculation Job (High-Volume)
 ```typescript
 // Process in batches — don't load all traders at once
+import pLimit from 'p-limit'
+
 async function processMarginRecalculation(job: Job) {
   const BATCH_SIZE = 100
+  const CONCURRENCY_LIMIT = 10  // Process 10 traders at a time
+  const limit = pLimit(CONCURRENCY_LIMIT)
   let cursor: string | undefined
 
   do {
@@ -239,13 +243,12 @@ async function processMarginRecalculation(job: Job) {
     })
 
     // Process batch with concurrency control
-    await Promise.all(traders.map(t => recalculateTraderMargin(t.id)))
+    await Promise.all(traders.map(t => limit(() => recalculateTraderMargin(t.id))))
 
     cursor = traders.length === BATCH_SIZE ? traders[BATCH_SIZE - 1].id : undefined
     await job.updateProgress(/* ... */)
   } while (cursor)
 }
-```
 
 ### Job Result Cleanup
 ```typescript

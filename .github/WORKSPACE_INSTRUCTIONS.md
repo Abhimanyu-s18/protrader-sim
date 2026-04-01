@@ -142,11 +142,11 @@ Trader clicks "Open Position" on platform (3002)
 | File | Purpose |
 |------|---------|
 | `CLAUDE.md` | Developer identity & code preferences (you reading it) |
-| `.github/copilot-instructions.md` | Project context for AI agents |
-| `.github/AGENTS.md` | Registry of 14 specialized agents |
-| `.github/QUICK_REFERENCE.md` | Quick agent activation guide |
-| `.github/agents/*.agent.md` | Individual agent system prompts |
-| `.github/skills/*/SKILL.md` | Domain-specific best practices |
+| `copilot-instructions.md` | Project context for AI agents |
+| `AGENTS.md` | Registry of 14 specialized agents |
+| `QUICK_REFERENCE.md` | Quick agent activation guide |
+| `agents/*.agent.md` | Individual agent system prompts |
+| `skills/*/SKILL.md` | Domain-specific best practices |
 | `packages/db/prisma/schema.prisma` | Database schema (the source of truth) |
 | `apps/api/src/lib/calculations.ts` | All financial math (CRITICAL) |
 | `apps/api/src/routes/` | API endpoints |
@@ -194,7 +194,7 @@ Orchestrator (coordinator)
 
 ### Skills vs. Agents
 
-**Skills** = Best practices & patterns for a domain (stored in `.github/skills/*/SKILL.md`)
+**Skills** = Best practices & patterns for a domain (stored in `skills/*/SKILL.md`)
 - `database-schema-design` — How to design tables, use BIGINT, index strategy
 - `financial-calculations` — P&L, margin, leverage formulas with BigInt
 - `api-route-creation` — Layering rules, validation, error handling
@@ -361,7 +361,7 @@ SUBTASK-6: Docs → Update API docs
    if (!user) throw new ApiError(404, 'User not found')
    ```
 
-See [TROUBLESHOOTING.md](.github/TROUBLESHOOTING.md) for more.
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for more.
 
 ### Financial calculations are off by a few cents
 
@@ -375,9 +375,9 @@ See [TROUBLESHOOTING.md](.github/TROUBLESHOOTING.md) for more.
 **Fix**:
 1. Check `apps/api/src/lib/calculations.ts` — this is the source of truth
 2. Verify: division is ALWAYS last
-3. Read [financial-calculations SKILL](.github/skills/financial-calculations/SKILL.md)
+3. Read [financial-calculations SKILL](skills/financial-calculations/SKILL.md)
 
-See [TROUBLESHOOTING.md](.github/TROUBLESHOOTING.md) for more.
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for more.
 
 ### Socket.io connections keep dropping
 
@@ -393,7 +393,7 @@ See [TROUBLESHOOTING.md](.github/TROUBLESHOOTING.md) for more.
 2. Check room names match: `socket.join('prices:EURUSD')`
 3. Verify auth middleware: `socket.handshake.auth.token`
 
-See [TROUBLESHOOTING.md](.github/TROUBLESHOOTING.md) & [socket-io-real-time SKILL](.github/skills/socket-io-real-time/SKILL.md).
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) & [socket-io-real-time SKILL](skills/socket-io-real-time/SKILL.md).
 
 ---
 
@@ -431,7 +431,7 @@ equity = balance + unrealizedP&L
 
 **Trade Close Reasons**: USER, STOP_LOSS, TAKE_PROFIT, TRAILING_STOP, MARGIN_CALL, STOP_OUT, ADMIN, EXPIRED
 
-See [PTS-CALC-001_Trading_Calculations.md](../../docs/Core%20Technical%20Specifications/PTS-CALC-001_Trading_Calculations.md) for full formulas.
+See [PTS-CALC-001_Trading_Calculations.md](../docs/Core Technical Specifications/PTS-CALC-001_Trading_Calculations.md) for full formulas.
 
 ### Database Schema Overview
 
@@ -449,7 +449,7 @@ See [PTS-CALC-001_Trading_Calculations.md](../../docs/Core%20Technical%20Specifi
 - All prices in **BIGINT ×100000**
 - Instrument fields: `contractSize`, `leverage`, `spreadPips`, `pipDecimalPlaces`, `marginCallBps`, `stopOutBps`
 
-See [packages/db/prisma/schema.prisma](../../packages/db/prisma/schema.prisma) for complete schema.
+See [packages/db/prisma/schema.prisma](../packages/db/prisma/schema.prisma) for complete schema.
 
 ---
 
@@ -457,13 +457,13 @@ See [packages/db/prisma/schema.prisma](../../packages/db/prisma/schema.prisma) f
 
 | Document | Purpose | Audience |
 |----------|---------|----------|
-| [QUICK_REFERENCE.md](.github/QUICK_REFERENCE.md) | 1-page agent selector | All developers |
-| [AGENTS.md](.github/AGENTS.md) | 14-agent registry | All developers |
-| [AGENT_SKILLS_INTEGRATION.md](.github/AGENT_SKILLS_INTEGRATION.md) | How skills work with agents | Advanced developers |
-| [COMMON_WORKFLOWS.md](.github/COMMON_WORKFLOWS.md) | Step-by-step task guides | Feature developers |
-| [TROUBLESHOOTING.md](.github/TROUBLESHOOTING.md) | Diagnosis & fixes | Debugging developers |
-| [copilot-instructions.md](.github/copilot-instructions.md) | Project context for AI | AI agents |
-| [CLAUDE.md](../../CLAUDE.md) | Developer identity & preferences | Krishan + all contributors |
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | 1-page agent selector | All developers |
+| [AGENTS.md](AGENTS.md) | 14-agent registry | All developers |
+| [AGENT_SKILLS_INTEGRATION.md](AGENT_SKILLS_INTEGRATION.md) | How skills work with agents | Advanced developers |
+| [COMMON_WORKFLOWS.md](COMMON_WORKFLOWS.md) | Step-by-step task guides | Feature developers |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Diagnosis & fixes | Debugging developers |
+| [copilot-instructions.md](copilot-instructions.md) | Project context for AI | AI agents |
+| [CLAUDE.md](../CLAUDE.md) | Developer identity & preferences | Krishan + all contributors |
 
 ---
 

@@ -1,7 +1,6 @@
 ---
 name: UI Component Agent
 description: Ensures UI components use CVA for variants and follow the design system
-applyTo: "packages/ui/src/components/**/*.tsx"
 ---
 
 # UI Component Agent
@@ -47,26 +46,26 @@ const componentVariants = cva(
 )
 
 // ── Props Interface ─────────────────────────────────────────────
-export interface ComponentProps
-  extends React.HTMLAttributes<HTMLElement>,
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof componentVariants> {
   loading?: boolean
-  disabled?: boolean
 }
 
 // ── Component ───────────────────────────────────────────────────
-export const Component = React.forwardRef<HTMLElement, ComponentProps>(
-  ({ className, variant, size, loading, children, ...props }, ref) => (
-    <element
-      className={cn(componentVariants({ variant, size, className }))}
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, loading, children, disabled, ...props }, ref) => (
+    <button
+      className={cn(componentVariants({ variant, size }), className)}
       ref={ref}
+      disabled={disabled || loading}
       {...props}
     >
-      {children}
-    </element>
+      {loading ? '...' : children}
+    </button>
   )
 )
-Component.displayName = 'Component'
+Button.displayName = 'Button'
 ```
 
 ## Design System Tokens

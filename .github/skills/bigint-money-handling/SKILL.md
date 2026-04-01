@@ -14,8 +14,8 @@ Master the safe conversion, storage, and validation of all monetary values in Pr
 **Single Source of Truth**: All money flows through the `ledger_transactions` table.
 
 ```
-User Balance = SUM(debit - credit) from ALL ledger_transactions for that user
-              (Never stored directly — always computed)
+User Balance = SUM(amount_cents) from ALL ledger_transactions for that user
+              (Credits are positive, debits are negative; Never stored directly — always computed)
 ```
 
 Example ledger entry:
@@ -23,7 +23,7 @@ Example ledger entry:
 id | user_id | type       | amount_cents | balance_after_cents | created_at
 ---|---------|------------|--------------|---------------------|----
 1  | 123     | DEPOSIT    | 500000       | 500000               | 2026-03-01
-2  | 123     | TRADE_LOSS | 25000        | 475000               | 2026-03-02
+2  | 123     | TRADE_LOSS | -25000       | 475000               | 2026-03-02
 3  | 123     | WITHDRAWAL| -100000       | 375000               | 2026-03-03
 ```
 
@@ -58,12 +58,21 @@ const forDisplay: MoneyString = centsToDollars(centsValue)  // "10050" (stored a
 ```typescript
 /**
  * Convert dollar amount to cents (BigInt)
- * @param dollars "100.50" or 100.50
+ * @param dollars "100.50" (must be a string to maintain precision)
  * @returns 10050n
  */
-export function dollarsToCents(dollars: string | number): bigint {
-  const str = String(dollars)
-  const [whole, fraction = '00'] = str.split('.')
+export function dollarsToCents(dollars: string): bigint {
+  // Validate input is a string
+  if (typeof dollars !== 'string') {
+    throw new Error('dollarsToCents requires a string input (e.g., "100.50")')
+  }
+  
+  // Validate format: optional leading digits, optional two-decimal fraction
+  if (!/^\d+(\.\d{1,2})?$/.test(dollars)) {
+    throw new Error(`Invalid dollar format: "${dollars}". Expected format: "100.50"`)
+  }
+  
+  const [whole, fraction = '00'] = dollars.split('.')
   const frac = fraction.padEnd(2, '0').slice(0, 2)
   return BigInt(whole + frac)
 }
@@ -83,8 +92,11 @@ export function centsToDollars(cents: bigint): MoneyString {
  * @returns "$100.50"
  */
 export function formatMoney(cents: bigint): string {
-  const dollars = Number(cents) / 100
-  return `$${dollars.toFixed(2)}`
+  const sign = cents < 0n ? '-' : ''
+  const absCents = cents < 0n ? -cents : cents
+  const integerDollars = absCents / 100n
+  const remainderCents = absCents % 100n
+  return `${sign}$${integerDollars.toString()}.${remainderCents.toString().padStart(2, '0')}`
 }
 ```
 
@@ -98,8 +110,24 @@ import { PriceString, priceToScaled, scaledToPrice } from '@protrader/utils'
 const PRICE_SCALE = 100000n
 
 // Quote: EUR/USD = 1.08500
-const scaledPrice = 1.08500 * PRICE_SCALE  // 108500n
-const scaledPrice = 108500n                 // Directly as BigInt
+const scaledPrice = 108500n                 // Directly as BigInt (5 decimals × PRICE_SCALE)
+
+// Helper to convert string price to scaled BigInt (e.g., "1.08500" → 108500n)
+function priceToScaled(priceString: string): bigint {
+  if (typeof priceString !== 'string') {
+    throw new Error('priceToScaled requires a string input')
+  }
+  if (!/^\d+(\.\d{1,5})?$/.test(priceString)) {
+    throw new Error(`Invalid price format: "${priceString}". Expected format: "1.08500"`)
+  }
+  const parts = priceString.split('.')
+  const whole = BigInt(parts[0] || '0')
+  const fraction = parts[1] || '0'
+  const scaledFraction = BigInt(fraction.padEnd(5, '0').slice(0, 5))
+  return whole * PRICE_SCALE + scaledFraction
+}
+
+const scaledPrice2 = priceToScaled('1.08500')  // 108500n
 
 // Back to readable price
 const readable = Number(scaledPrice) / Number(PRICE_SCALE)  // 1.08500
@@ -157,12 +185,12 @@ async function recordDebit(
     throw new Error('Insufficient balance')
   }
 
-  // 3. Create ledger entry
+  // 3. Create ledger entry (store debit as negative)
   const entry = await prisma.ledger_Transaction.create({
     data: {
       user_id: userId,
       type,
-      amount_cents: amountCents.toString(),
+      amount_cents: (-amountCents).toString(),
       balance_after_cents: (currentBalance - amountCents).toString()
     }
   })
@@ -182,7 +210,7 @@ async function recordDebit(
 export type MoneyString = string & { readonly __brand: 'MoneyString' }
 export type PriceString = string & { readonly __brand: 'PriceString' }
 
-function masMoney(value: string): MoneyString {
+function asMoney(value: string): MoneyString {
   return value as MoneyString
 }
 

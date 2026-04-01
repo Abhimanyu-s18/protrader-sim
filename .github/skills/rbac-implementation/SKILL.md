@@ -78,11 +78,14 @@ model Staff {
   id              String   @id @default(cuid())
   email           String   @unique
   role            String   // "AGENT"
-  users_managed   String[] // Array of trader IDs recruited
   team_leader_id  String?  // Who manages this agent
   status          String   @default("ACTIVE")
   commission_rate Int      // Basis points (e.g., 50 = 0.5%)
   created_at      DateTime @default(now())
+  
+  // Relations (from StaffManagedUser pivot table)
+  users_managed   StaffManagedUser[]
+  auditLogs       AuditLog[]
 }
 
 // IB_AGENT (alias AGENT) can:
@@ -99,16 +102,24 @@ model Staff {
 // Agent can view stats of traders they recruited
 const agent = await prisma.staff.findUnique({
   where: { id: req.user.id },
-  include: { users_managed: true }
+  select: { id: true, role: true }
 })
 
 if (agent?.role !== 'AGENT') {
   throw new ApiError('UNAUTHORIZED', 403, 'Not an agent')
 }
 
+// Fetch related users through the pivot table
+const managedUsers = await prisma.staffManagedUser.findMany({
+  where: { staff_id: agent.id },
+  select: { user_id: true }
+})
+
+const userIds = managedUsers.map(m => m.user_id)
+
 // Only view own traders
 const trades = await prisma.trade.findMany({
-  where: { user_id: { in: agent.users_managed } }
+  where: { user_id: { in: userIds } }
 })
 ```
 
@@ -161,6 +172,7 @@ const trades = await prisma.trade.findMany({
 // middleware/role.ts
 import { Request, Response, NextFunction } from 'express'
 import { ApiError } from '../lib/errors'
+import { prisma } from '../lib/prisma'  // Add this import
 
 /**
  * Check if user has required role
@@ -291,11 +303,16 @@ router.get(
     
     const agentIds = agents.map(a => a.id)
     
-    // Get trades from these agents' traders
+    // Get trades from these agents' traders via StaffManagedUser pivot
+    const managedUsers = await prisma.staffManagedUser.findMany({
+      where: { staff_id: { in: agentIds } },
+      select: { user_id: true }
+    })
+    
+    const traderIds = managedUsers.map(m => m.user_id)
+    
     const trades = await prisma.trade.findMany({
-      where: {
-        user: { staff_manager_id: { in: agentIds } }
-      }
+      where: { user_id: { in: traderIds } }
     })
     
     res.json(apiResponse.success(trades))
@@ -346,7 +363,7 @@ export async function approveWithdrawal(
   })
 
   // 3. Log audit trail
-  await prisma.audit_log.create({
+  await prisma.auditLog.create({
     data: {
       action: 'WITHDRAWAL_APPROVED',
       actor_id: approverStaffId,
@@ -356,6 +373,25 @@ export async function approveWithdrawal(
   })
 
   return withdrawal
+}
+```
+
+### Audit Log Schema
+
+```prisma
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // WITHDRAWAL_APPROVED, KYC_REVIEWED, etc.
+  actor_id  String   // FK to Staff who performed action
+  target_id String   // FK to affected resource (user_id, withdrawal_id, etc.)
+  metadata  Json?    // Optional: additional context
+  timestamp DateTime @default(now())
+  
+  actor     Staff    @relation(fields: [actor_id], references: [id], onDelete: Cascade)
+  
+  @@index([actor_id])
+  @@index([action])
+  @@index([timestamp])
 }
 ```
 

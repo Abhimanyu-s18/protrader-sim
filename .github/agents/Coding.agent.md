@@ -60,9 +60,13 @@ HTTP Request → Route Handler → Service Function → Database/External APIs
 ```typescript
 // ✅ CORRECT — Route delegates to service
 // apps/server/src/routes/withdrawals.routes.ts
-router.post('/', authMiddleware, roleMiddleware(['TRADER']), validateMiddleware(CreateWithdrawalSchema), async (req, res) => {
-  const result = await withdrawalService.createWithdrawal(req.user.id, req.body)
-  res.status(201).json({ success: true, data: result })
+router.post('/', authMiddleware, roleMiddleware(['TRADER']), validateMiddleware(CreateWithdrawalSchema), async (req, res, next) => {
+  try {
+    const result = await withdrawalService.createWithdrawal(req.user.id, req.body)
+    res.status(201).json({ success: true, data: result })
+  } catch (error) {
+    next(error)
+  }
 })
 
 // ❌ WRONG — Business logic in route
@@ -161,9 +165,12 @@ export class [Domain]Service {
   async create(traderId: string, input: Create[Domain]Input) {
     // 1. Validate business rules (not HTTP — that's middleware's job)
     // 2. Wrap financial mutations in transactions
-    // 3. Return typed result
-
-    return await prisma.$transaction(async (tx) => {
+      const wallet = await tx.traderWallet.findUnique({
+        where: { trader_id: traderId }
+      })
+      if (!wallet) {
+        throw new AppError('WALLET_NOT_FOUND', 404)
+      }
       // All DB operations inside transaction for financial consistency
       const wallet = await tx.traderWallet.findUniqueOrThrow({
         where: { trader_id: traderId }
@@ -177,10 +184,11 @@ export class [Domain]Service {
 
       const record = await tx.[model].create({ data: { ... } })
 
-      // Update wallet inside same transaction
+      // Update wallet inside same transaction — use explicit assignment instead of decrement
+      const newFreeMargin = wallet.free_margin - amountCents
       await tx.traderWallet.update({
         where: { trader_id: traderId },
-        data: { free_margin: { decrement: amountCents } }
+        data: { free_margin: newFreeMargin }
       })
 
       return record
@@ -196,7 +204,17 @@ import { z } from 'zod'
 
 export const Create[Domain]Schema = z.object({
   body: z.object({
-    amountCents: z.number().int().positive().min(100), // Min $1.00 = 100 cents
+    amountCents: z.string().regex(/^\d+$/).refine(
+      (val) => {
+        try {
+          const bigIntVal = BigInt(val)
+          return bigIntVal >= 100n // Min $1.00 = 100 cents
+        } catch {
+          return false
+        }
+      },
+      { message: 'amountCents must be a valid integer string >= 100' }
+    ), // Min $1.00 = 100 cents, must be string to preserve precision
     cryptoAddress: z.string().min(26).max(62),          // Crypto address validation
     cryptoCurrency: z.enum(['USDT_TRC20', 'USDT_ERC20', 'ETH']),
   })
@@ -243,8 +261,16 @@ const margin = (lotSize * openPrice * 100) / leverage  // Regular number = float
 ```typescript
 // In service return values / API responses:
 return {
-  balance: Number(wallet.balance),        // cents as number — safe for amounts < 2^53
-  balanceDisplay: wallet.balance.toString() // for very large amounts, use string
+  balance: (() => {
+    // Verify BigInt is safe to convert to Number (< 2^53 - 1)
+    const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER)
+    if (wallet.balance >= 0n && wallet.balance <= MAX_SAFE) {
+      return Number(wallet.balance) // cents as number — safe for amounts < 2^53
+    } else {
+      return wallet.balance.toString() // Use string for very large amounts
+    }
+  })(),
+  balanceDisplay: wallet.balance.toString() // for display, always use string
 }
 ```
 

@@ -14,13 +14,13 @@ Master Prisma schema design for ProTraderSim's PostgreSQL 17 database. Every tab
 ### 1. **Money is BIGINT Cents (Never Stored as Balance)**
 
 ```prisma
-// ✅ CORRECT — Store as BIGINT, never store balance
+// ✅ CORRECT — Store as BIGINT, compute balance from ledger
 model LedgerTransaction {
   id                String   @id @default(cuid())
   user_id           String
   type              String   // DEPOSIT, WITHDRAWAL, TRADE_LOSS, FEE
   amount_cents      BigInt   // Signed: positive credit, negative debit
-  balance_after_cents BigInt // Snapshot for audit only
+  balance_after_cents BigInt // Immutable snapshot for audit only (never a canonical balance)
   created_at        DateTime @default(now())
   
   @@index([user_id, created_at])
@@ -34,7 +34,7 @@ model TraderWallet {
 }
 ```
 
-**Rule**: Balance = SUM(amount_cents) from ledger for that user. Compute, never store.
+**Rule**: Compute balance as SUM(LedgerTransaction.amount_cents) for that user. Never persist balance on user-facing wallet records. Immutable per-transaction snapshots like LedgerTransaction.balance_after_cents are permitted solely for auditing and reconciliation purposes.
 
 ### 2. **Prices are BIGINT Scaled ×100000**
 
@@ -99,11 +99,12 @@ model User {
   
   // Relations
   trades          Trade[]
-  positions       Position[]
   ledger          LedgerTransaction[]
   withdrawals     WithdrawalRequest[]
   deposits        DepositRequest[]
   kyc_documents   KycDocument[]
+  sessions        Session[]
+  managed_by      StaffManagedUser[]
   
   @@index([email])
   @@index([pool_code])
@@ -115,6 +116,10 @@ model Session {
   token         String   @unique
   expires_at    DateTime
   created_at    DateTime @default(now())
+  
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id])
 }
 ```
 
@@ -135,6 +140,7 @@ model Instrument {
   twelve_data_symbol String   // For market data API
   is_active          Boolean  @default(true)
   created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
   
   // Relations
   trades             Trade[]
@@ -159,6 +165,7 @@ model Trade {
   margin_used_cents   BigInt   // BIGINT cents
   swap_charged_cents  BigInt   @default(0)      // Accumulating
   created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
   
   // Relations
   user                User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -197,6 +204,7 @@ model DepositRequest {
   tx_hash         String?  // Blockchain transaction
   confirmed_at    DateTime?
   created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
   
   user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   
@@ -214,6 +222,7 @@ model WithdrawalRequest {
   rejected_reason String?
   completed_at    DateTime?
   created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
   
   user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   
@@ -231,12 +240,14 @@ model KycDocument {
   type            String   // PASSPORT, ID_CARD, PROOF_OF_ADDRESS
   cloudflare_key  String   // S3 key in R2
   status          String   @default("PENDING")  // PENDING, APPROVED, REJECTED
-  reviewed_by     String?  // Admin user_id
+  reviewed_by     String?  // Admin user_id (FK)
   rejection_reason String?
   uploaded_at     DateTime @default(now())
   reviewed_at     DateTime?
+  updated_at      DateTime @updatedAt
   
   user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  reviewer        Staff?   @relation(fields: [reviewed_by], references: [id], onDelete: SetNull)
   
   @@index([user_id, type])
   @@index([status])
@@ -251,8 +262,27 @@ model Staff {
   email           String   @unique
   role            String   // SUPER_ADMIN, ADMIN, IB_TEAM_LEADER, AGENT
   status          String   @default("ACTIVE")  // ACTIVE, INACTIVE
-  users_managed   String[] // Array of user_ids if IB_AGENT
   created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  // Relations
+  users_managed   StaffManagedUser[]
+  kyc_reviews     KycDocument[]
+  
+  @@index([email])
+  @@index([role])
+}
+
+model StaffManagedUser {
+  id        String   @id @default(cuid())
+  staff_id  String
+  user_id   String
+  
+  staff     Staff    @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+  user      User     @relation("manages", fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@unique([staff_id, user_id])
+  @@index([user_id])
 }
 
 model IbCommission {
@@ -263,6 +293,9 @@ model IbCommission {
   commission_cents BigInt  // = (trade_value * rate_bps) / BPS_SCALE
   paid             Boolean  @default(false)
   created_at      DateTime @default(now())
+  
+  trade           Trade    @relation(fields: [trade_id], references: [id], onDelete: Cascade)
+  ib_agent        Staff    @relation(fields: [ib_agent_id], references: [id], onDelete: Restrict)
   
   @@index([ib_agent_id, paid])
   @@index([trade_id])

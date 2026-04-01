@@ -189,12 +189,98 @@ const swapChargeCents = (marginUsedCents * BigInt(swapRateBps)) / BPS_SCALE
 
 ---
 
+## 🔄 Safe Price Conversion from External APIs
+
+### When Number Inputs Are OK
+
+**External APIs return Number prices**—this is normal and safe ONLY at the API boundary. Examples:
+- Twelve Data WebSocket: `{ bid: 1.08500, ask: 1.08505, mid: 1.08502 }` (JavaScript Number)
+- NowPayments quote API: `{ rate: 0.00012345 }` (JavaScript Number)
+- Internal price cache: Retrieve as Number, then convert
+
+**Rule**: Accept Number from APIs, but **convert to BigInt immediately** before any calculations.
+
+### Safe Conversion Pattern
+
+**❌ WRONG — Floating-point multiplication:**
+```typescript
+const openRateScaled = BigInt(Math.round(prices.mid * Number(PRICE_SCALE)))
+// Loses precision due to double rounding
+```
+
+**✅ CORRECT — String-based conversion:**
+```typescript
+/**
+ * Convert a numeric API price (e.g., 1.08500) to scaled BigInt (108500n)
+ * via safe string manipulation, avoiding floating-point arithmetic entirely.
+ * 
+ * @param price - number from API (e.g., 1.08500)
+ * @returns BigInt scaled by PRICE_SCALE (e.g., 108500n)
+ */
+function priceToScaled(price: number): bigint {
+  // Convert to string and pad/truncate to exactly 5 decimals
+  const str = price.toFixed(5) // e.g., "1.08500"
+  const [whole, frac] = str.split('.')
+  const wholePart = BigInt(whole || '0')
+  const fracPart = BigInt((frac || '00000').substring(0, 5).padEnd(5, '0'))
+  return wholePart * PRICE_SCALE + fracPart
+}
+
+// Usage
+const openRateScaled = priceToScaled(prices.mid)  // Safe, no Number arithmetic
+```
+
+### Why This Works
+
+1. **Avoids floating-point**: `toFixed()` rounds in decimal space, not binary
+2. **Exact precision**: We know we want exactly 5 decimals (PRICE_SCALE = 100000)
+3. **BigInt-only after boundary**: All arithmetic is BigInt from this point forward
+4. **Audit trail**: Code explicitly shows price is from API (Input) and result is scaled (Output)
+
+### Input Validation for Prices
+
+Before using any price from an external source:
+
+```typescript
+/**
+ * Validate and sanitize a price from an external API
+ */
+function validatePrice(price: unknown): number {
+  // Type check
+  if (typeof price !== 'number' || Number.isNaN(price)) {
+    throw new Error('Price must be a valid number')
+  }
+  
+  // Range check (positive, reasonable bounds)
+  if (price <= 0 || price > 1000000) {
+    throw new Error(`Price out of range: ${price}`)
+  }
+  
+  // Decimal precision check (not more than 8 decimals in practice)
+  const str = price.toString()
+  const decimalPlaces = str.includes('.') ? str.split('.')[1].length : 0
+  if (decimalPlaces > 8) {
+    throw new Error(`Price has too many decimals: ${price}`)
+  }
+  
+  return price
+}
+
+// Usage at API boundary
+const prices = await getPrices(symbol)
+const validatedMid = validatePrice(prices.mid)
+const openRateScaled = priceToScaled(validatedMid)  // Now safe to scale
+```
+
+---
+
 ## ✅ Implementation Checklist
 
 ### Before Writing Formula Code
 - [ ] Is this formula documented in CLAUDE.md or calculations.ts?
 - [ ] Did I import PRICE_SCALE and BPS_SCALE?
 - [ ] Am I using BigInt everywhere (no Number casts)?
+- [ ] **For prices from APIs**: Am I converting via string (priceToScaled) NOT floating-point multiply?
 - [ ] Is division the **last operation**?
 - [ ] Will the result fit in a BIGINT (< 2^63 - 1)?
 
@@ -231,7 +317,9 @@ async openPosition(
   const prices = await getPrices(symbol) // { bid, ask, mid }
   
   // 2. Determine open rate (mid for better UX)
-  const openRateScaled = prices.mid * PRICE_SCALE
+  // Assuming prices.mid is a regular number from API (e.g., 1.08500)
+  // SAFE CONVERSION: Convert via string to avoid floating-point arithmetic
+  const openRateScaled = priceToScaled(prices.mid.toString())
   
   // 3. Calculate margin required
   const marginCents = (

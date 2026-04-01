@@ -14,18 +14,7 @@ Master **Prisma + PostgreSQL** query design for <100ms response times. Eliminate
 ### Check Query Logs
 
 ```typescript
-// Enable Prisma query logging
-// .env.local
-DATABASE_URL="postgresql://...?schema=public"
-DEBUG="prisma:*"  // Logs all queries in dev
-
-// Run server
-pnpm --filter @protrader/api dev
-```
-
-### Analyze Performance
-
-```typescript
+// Enable Prisma query logging in code
 // apps/api/src/lib/prisma.ts
 const prisma = new PrismaClient({
   log: [
@@ -61,7 +50,7 @@ async function getPositionsWithTraderEmails(limit: number = 10) {
       id: true,
       symbol: true,
       units: true,
-      // NO user data
+      user_id: true,  // Include user_id to reference it
     }
   })
 
@@ -127,8 +116,8 @@ const user = await db.user.findUnique({
   select: {
     id: true,
     email: true,
-    kyc_status: true,
-    balance: true  // DON'T select, compute from ledger instead
+    kyc_status: true
+    // Don't select balance - compute from ledger instead
   }
 })
 ```
@@ -153,11 +142,14 @@ const position = await db.trade.findUnique({
 ### Pattern 3: Pagination with Cursor
 
 ```typescript
-// Get next 50 positions after positionId 123
+// Get next 50 positions after positionId 123 (filter by open status)
 const positions = await db.trade.findMany({
   skip: 1,  // Skip cursor itself
   take: 50,  // Next 50
   cursor: { id: '123' },
+  where: {
+    status: 'OPEN'  // or use: closed_at: null (both are valid, prefer status when it's an enum)
+  },
   select: {
     id: true,
     symbol: true,
@@ -219,12 +211,12 @@ async function getAccountMetrics(userId: string) {
   })
 
   const margins = await db.trade.findMany({
-    where: { user_id: userId, closed_at: null },
+    where: { user_id: userId, status: 'OPEN' },
     select: { margin_used_cents: true }
   })
 
   const pnlPositions = await db.trade.findMany({
-    where: { user_id: userId, closed_at: null }
+    where: { user_id: userId, status: 'OPEN' },
     // ... fetch all open trades to calculate P&L
   })
 
@@ -236,7 +228,7 @@ async function getAccountMetrics(userId: string) {
 ### Efficient Approach (Aggregate + Single Query)
 
 ```typescript
-// GOOD: Leverage Prisma aggregates + select
+// ✅ GOOD: Leverage Prisma aggregates + select
 async function getAccountMetrics(userId: string) {
   // Balance from ledger
   const { _sum: balanceSum } = await db.ledgerTransaction.aggregate({
@@ -269,7 +261,17 @@ async function getAccountMetrics(userId: string) {
 
   // Calculate unrealized P&L (client-side with fresh prices)
   // NOTE: P&L must use latest prices from Redis
-  const prices = await redis.get(`prices:all`)
+  const prices: Record<string, any> = {}
+  const priceKeys = await redis.keys('prices:*')
+  if (priceKeys.length > 0) {
+    const priceValues = await redis.mget(...priceKeys)
+    priceKeys.forEach((key, idx) => {
+      if (priceValues[idx]) {
+        const symbol = key.replace('prices:', '')
+        prices[symbol] = JSON.parse(priceValues[idx])
+      }
+    })
+  }
   let unrealized_pnl_cents = 0n
 
   for (const pos of openPositions) {
@@ -355,8 +357,7 @@ model Trade {
 ✅ created_at DESC (ordered lists)
 
 // Bad indexes (avoid):
-❌ Low-cardinality columns (status, direction — only 2-4 values)
-❌ Columns in WHERE that are very selective only if also in JOIN
+❌ Standalone indexes on low-cardinality columns (e.g., @@index([status]) alone) — these benefit little from a dedicated index, but including them as trailing columns in composite indexes is useful when paired with a highly selective leading column (e.g., @@index([user_id, status]))
 ❌ Compound indexes with >3 columns (diminishing returns)
 ```
 
@@ -389,8 +390,19 @@ export async function getDashboard(userId: string) {
     })
   )
 
-  // 4. Fetch all prices from Redis (100ms)
-  const prices = await redis.getall('prices:*')
+  // 4. Fetch all prices from Redis
+  const pricesKeys = await redis.keys('prices:*')
+  const prices: Record<string, any> = {}
+  
+  if (pricesKeys.length > 0) {
+    const priceValues = await redis.mget(...pricesKeys)
+    pricesKeys.forEach((key, idx) => {
+      if (priceValues[idx]) {
+        const symbol = key.replace('prices:', '')
+        prices[symbol] = JSON.parse(priceValues[idx])
+      }
+    })
+  }
 
   // Total: 5 + 50 + 250 + 100 = ~405ms
   return aggregateDashboard(user, tradesWithInstruments, prices)

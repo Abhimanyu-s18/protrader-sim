@@ -45,7 +45,7 @@ pnpm format
 
 ## Architecture
 
-### Apps (6 Next.js + 1 Express)
+### Apps (5 Next.js + 1 Express)
 
 | App | Port | Purpose |
 |-----|------|---------|

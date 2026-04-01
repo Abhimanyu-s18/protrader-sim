@@ -431,7 +431,7 @@ const PRICE_SCALE = 100000n
 docker exec protrader-redis redis-cli LLEN bull:margin-watch:jobs
 
 # Check logs
-pnpm --filter @protrader/api dev 2>&1 | grep "stop.out|margin.call"
+pnpm --filter @protrader/api dev 2>&1 | grep -E "stop\.out|margin\.call"
 ```
 
 **Fix**:
@@ -639,7 +639,7 @@ cat packages/config/tailwind.config.ts | grep content
 **Common causes**:
 - Template path not in tailwind.config.ts `content` array
 - Build cache not cleared
-- Using dynamic class names (not in configat build time)
+- Using dynamic class names (not in config at build time)
 
 **Fix**:
 ```typescript
@@ -819,7 +819,8 @@ async approveWithdrawal(withdrawalId) {
 **If stuck on "Building"**:
 ```bash
 # Check logs
-railway logs ap
+# Check logs
+railway logs api
 
 # Check build errors
 railway logs --tail -f

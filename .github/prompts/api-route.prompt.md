@@ -1,7 +1,6 @@
 ---
 name: API Route Agent
 description: Ensures Express API routes follow platform conventions for typing, rate limiting, and responses
-applyTo: "apps/api/src/routes/**/*.ts"
 ---
 
 # API Route Agent
@@ -135,24 +134,26 @@ router.get('/health', async (req, res) => {
 
 ```typescript
 import { errorHandler } from '../middleware/errorHandler.js'
+import { ValidationError } from '../lib/errors.js'
 
-// In route
+// In route - always follows this pattern
 try {
   const result = await riskyOperation()
   res.json({ data: result })
 } catch (err) {
+  // Check for ValidationError and return 400
   if (err instanceof ValidationError) {
-    res.status(400).json({
+    return res.status(400).json({
       error_code: 'VALIDATION_ERROR',
       message: err.message,
       details: err.details
     })
-  } else {
-    next(err) // Pass to global error handler
   }
+  // All other errors pass to global handler
+  next(err)
 }
 
-// Global handler (in index.ts)
+// Global handler (in index.ts) - catches all forwarded errors
 app.use(errorHandler)
 ```
 

@@ -5,9 +5,9 @@
   "condition": {
     "type": "workflow_compliance_check",
     "criteria": {
-      "task_was_complex": true,
-      "orchestrator_not_used": true,
-      "specialist_agents_involved": true
+      "task_was_complex": "${complexity_analysis.is_complex}",
+      "orchestrator_not_used": "${!context.used_orchestrator}",
+      "specialist_agents_involved": "${context.agent_count >= 2}"
     }
   },
   "action": {

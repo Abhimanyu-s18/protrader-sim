@@ -31,17 +31,7 @@ export async function createDepositRequest(userId: string, data: {
     throw new ApiError('MAXIMUM_DEPOSIT', 400, 'Maximum deposit is $100,000')
   }
 
-  // Create NowPayments invoice
-  const nowPaymentInvoice = await nowPayments.createInvoice({
-    price_amount: centsToDollars(data.amount_cents),
-    price_currency: "USD",
-    order_id: `deposit_${userId}_${Date.now()}`,
-    ipn_callback_url: `${API_URL}/webhooks/nowpayments`,
-    success_url: `${PLATFORM_URL}/deposits/success`,
-    cancel_url: `${PLATFORM_URL}/deposits/cancel`
-  })
-
-  // Create DB record in PENDING state
+  // Create DB record first in PENDING state with temporary invoice ID
   const depositRequest = await db.depositRequest.create({
     data: {
       user_id: userId,
@@ -49,13 +39,55 @@ export async function createDepositRequest(userId: string, data: {
       currency: data.currency,
       network: data.network,
       status: 'PENDING',
-      nowpayments_invoice_id: nowPaymentInvoice.id,
+      nowpayments_invoice_id: null,  // Will update after invoice creation succeeds
       nowpayments_payment_id: null,
       transaction_hash: null,
       created_at: new Date(),
       updated_at: new Date()
     }
   })
+  
+  // Create NowPayments invoice and update deposit atomically
+  // Separate short DB transaction for invoice assignment (avoids long-running transaction block)
+  let nowPaymentInvoice
+  try {
+    nowPaymentInvoice = await nowPayments.createInvoice({
+      price_amount: centsToDollars(data.amount_cents),
+      price_currency: "USD",
+      order_id: `deposit_${userId}_${Date.now()}`,
+      ipn_callback_url: `${API_URL}/webhooks/nowpayments`,
+      success_url: `${PLATFORM_URL}/deposits/success`,
+      cancel_url: `${PLATFORM_URL}/deposits/cancel`
+    })
+  } catch (err) {
+    // NowPayments creation failed — enqueue background cleanup job instead of synchronous delete
+    // This ensures we don't lose the audit record and can retry reconciliation after recovery
+    await queue.add('cleanup-orphaned-deposit', {
+      deposit_id: depositRequest.id,
+      reason: 'nowpayments_creation_failed',
+      error: err.message
+    })
+    throw err
+  }
+  
+  // Update with invoice ID in a short transaction (retriable on failure)
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.depositRequest.update({
+        where: { id: depositRequest.id },
+        data: { nowpayments_invoice_id: nowPaymentInvoice.id }
+      })
+    })
+  } catch (err) {
+    // Update failed — enqueue job to retry assignment (or manual reconciliation)
+    // The invoice is created in NowPayments; we just need to link it in our DB
+    await queue.add('reconcile-deposit-invoice', {
+      deposit_id: depositRequest.id,
+      nowpayments_invoice_id: nowPaymentInvoice.id,
+      reason: 'invoice_assignment_failed'
+    })
+    throw err
+  }
 
   // Return payment URL to frontend
   return {
@@ -98,26 +130,48 @@ export async function handleNowPaymentsIPN(req: Request) {
   
   // 2. Handle payment confirmation
   if (event.payment_status === 'finished') {
-    // Idempotency: Check if we already processed this
-    const existingTx = await db.depositRequest.findUnique({
-      where: { nowpayments_payment_id: event.payment_id }
-    })
+    // Idempotency: Check via deposit status (works for all confirmation levels)
+    // Deposit moves from PENDING → CONFIRMED (confirmations < 3) → COMPLETED (confirmations >= 3)
+    if (depositRequest.status === 'COMPLETED') {
+      // Already at final state, return 200 to acknowledge
+      return { success: true }
+    }
     
-    if (existingTx?.status === 'COMPLETED') {
-      // Already processed, return 200 to acknowledge
+    if (depositRequest.status === 'CONFIRMED' && event.confirmations < 3) {
+      // Already reported as CONFIRMED; ignore duplicate webhook
       return { success: true }
     }
 
-    // Find matching deposit request
-    const depositRequest = await db.depositRequest.findUnique({
-      where: { nowpayments_invoice_id: event.invoice_id }
+    // 3. Update deposit status to CONFIRMED (1-3 confirmations)
+    // Transition PENDING → CONFIRMED when confirmations < 3
+    let updatedStatus = 'CONFIRMED'
+    if (event.confirmations >= 3) {
+      updatedStatus = 'COMPLETED'
+    }
+    
+    await db.depositRequest.update({
+      where: { id: depositRequest.id },
+      data: {
+        status: updatedStatus,
+        nowpayments_payment_id: event.payment_id,
+        // NowPayments webhook sends payin_hash; we store it as transaction_hash for canonical naming
+        transaction_hash: event.payin_hash || event.transaction_hash,
+        updated_at: new Date()
+      }
     })
     
-    if (!depositRequest) {
-      throw new ApiError('DEPOSIT_NOT_FOUND', 404)
+    // Only add credit to balance and ledger when COMPLETED (>=3 confirmations)
+    if (updatedStatus !== 'COMPLETED') {
+      // Emit intermediate state update
+      emitToUser(depositRequest.user_id, 'deposit:confirmed', {
+        deposit_id: depositRequest.id,
+        status: 'CONFIRMED',
+        confirmations: event.confirmations
+      })
+      return { success: true }
     }
-
-    // 3. Add credit to balance via ledger
+    
+    // 4. Add credit to balance via ledger (only at COMPLETED)
     const ledgerTx = await db.ledgerTransaction.create({
       data: {
         user_id: depositRequest.user_id,
@@ -141,14 +195,30 @@ export async function handleNowPaymentsIPN(req: Request) {
       }
     })
 
+    // Compute new balance (already includes the deposit we just added to ledger)
+    const newBalance = centsToDollars(await getBalance(depositRequest.user_id))
+    
     // 5. Send email notification
+    const user = await db.user.findUnique({
+      where: { id: depositRequest.user_id },
+      select: { email: true }
+    })
+    
+    if (!user) {
+      throw new ApiError('USER_NOT_FOUND', 404, 'User not found for deposit confirmation')
+    }
+    
     await resend.emails.send({
       from: 'noreply@protrader.com',
-      to: depositRequest.user.email,
+      to: user.email,
+    
+    await resend.emails.send({
+      from: 'noreply@protrader.com',
+      to: user.email,
       subject: 'Deposit Confirmed',
       react: <DepositConfirmEmail 
         amount={centsToDollars(depositRequest.amount_cents)}
-        balance={centsToDollars(newBalance)}
+        balance={newBalance}
       />
     })
 
@@ -163,10 +233,22 @@ export async function handleNowPaymentsIPN(req: Request) {
 
   // Handle failed/canceled payments
   if (event.payment_status === 'failed') {
-    await db.depositRequest.update({
-      where: { id: depositRequest.id },
-      data: { status: 'FAILED', updated_at: new Date() }
+    // Fetch depositRequest for the failed payment (may not exist yet)
+    const failedDeposit = await db.depositRequest.findUnique({
+      where: { nowpayments_invoice_id: event.invoice_id }
     })
+    
+    if (failedDeposit) {
+      await db.depositRequest.update({
+        where: { id: failedDeposit.id },
+        data: { status: 'FAILED', updated_at: new Date() }
+      })
+      
+      emitToUser(failedDeposit.user_id, 'deposit:failed', {
+        deposit_id: failedDeposit.id,
+        status: 'FAILED'
+      })
+    }
   }
 
   return { success: true }
@@ -188,29 +270,48 @@ export async function createWithdrawalRequest(userId: string, data: {
   currency: "USDT" | "ETH" | "BTC"
   wallet_address: string
 }) {
-  // Get user balance
-  const balance = await getBalance(userId)
-  
-  // Validate
-  if (data.amount_cents > balance) {
-    throw new ApiError('INSUFFICIENT_BALANCE', 400, 'Balance insufficient')
-  }
-  
-  if (data.amount_cents < 2000n) {  // $20 minimum
-    throw new ApiError('MINIMUM_WITHDRAWAL', 400, 'Minimum withdrawal is $20')
-  }
-
-  // Create withdrawal request (admin approval required)
-  const withdrawalRequest = await db.withdrawalRequest.create({
-    data: {
-      user_id: userId,
-      amount_cents: data.amount_cents,
-      currency: data.currency,
-      wallet_address: data.wallet_address,
-      status: 'PENDING_APPROVAL',  // Admin must approve
-      created_at: new Date(),
-      updated_at: new Date()
+  // ATOMIC TRANSACTION with FOR UPDATE lock to prevent TOCTOU race
+  // Lock user row to prevent concurrent balance depletion across API instances
+  const withdrawalRequest = await db.$transaction(async (tx) => {
+    // Lock user ledger row to serialize balance checks
+    await tx.$queryRaw`SELECT 1 FROM users WHERE id = ${userId} FOR UPDATE`
+    
+    // Get user balance (computed from ledger within this transaction)
+    const balance = await getBalance(userId)
+    
+    // Get total pending withdrawals (within transaction for consistency)
+    const pendingWithdrawals = await tx.withdrawalRequest.aggregate({
+      where: {
+        user_id: userId,
+        status: { in: ['PENDING_APPROVAL', 'PROCESSING'] }
+      },
+      _sum: { amount_cents: true }
+    })
+    
+    const pendingAmount = pendingWithdrawals._sum.amount_cents ?? 0n
+    const availableBalance = balance - pendingAmount
+    
+    // Validate INSIDE transaction (after lock acquired)
+    if (data.amount_cents > availableBalance) {
+      throw new ApiError('INSUFFICIENT_BALANCE', 400, 'Balance insufficient (including pending withdrawals)')
     }
+    
+    if (data.amount_cents < 2000n) {  // $20 minimum
+      throw new ApiError('MINIMUM_WITHDRAWAL', 400, 'Minimum withdrawal is $20')
+    }
+
+    // Create withdrawal request atomically within transaction (admin approval required)
+    return await tx.withdrawalRequest.create({
+      data: {
+        user_id: userId,
+        amount_cents: data.amount_cents,
+        currency: data.currency,
+        wallet_address: data.wallet_address,
+        status: 'PENDING_APPROVAL',  // Admin must approve
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+    })
   })
 
   // Notify admins
@@ -241,56 +342,100 @@ export async function adminApproveWithdrawal(withdrawalId: string, adminId: stri
   // Verify admin
   const admin = await db.staff.findUnique({
     where: { id: adminId },
-    select: { role: true }
-  })
-  
-  if (admin?.role !== 'ADMIN' && admin?.role !== 'SUPER_ADMIN') {
-    throw new ApiError('FORBIDDEN', 403)
-  }
-
-  // Lock: prevent double-processing
-  const withdrawal = await db.withdrawalRequest.findUnique({
-    where: { id: withdrawalId },
-    select: { status: true, user_id: true, amount_cents: true }
-  })
-  
-  if (withdrawal?.status !== 'PENDING_APPROVAL') {
-    throw new ApiError('INVALID_STATE', 400, 'Already processed')
-  }
-
-  // Issue payment via NowPayments
-  const nowPaymentTx = await nowPayments.createPayoutTransaction({
-    amount: centsToDollars(withdrawal.amount_cents),
-    currency: withdrawal.currency,
-    address: withdrawal.wallet_address,
-    order_id: `withdrawal_${withdrawalId}`
-  })
-
-  // Update withdrawal
-  await db.withdrawalRequest.update({
-    where: { id: withdrawalId },
+  // Atomic compare-and-swap: only update if status is PENDING_APPROVAL
+  const updateResult = await db.withdrawalRequest.updateMany({
+    where: { 
+      id: withdrawalId,
+      status: 'PENDING_APPROVAL'  // Only update if still pending
+    },
     data: {
       status: 'PROCESSING',
-      nowpayments_payout_id: nowPaymentTx.id,
+      approved_by: adminId,
+      approved_at: new Date(),
       updated_at: new Date()
     }
   })
-
-  // Deduct from balance (ledger entry)
-  const ledgerTx = await db.ledgerTransaction.create({
-    data: {
-      user_id: withdrawal.user_id,
-      type: 'WITHDRAWAL',
-      amount_cents: -withdrawal.amount_cents,  // Negative
-      balance_after_cents: (await getBalance(withdrawal.user_id)) - withdrawal.amount_cents,
-      reference_id: withdrawalId,
-      reference_type: 'WITHDRAWAL_REQUEST',
-      created_at: new Date()
+  
+  if (updateResult.count === 0) {
+    throw new ApiError('INVALID_STATE', 400, 'Withdrawal already processed or not found')
+  }
+  
+  // Fetch the updated record
+  const updatedWithdrawal = await db.withdrawalRequest.findUnique({
+    where: { id: withdrawalId }
+  })
+  const withdrawal = await db.withdrawalRequest.findUnique({
+    where: { id: withdrawalId }
+  })
+  
+  if (updatedWithdrawal.status !== 'PROCESSING') {
+    throw new ApiError('INVALID_STATE', 400, 'Already processed')
+  }
+  } catch (err) {
+    // NowPayments failed — revert status only if we own this approval
+    const current = await db.withdrawalRequest.findUnique({
+      where: { id: withdrawalId }
+    })
+    
+    // Only revert if we're the ones who set it to PROCESSING and no payout ID exists
+    if (current?.status === 'PROCESSING' && !current.nowpayments_payout_id) {
+      await db.withdrawalRequest.update({
+        where: { id: withdrawalId },
+        data: { status: 'PENDING_APPROVAL', updated_at: new Date() }
+      })
     }
+    throw err
+  }
+      order_id: `withdrawal_${withdrawalId}`
+    })
+  } catch (err) {
+  // Deduct from balance (ledger entry) with transaction lock to prevent race
+  const ledgerTx = await db.$transaction(async (tx) => {
+    // Lock user record to prevent concurrent balance modifications
+    await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${updatedWithdrawal.user_id} FOR UPDATE`
+    
+    // Get current balance
+    const currentBalance = await tx.ledgerTransaction.aggregate({
+      where: { user_id: updatedWithdrawal.user_id },
+      _sum: { amount_cents: true }
+    })
+    const balanceBefore = currentBalance._sum.amount_cents ?? 0n
+    const newBalance = balanceBefore - updatedWithdrawal.amount_cents
+    
+    // Create ledger entry
+    return await tx.ledgerTransaction.create({
+      data: {
+        user_id: updatedWithdrawal.user_id,
+        type: 'WITHDRAWAL',
+        amount_cents: -updatedWithdrawal.amount_cents,  // Negative (debit)
+        balance_after_cents: newBalance,
+        idempotency_key: `withdrawal_${withdrawalId}`,
+        reference_id: withdrawalId,
+        reference_type: 'WITHDRAWAL_REQUEST',
+        created_at: new Date()
+      }
+    })
+  })
+    const balanceBefore = currentBalance._sum.amount_cents ?? 0n
+    const newBalance = balanceBefore - updatedWithdrawal.amount_cents
+    
+    // Create ledger entry
+    return await tx.ledgerTransaction.create({
+      data: {
+        user_id: updatedWithdrawal.user_id,
+        type: 'WITHDRAWAL',
+        amount_cents: -updatedWithdrawal.amount_cents,  // Negative (debit)
+        balance_after_cents: newBalance,
+        idempotency_key: `withdrawal_${withdrawalId}`,
+        reference_id: withdrawalId,
+        reference_type: 'WITHDRAWAL_REQUEST',
+        created_at: new Date()
+      }
+    })
   })
 
   // Emit update to trader
-  emitToUser(withdrawal.user_id, 'withdrawal:approved', {
+  emitToUser(updatedWithdrawal.user_id, 'withdrawal:approved', {
     withdrawal_id: withdrawalId,
     status: 'PROCESSING'
   })
@@ -310,7 +455,13 @@ if (event.type === 'payout_finished') {
     where: { nowpayments_payout_id: event.payout_id }
   })
 
-  if (withdrawal?.status === 'COMPLETED') {
+  if (!withdrawal) {
+    // Withdrawal not found — log but don't error (idempotency)
+    console.warn(`Payout finished but no withdrawal found: ${event.payout_id}`)
+    return { success: true }
+  }
+
+  if (withdrawal.status === 'COMPLETED') {
     return { success: true }  // Already processed
   }
 
@@ -361,6 +512,10 @@ export function verifyNowPaymentsSignature(
     .digest('hex')
   
   // Use constant-time comparison to prevent timing attacks
+  if (signature.length !== expected.length) {
+    return false
+  }
+  
   return crypto.timingSafeEqual(
     Buffer.from(signature),
     Buffer.from(expected)
@@ -466,7 +621,7 @@ if (withdrawalAmount > freeBalance) {
 
 ```
 DEPOSIT:
-PENDING → CONFIRMED → COMPLETED
+PENDING → CONFIRMED (1-3 confirmations) → COMPLETED (>=3 confirmations)
          → FAILED
 
 WITHDRAWAL:
@@ -511,7 +666,7 @@ enum WithdrawalStatus {
 
 | ❌ Wrong | ✅ Correct |
 |---------|-----------|
-| Trust webhook amount | Verify against DB record |
+| Trust NowPayments directly | Verify status in NowPayments API |
 | No idempotency key | Include payment_id as unique key |
 | Process webhook without signature check | Always verify HMAC |
 | No balance re-check in withdrawal | Must verify balance at approval time |
