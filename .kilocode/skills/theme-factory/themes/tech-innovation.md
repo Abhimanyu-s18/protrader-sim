@@ -4,8 +4,8 @@ A bold and modern theme with high-contrast colors perfect for cutting-edge techn
 
 ## Color Palette
 
-- **Electric Blue**: `#0066ff` - Vibrant primary accent
-- **Neon Cyan**: `#00ffff` - Bright highlight color
+- **Electric Blue**: `#0088ff` - Vibrant primary accent (WCAG AA: 5.35:1 contrast vs Dark Gray)
+- **Neon Cyan**: `#00ffff` - Bright highlight color (WCAG AAA: 13.66:1 contrast vs Dark Gray)
 - **Dark Gray**: `#1e1e1e` - Deep backgrounds
 - **White**: `#ffffff` - Clean text and contrast
 

@@ -3,11 +3,11 @@
 Skill Packager - Creates a distributable zip file of a skill folder
 
 Usage:
-    python utils/package_skill.py <path/to/skill-folder> [output-directory]
+    python scripts/package_skill.py <path/to/skill-folder> [output-directory]
 
 Example:
-    python utils/package_skill.py skills/public/my-skill
-    python utils/package_skill.py skills/public/my-skill ./dist
+    python scripts/package_skill.py skills/public/my-skill
+    python scripts/package_skill.py skills/public/my-skill ./dist
 """
 
 import sys

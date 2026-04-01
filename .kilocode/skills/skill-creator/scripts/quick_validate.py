@@ -29,16 +29,19 @@ def validate_skill(skill_path):
     
     frontmatter = match.group(1)
     
-    # Check required fields
-    if 'name:' not in frontmatter:
+    # Check required fields using line-anchored regex to avoid false positives
+    if not re.search(r'^\s*name\s*:', frontmatter, re.MULTILINE):
         return False, "Missing 'name' in frontmatter"
-    if 'description:' not in frontmatter:
+    if not re.search(r'^\s*description\s*:', frontmatter, re.MULTILINE):
         return False, "Missing 'description' in frontmatter"
     
     # Extract name for validation
-    name_match = re.search(r'name:\s*(.+)', frontmatter)
+    name_match = re.search(r'^\s*name\s*:\s*(.+)', frontmatter, re.MULTILINE)
     if name_match:
         name = name_match.group(1).strip()
+        # Strip surrounding quotes if present
+        if (name.startswith('"') and name.endswith('"')) or (name.startswith("'") and name.endswith("'")):
+            name = name[1:-1]
         # Check naming convention (hyphen-case: lowercase with hyphens)
         if not re.match(r'^[a-z0-9-]+$', name):
             return False, f"Name '{name}' should be hyphen-case (lowercase letters, digits, and hyphens only)"
@@ -46,7 +49,7 @@ def validate_skill(skill_path):
             return False, f"Name '{name}' cannot start/end with hyphen or contain consecutive hyphens"
 
     # Extract and validate description
-    desc_match = re.search(r'description:\s*(.+)', frontmatter)
+    desc_match = re.search(r'^\s*description\s*:\s*(.+)', frontmatter, re.MULTILINE)
     if desc_match:
         description = desc_match.group(1).strip()
         # Check for angle brackets

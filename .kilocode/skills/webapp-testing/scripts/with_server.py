@@ -19,6 +19,9 @@ import socket
 import time
 import sys
 import argparse
+import os
+import signal
+import platform
 
 def is_server_ready(port, timeout=30):
     """Wait for server to be ready by polling the port."""
@@ -59,6 +62,7 @@ def main():
         servers.append({'cmd': cmd, 'port': port})
 
     server_processes = []
+    is_windows = platform.system() == 'Windows'
 
     try:
         # Start all servers
@@ -66,12 +70,23 @@ def main():
             print(f"Starting server {i+1}/{len(servers)}: {server['cmd']}")
 
             # Use shell=True to support commands with cd and &&
-            process = subprocess.Popen(
-                server['cmd'],
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
+            # Create process groups to cleanly terminate all child processes
+            popen_kwargs = {
+                'shell': True,
+                'stdout': subprocess.DEVNULL,
+                'stderr': subprocess.PIPE,  # Capture stderr for debugging
+                'text': True,  # Decode bytes to strings
+            }
+            
+            # Set up process group based on platform
+            if not is_windows:
+                # POSIX: create new session (process group)
+                popen_kwargs['preexec_fn'] = os.setsid
+            else:
+                # Windows: create new process group
+                popen_kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+            
+            process = subprocess.Popen(server['cmd'], **popen_kwargs)
             server_processes.append(process)
 
             # Wait for this server to be ready
@@ -89,15 +104,48 @@ def main():
         sys.exit(result.returncode)
 
     finally:
-        # Clean up all servers
+        # Clean up all servers (terminate entire process group, not just shell)
         print(f"\nStopping {len(server_processes)} server(s)...")
         for i, process in enumerate(server_processes):
             try:
-                process.terminate()
+                if not is_windows:
+                    # POSIX: kill entire process group (session)
+                    os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                else:
+                    # Windows: send CTRL_BREAK_EVENT to process group, then forcefully terminate tree
+                    try:
+                        process.send_signal(signal.CTRL_BREAK_EVENT)
+                    except (OSError, AttributeError, ValueError):
+                        # If CTRL_BREAK_EVENT fails, fall back to taskkill
+                        subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)], 
+                                     capture_output=True, timeout=5)
+                
+                # Wait for process to terminate
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                process.kill()
+                # Force kill if graceful termination fails
+                if not is_windows:
+                    try:
+                        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                    except (OSError, ProcessLookupError):
+                        pass
+                else:
+                    process.kill()
                 process.wait()
+            except (OSError, ProcessLookupError):
+                # Process already terminated
+                pass
+            
+            # Close stderr and log any remaining output
+            if process.stderr:
+                try:
+                    stderr_output = process.stderr.read()
+                    if stderr_output.strip():
+                        print(f"Server {i+1} stderr:\n{stderr_output}")
+                    process.stderr.close()
+                except Exception as e:
+                    print(f"Warning: Failed to read stderr for server {i+1}: {e}")
+            
             print(f"Server {i+1} stopped")
         print("All servers stopped")
 

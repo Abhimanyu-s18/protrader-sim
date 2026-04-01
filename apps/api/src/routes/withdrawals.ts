@@ -4,7 +4,6 @@ import { prisma } from '../lib/prisma.js'
 import { requireAuth, requireKYC } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
 import { serializeBigInt, formatCents } from '../lib/calculations.js'
-import { prisma as db } from '../lib/prisma.js'
 
 export const withdrawalsRouter = Router()
 withdrawalsRouter.use(requireAuth)
@@ -27,20 +26,28 @@ withdrawalsRouter.post('/', requireKYC, async (req, res, next) => {
     const amountCents = BigInt(amount_cents)
 
     // Check available balance
-    const [balanceRow] = await db.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${userId}) AS balance_cents`
-    const openTrades = await prisma.trade.findMany({ where: { userId, status: 'OPEN' }, select: { marginRequiredCents: true, unrealizedPnlCents: true } })
-    const usedMargin = openTrades.reduce((s, t) => s + t.marginRequiredCents, 0n)
-    const unrealized = openTrades.reduce((s, t) => s + t.unrealizedPnlCents, 0n)
-    const available = balanceRow.balance_cents + unrealized - usedMargin
-
-    if (amountCents > available) { next(Errors.insufficientFunds()); return }
-
-    // Deduct immediately to prevent double withdrawal
+    // Deduct immediately to prevent double withdrawal - within transaction with proper isolation
     const withdrawal = await prisma.$transaction(async (tx) => {
+      // Lock balance calculation by querying within transaction
+      const [balanceRow] = await tx.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${userId}) AS balance_cents`
+      const currentBalance = balanceRow?.balance_cents ?? 0n
+
+      // Query trades inside transaction for consistent reads
+      const openTrades = await tx.trade.findMany({ where: { userId, status: 'OPEN' }, select: { marginRequiredCents: true, unrealizedPnlCents: true } })
+      const usedMargin = openTrades.reduce((s, t) => s + t.marginRequiredCents, 0n)
+      const unrealized = openTrades.reduce((s, t) => s + t.unrealizedPnlCents, 0n)
+
+      const available = currentBalance + unrealized - usedMargin
+
+      if (amountCents > available) {
+        throw Errors.insufficientFunds()
+      }
+
+      const newBalance = currentBalance - amountCents
+
       const w = await tx.withdrawal.create({
         data: { userId, amountCents, cryptoCurrency: crypto_currency, walletAddress: wallet_address, reason: reason ?? null },
       })
-      const newBalance = balanceRow.balance_cents - amountCents
       await tx.ledgerTransaction.create({
         data: {
           userId, transactionType: 'WITHDRAWAL', amountCents: -amountCents,
@@ -49,6 +56,9 @@ withdrawalsRouter.post('/', requireKYC, async (req, res, next) => {
         },
       })
       return w
+    }, {
+      // Serializable isolation for financial consistency
+      isolationLevel: 'Serializable',
     })
 
     res.status(201).json(serializeBigInt({ ...withdrawal, amount_formatted: formatCents(withdrawal.amountCents) }))

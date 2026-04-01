@@ -140,14 +140,32 @@ When a user requests file organization help:
    
    When requested, search for duplicates:
    ```bash
-   # Find exact duplicates by hash
-   find [directory] -type f -exec md5 {} \; | sort | uniq -d
+   # Find exact duplicates by hash (portable across macOS/Linux)
+   if command -v md5sum &> /dev/null; then
+     # Linux: md5sum
+     find [directory] -type f -exec md5sum {} + | awk '{print $1}' | sort | uniq -d
+   else
+     # macOS: md5
+     find [directory] -type f -exec md5 -r {} + | awk '{print $1}' | sort | uniq -d
+   fi
    
-   # Find files with same name
-   find [directory] -type f -printf '%f\n' | sort | uniq -d
+   # Find files with same name (portable: use sed instead of -printf)
+   find [directory] -type f | sed 's|.*/||' | sort | uniq -d
    
-   # Find similar-sized files
-   find [directory] -type f -printf '%s %p\n' | sort -n
+   # Find similar-sized files (portable: use stat with platform detection)
+   if [[ "$OSTYPE" == "darwin"* ]]; then
+     # macOS: stat -f
+     find [directory] -type f -exec stat -f "%z %N" {} + | sort -n
+   else
+     # Linux: stat -c
+     find [directory] -type f -exec stat -c "%s %n" {} + | sort -n
+   fi
+   ```
+   
+   **Alternative**: Use established tools like `fdupes` (faster, cross-platform):
+   ```bash
+   # Find duplicates (macOS: brew install fdupes, Linux: apt-get install fdupes)
+   fdupes -r [directory]
    ```
    
    For each set of duplicates:
@@ -362,7 +380,38 @@ Photos/
 └── Unsorted/
 ```
 
-Then moves photos based on EXIF data or file modification dates.
+Then moves photos based on EXIF metadata or file modification dates.
+
+**How to extract and use dates**:
+
+1. **From EXIF (preferred, requires exiftool)**:
+   ```bash
+   # Installation: macOS: brew install exiftool | Linux: apt-get install libimage-exiftool-perl
+   # Extract DateTimeOriginal from photo
+   exiftool -n -d "%Y/%m-%B" -fileorder DateTimeOriginal "[directory]/*.jpg" | grep "Directory"
+   
+   # Move photo to year/month folder based on EXIF date
+   exiftool -d "Photos/%Y/%m-%%B/%%f%%le" -o "Photos/%Y/%m-%(DateTimeOriginal)" "[photo.jpg]"
+   ```
+
+2. **Fallback to file modification date** (no external tools needed):
+   ```bash
+   # macOS: stat -f
+   stat -f "%Sm" -t "%Y-%m" [photo.jpg]
+   
+   # Linux: stat -c
+   stat -c %y [photo.jpg] | cut -d' ' -f1 | tr '-' '/'
+   
+   # Move based on modification date
+   for file in [directory]/*.{jpg,png,jpeg}; do
+     if command -v exiftool &> /dev/null; then
+       date=$(exiftool -d "%Y/%m" -DateTimeOriginal "$file" | cut -d: -f2-)
+     else
+       date=$(stat -f "%Sm" -t "%Y/%m" "$file" 2>/dev/null || stat -c %y "$file" | cut -d- -f1-2 | tr '-' '/')
+     fi
+     mkdir -p "Photos/$date" && mv "$file" "Photos/$date/"
+   done
+   ```
 
 ## Common Organization Tasks
 
@@ -423,7 +472,8 @@ Documents folder.
 ### File Naming
 - Include dates: "2024-10-17-meeting-notes.md"
 - Be descriptive: "q3-financial-report.xlsx"
-- Avoid version numbers in names (use version control instead)
+- Avoid version numbers in names for code (use version control instead)
+- For documents/media, use dates or move old versions to Archive/
 - Remove download artifacts: "document-final-v2 (1).pdf" → "document.pdf"
 
 ### When to Archive

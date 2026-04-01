@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma.js'
+import { prisma, withSerializableRetry } from '../lib/prisma.js'
 import { requireAuth, requireKYC } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
 import {
@@ -214,31 +214,58 @@ tradesRouter.post('/:id/close', requireKYC, async (req, res, next) => {
 
     const realizedPnl = calcPnlCents(trade.direction, trade.openRateScaled, closeRateScaled, trade.units, trade.instrument.contractSize)
 
-    // Close trade + update ledger atomically
-    const [updatedTrade] = await prisma.$transaction([
-      prisma.trade.update({
-        where: { id: tradeId },
-        data: { status: 'CLOSED', closeRateScaled, realizedPnlCents: realizedPnl, closeAt: new Date(), closedBy: 'USER' },
-      }),
-      prisma.ledgerTransaction.create({
-        data: {
-          userId,
-          transactionType: 'TRADE_CLOSE',
-          amountCents: realizedPnl,
-          balanceAfterCents: 0n, // Recalculated after
-          referenceId: tradeId,
-          referenceType: 'TRADE',
-          description: `Trade closed: ${trade.direction} ${trade.units} ${trade.instrument.symbol}`,
-        },
-      }),
-    ])
+    // Close trade + update ledger atomically within a transaction with proper isolation
+    // Uses Serializable Snapshot Isolation (SSI) to detect conflicting concurrent trades
+    // and abort if conflicts occur (non-blocking); for guaranteed row-level locking use SELECT FOR UPDATE
+    // Wrapped with retry handler for transient serialization conflicts (P2034 / 40001)
+    const updatedTrade = await withSerializableRetry(async () =>
+      prisma.$transaction(async (tx) => {
+        // Query user's balance within transaction
+        // Note: Serializable isolation will detect if another transaction modifies this balance
+        // in a conflicting way and abort this transaction (not block it).
+        // For row-level locking, use: SELECT get_user_balance(...) FOR UPDATE
+        const [balanceRow] = await tx.$queryRaw<[{ balance_cents: bigint }]>`
+          SELECT get_user_balance(${userId}) AS balance_cents
+        `
+        const currentBalance = balanceRow?.balance_cents ?? 0n
+        const newBalance = currentBalance + realizedPnl
 
-    // Update balance_after_cents in ledger
-    const newBalance = await db.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${userId}) AS balance_cents`
-    await prisma.ledgerTransaction.updateMany({
-      where: { referenceId: tradeId, referenceType: 'TRADE', transactionType: 'TRADE_CLOSE' },
-      data: { balanceAfterCents: newBalance[0]!.balance_cents },
-    })
+        // Update trade status atomically with status check to prevent TOCTOU
+        const updateResult = await tx.trade.updateMany({
+          where: { id: tradeId, status: 'OPEN' },
+          data: { status: 'CLOSED', closeRateScaled, realizedPnlCents: realizedPnl, closeAt: new Date(), closedBy: 'USER' },
+        })
+        if (updateResult.count !== 1) {
+          throw new Error('Trade already closed or not found')
+        }
+
+        // Fetch the updated trade record
+        const closedTrade = await tx.trade.findUnique({
+          where: { id: tradeId },
+        })
+        if (!closedTrade) {
+          throw new Error('Failed to retrieve closed trade')
+        }
+
+        // Create ledger entry with atomically calculated balance
+        await tx.ledgerTransaction.create({
+          data: {
+            userId,
+            transactionType: 'TRADE_CLOSE',
+            amountCents: realizedPnl,
+            balanceAfterCents: newBalance,
+            referenceId: tradeId,
+            referenceType: 'TRADE',
+            description: `Trade closed: ${trade.direction} ${trade.units} ${trade.instrument.symbol}`,
+          },
+        })
+
+        return closedTrade
+      }, {
+        // Use Serializable isolation level to ensure strict consistency for financial operations
+        isolationLevel: 'Serializable',
+      })
+    )
 
     await removeMarginWatch(trade.instrumentId.toString(), req.user!.user_id)
 

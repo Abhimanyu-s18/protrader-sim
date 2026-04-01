@@ -202,7 +202,7 @@ When a user requests writing assistance:
    > [Example]
    *Why it works: [explanation]*
    
-   **Questions to hook**:
+   **Questions about the hook**:
    - Does it create curiosity?
    - Does it promise value?
    - Is it specific enough?

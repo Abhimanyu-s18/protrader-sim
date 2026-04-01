@@ -37,6 +37,13 @@ const LoginSchema = z.object({
   remember_me: z.boolean().default(false),
 })
 
+const PasswordSchema = z.object({
+  password: z.string().min(12).regex(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
+    'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+  ),
+})
+
 // ── Helpers ───────────────────────────────────────────────────────
 function generateAccessToken(payload: { user_id: string; email: string; role: string; kyc_status: string }): string {
   return jwt.sign(payload, JWT_PRIVATE_KEY, {
@@ -301,7 +308,11 @@ authRouter.post('/reset-password', async (req, res, next) => {
     const { token, password } = req.body as { token?: string; password?: string }
     if (!token || !password) { next(Errors.validation({ token: ['Required'], password: ['Required'] })); return }
 
-    if (password.length < 12) { next(Errors.validation({ password: ['Minimum 12 characters required.'] })); return }
+    const passwordValidation = PasswordSchema.safeParse({ password })
+    if (!passwordValidation.success) {
+      next(Errors.validation(passwordValidation.error.flatten().fieldErrors as Record<string, unknown>))
+      return
+    }
 
     const userId = await getRedis().get(`pwd_reset:${token}`)
     if (!userId) { next(Errors.notFound('Reset token')); return }
@@ -327,8 +338,11 @@ authRouter.post('/change-password', requireAuth, async (req, res, next) => {
       next(Errors.validation({ current_password: ['Required'], new_password: ['Required'] }))
       return
     }
-    if (new_password.length < 12) {
-      next(Errors.validation({ new_password: ['Minimum 12 characters required.'] }))
+
+    const passwordValidation = PasswordSchema.safeParse({ password: new_password })
+    if (!passwordValidation.success) {
+      const fieldErrors = passwordValidation.error.flatten().fieldErrors
+      next(Errors.validation({ new_password: (fieldErrors.password || []).map(String) } as Record<string, unknown>))
       return
     }
 

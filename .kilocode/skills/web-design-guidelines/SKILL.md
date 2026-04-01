@@ -27,13 +27,38 @@ Review files for compliance with Web Interface Guidelines.
 
 ## Guidelines Source
 
-Fetch fresh guidelines before each review:
+Fetch guidelines before each review:
 
 ```
 https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md
 ```
 
-Use WebFetch to retrieve the latest rules. The fetched content contains all the rules and output format instructions.
+Use WebFetch to retrieve the rules. The fetched content contains all guidelines and output format instructions.
+
+### Resilience Strategy
+
+The hard-coded URL above (`/main/command.md`) creates a single point of failure. Implement the following resilience patterns:
+
+1. **Use Versioned URLs**: Prefer stable release tags over the `main` branch:
+   - Example: `https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/v1.2.0/command.md`
+   - Check GitHub releases periodically and update the version tag
+
+2. **Add Retry and Timeout Behavior**:
+   - Implement exponential backoff (3 retries with 2s, 4s, 8s delays)
+   - Set a fetch timeout of 5-10 seconds
+   - Log each retry attempt with timestamp and error reason
+
+3. **Validate and Fallback**:
+   - After fetching, validate the content (check for expected sections like `## Rules` or guideline markers)
+   - If validation fails, fall back to an embedded/local copy stored in the skill directory (e.g., `guidelines-fallback.md`)
+   - If fetch fails after all retries, use the fallback copy automatically
+
+4. **Clear Error Logging**:
+   - Log: `[fetch-error] Failed to fetch guidelines after 3 retries. Using embedded fallback. Error: {reason}`
+   - Log: `[fetch-success] Guidelines loaded from {url} (version: {tag})`
+   - Log: `[fetch-timeout] Timeout after Xs. Attempting fallback...`
+
+Maintain an embedded copy of the guidelines in the skill directory as a safety net for network failures or upstream unavailability.
 
 ## Usage
 

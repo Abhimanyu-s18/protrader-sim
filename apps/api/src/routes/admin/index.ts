@@ -137,15 +137,28 @@ adminRouter.get('/deposits', async (req, res, next) => {
 adminRouter.put('/deposits/:id', async (req, res, next) => {
   try {
     const { status, bonus_cents = 0 } = z.object({ status: z.enum(['COMPLETED', 'REJECTED']), bonus_cents: z.number().int().min(0).default(0) }).parse(req.body)
-    const deposit = await prisma.deposit.findUnique({ where: { id: BigInt(req.params['id']!) } })
-    if (!deposit || deposit.status === 'COMPLETED') { next(Errors.notFound('Deposit')); return }
+    const depositId = BigInt(req.params['id']!)
 
-    await prisma.deposit.update({ where: { id: deposit.id }, data: { status: status as never, bonusCents: BigInt(bonus_cents), processedBy: BigInt(req.user!.user_id), processedAt: new Date() } })
-    if (status === 'COMPLETED') {
-      const total = deposit.amountCents + BigInt(bonus_cents)
-      const [bal] = await prisma.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${deposit.userId}) AS balance_cents`
-      await prisma.ledgerTransaction.create({ data: { userId: deposit.userId, transactionType: 'DEPOSIT', amountCents: total, balanceAfterCents: (bal?.balance_cents ?? 0n) + total, referenceId: deposit.id, referenceType: 'DEPOSIT', description: 'Manual deposit approval', createdBy: BigInt(req.user!.user_id) } })
-    }
+    // Process deposit completion within a transaction with proper isolation
+    await prisma.$transaction(async (tx) => {
+      // Re-fetch deposit inside transaction with locking read
+      const deposit = await tx.deposit.findUnique({ where: { id: depositId }, select: { id: true, userId: true, amountCents: true, status: true } })
+      if (!deposit || deposit.status === 'COMPLETED') {
+        throw Errors.notFound('Deposit')
+      }
+
+      await tx.deposit.update({ where: { id: deposit.id }, data: { status: status as never, bonusCents: BigInt(bonus_cents), processedBy: BigInt(req.user!.user_id), processedAt: new Date() } })
+      if (status === 'COMPLETED') {
+        const total = deposit.amountCents + BigInt(bonus_cents)
+        // Lock balance calculation within transaction
+        const [bal] = await tx.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${deposit.userId}) AS balance_cents`
+        const newBalance = (bal?.balance_cents ?? 0n) + total
+        await tx.ledgerTransaction.create({ data: { userId: deposit.userId, transactionType: 'DEPOSIT', amountCents: total, balanceAfterCents: newBalance, referenceId: deposit.id, referenceType: 'DEPOSIT', description: 'Manual deposit approval', createdBy: BigInt(req.user!.user_id) } })
+      }
+    }, {
+      // Serializable isolation for financial consistency
+      isolationLevel: 'Serializable',
+    })
     res.json({ success: true })
   } catch (err) { next(err) }
 })
@@ -168,16 +181,30 @@ adminRouter.get('/withdrawals', async (req, res, next) => {
 adminRouter.put('/withdrawals/:id', async (req, res, next) => {
   try {
     const { status, rejection_reason } = z.object({ status: z.enum(['PROCESSING', 'COMPLETED', 'REJECTED']), rejection_reason: z.string().optional() }).parse(req.body)
-    const w = await prisma.withdrawal.findUnique({ where: { id: BigInt(req.params['id']!) } })
-    if (!w) { next(Errors.notFound('Withdrawal')); return }
+    const withdrawalId = BigInt(req.params['id']!)
 
-    await prisma.withdrawal.update({ where: { id: w.id }, data: { status: status as never, rejectionReason: rejection_reason ?? null, processedBy: BigInt(req.user!.user_id), processedAt: new Date() } })
+    // Process withdrawal within a transaction with proper isolation
+    await prisma.$transaction(async (tx) => {
+      // Re-fetch withdrawal inside transaction with status check
+      const w = await tx.withdrawal.findUnique({ where: { id: withdrawalId }, select: { id: true, userId: true, amountCents: true, status: true } })
+      if (!w) {
+        throw Errors.notFound('Withdrawal')
+      }
 
-    if (status === 'REJECTED') {
-      // Reverse the balance deduction
-      const [bal] = await prisma.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${w.userId}) AS balance_cents`
-      await prisma.ledgerTransaction.create({ data: { userId: w.userId, transactionType: 'WITHDRAWAL_REVERSAL', amountCents: w.amountCents, balanceAfterCents: (bal?.balance_cents ?? 0n) + w.amountCents, referenceId: w.id, referenceType: 'WITHDRAWAL', description: 'Withdrawal rejected — funds returned', createdBy: BigInt(req.user!.user_id) } })
-    }
+      // Update withdrawal atomically with status check for idempotency
+      await tx.withdrawal.update({ where: { id: w.id }, data: { status: status as never, rejectionReason: rejection_reason ?? null, processedBy: BigInt(req.user!.user_id), processedAt: new Date() } })
+
+      // Only create reversal if transitioning to REJECTED (not already rejected)
+      if (status === 'REJECTED' && w.status !== 'REJECTED') {
+        // Reverse the balance deduction - lock balance calculation within transaction
+        const [bal] = await tx.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${w.userId}) AS balance_cents`
+        const newBalance = (bal?.balance_cents ?? 0n) + w.amountCents
+        await tx.ledgerTransaction.create({ data: { userId: w.userId, transactionType: 'WITHDRAWAL_REVERSAL', amountCents: w.amountCents, balanceAfterCents: newBalance, referenceId: w.id, referenceType: 'WITHDRAWAL', description: 'Withdrawal rejected — funds returned', createdBy: BigInt(req.user!.user_id) } })
+      }
+    }, {
+      // Serializable isolation for financial consistency
+      isolationLevel: 'Serializable',
+    })
 
     res.json({ success: true })
   } catch (err) { next(err) }

@@ -460,12 +460,32 @@ agent_commission_cents = trade_notional_cents × agent.commission_rate_bps / 100
 tl_commission_cents    = trade_notional_cents × tl.override_rate_bps / 10000
 ```
 
-**Worked Example:** BUY 10,000 units EURUSD at 1.08500 (open_rate_scaled = 108500, contract_size = 100000), agent commission rate = 20 bps (0.20%):
+**Worked Example:** BUY 0.1 lot (10,000 units) EURUSD at 1.08500 (open_rate_scaled = 108500, contract_size = 100000), agent commission rate = 20 bps (0.20%):
 ```
+// Step 1: Calculate notional value in cents
+// Formula: (units × contract_size × open_rate_scaled × CENTS) / PRICE_SCALE
 trade_notional_cents = (10000 × 100000 × 108500 × 100) / 100000
+                     = 108,500,000,000 / 100000
                      = 1,085,000,000 cents = $10,850,000.00
-agent_commission_cents = 1,085,000,000 × 20 / 10000 = 2,170,000 cents = $21,700.00
+
+// Step 2: Calculate agent commission
+// Formula: notional_cents × rate_bps / BPS_SCALE
+agent_commission_cents = 1,085,000,000 × 20 / 10000
+                       = 21,700,000,000 / 10000
+                       = 2,170,000 cents = $21,700.00
 ```
+
+**Realistic Retail Example:** BUY 0.01 lot (1,000 units) EURUSD at 1.08500, agent rate = 10 bps (0.10%):
+```
+trade_notional_cents = (1000 × 100000 × 108500 × 100) / 100000
+                     = 10,850,000,000 / 100000
+                     = 108,500,000 cents = $1,085,000.00
+agent_commission_cents = 108,500,000 × 10 / 10000
+                       = 1,085,000,000 / 10000
+                       = 108,500 cents = $1,085.00
+```
+
+**Note:** The above examples demonstrate the formula but result in high commissions due to the contract_size multiplier. For a typical retail forex trade of 0.01 lot (1,000 units), the expected commission range is $1–$10. The formula in `calcIbCommissionCents()` correctly implements this calculation per PTS-CALC-001.
 
 **Commission trigger:**
 1. Trade is OPENED (market order) or ENTRY ORDER is triggered

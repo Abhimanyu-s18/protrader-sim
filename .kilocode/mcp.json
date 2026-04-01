@@ -50,9 +50,13 @@
     "cloudflare": {
       "command": "npx",
       "args": [
+        "-y",
         "mcp-remote",
         "https://observability.mcp.cloudflare.com/sse"
-      ]
+      ],
+      "env": {
+        "CF_BEARER_TOKEN": "${CF_BEARER_TOKEN}"
+      }
     }
   }
 }

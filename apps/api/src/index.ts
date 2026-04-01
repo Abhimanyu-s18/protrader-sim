@@ -61,6 +61,7 @@ app.use(cors({
     process.env['PLATFORM_URL'] ?? 'http://localhost:3002',
     process.env['ADMIN_URL'] ?? 'http://localhost:3003',
     process.env['IB_PORTAL_URL'] ?? 'http://localhost:3004',
+    process.env['AUTH_APP_URL'] ?? 'http://localhost:3005',
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -92,6 +93,7 @@ app.use('/v1', globalLimiter)
 app.use('/v1/auth/login', authLimiter)
 app.use('/v1/auth/register', authLimiter)
 app.use('/v1/auth/forgot-password', authLimiter)
+app.use('/v1/auth/change-password', authLimiter)
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/health', (_req, res) => {

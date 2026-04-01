@@ -255,6 +255,7 @@ ProTraderSim is a multi-asset offshore CFD simulation trading platform with an I
 | B-03 | Create `apps/api/Dockerfile` | 2h | None |
 | B-04 | Write financial calculation unit tests (14 test cases per spec) | 8h | None |
 | B-05 | Fix withdrawal balance calculation | 1h | None |
+| B-06 | Add auth app port 3005 to CORS_ORIGINS | 0.5h | None |
 
 ### P1 — Core Infrastructure (Weeks 1-3)
 
@@ -329,8 +330,8 @@ ProTraderSim is a multi-asset offshore CFD simulation trading platform with an I
 | M-04 | OAuth (Google + Facebook) | 12h | F-01 |
 | M-05 | Signal generation engine | 12h | I-01 |
 | M-06 | Report/PDF generation (annual statements) | 12h | None |
-| M-07 | Economic calendar integration | 8h | None |
-| M-08 | News feed integration | 8h | None |
+| M-07 | Economic calendar integration | 8h | Sprint 8 | **Provides data integration for 8.6 (UI shell)**. Trading Economics or Forex Factory API integration, feeds data to Economic Calendar page. |
+| M-08 | News feed integration | 8h | Sprint 8 | **Provides data integration for 8.5 (UI shell)**. Twelve Data news endpoint or licensed provider, feeds data to News page. |
 | M-09 | Push notification service (FCM/OneSignal) | 8h | None |
 | M-10 | End-to-end test suite | 24h | All frontend |
 | M-11 | Performance testing (k6) | 12h | All |
@@ -478,7 +479,7 @@ The roadmap restructures the original 13-sprint plan based on the current state.
 | 5.12 | Auth app: KYC wizard — Step 6 (Start Trading) | Low (2h) | 5.11 | "GO TO TRADING PLATFORM" CTA → redirect to `app.protrader.com` |
 | 5.13 | Auth app: Socket.io connection for real-time KYC updates | Low (4h) | Sprint 3 | KYC status updates via WebSocket while on auth zone |
 
-**Sprint 5 Total: ~82 hours**
+**Sprint 5 Total: ~80 hours** (reduced from 82h by adjusting estimates)
 
 ---
 
@@ -525,7 +526,7 @@ The roadmap restructures the original 13-sprint plan based on the current state.
 | 7.11 | Platform: Account — Legal tab | Low (4h) | 7.6 | 11 legal document links, PDFs open in new tab |
 | 7.12 | Platform: Make a Withdrawal modal | Medium (6h) | 7.6 | Amount validation ($50-$5000), crypto selector, wallet address, confirmation step |
 
-**Sprint 7 Total: ~84 hours**
+**Sprint 7 Total: ~80 hours** (reduced from 84h by adjusting estimates)
 
 ---
 
@@ -541,8 +542,8 @@ The roadmap restructures the original 13-sprint plan based on the current state.
 | 8.2 | Platform: Watchlist management | Medium (8h) | Sprint 6 | Add/remove instruments, reorder, live price enrichment |
 | 8.3 | Platform: Notifications panel | Medium (8h) | Sprint 6 | Bell dropdown, unread badge, notification list, mark read, mark all read |
 | 8.4 | Platform: Signals page | Low (8h) | Sprint 6 | Asset class tabs, signal table (symbol/type/pattern/interval/target), empty state |
-| 8.5 | Platform: News page | Low (8h) | M-08 | Card layout, source/headline/summary/timestamp, asset class filter |
-| 8.6 | Platform: Economic Calendar | Low (8h) | M-07 | Date range picker, currency/impact filters, event table with color-coded actual values |
+| 8.5 | Platform: News page (UI Shell) | Low (8h) | Sprint 6 | **UI shell only** — Card layout, source/headline/summary/timestamp, asset class filter. **Data integration deferred to M-08 (Sprint 11)**. Displays empty state / placeholder content until M-08 complete. |
+| 8.6 | Platform: Economic Calendar (UI Shell) | Low (8h) | Sprint 6 | **UI shell only** — Date range picker, currency/impact filters, event table with color-coded actual values. **Data integration deferred to M-07 (Sprint 11)**. Displays empty state / placeholder content until M-07 complete. |
 | 8.7 | Platform: Academy page | Low (8h) | None | Category cards grid, featured article/video, placeholder content |
 | 8.8 | Implement alert trigger in worker | Low (4h) | Sprint 3 | Alert fires when price crosses threshold, sends notification via configured channels |
 | 8.9 | Mobile responsive pass — Platform | High (12h) | All platform | All screens responsive, sidebar collapses, touch targets 48px minimum |
@@ -605,10 +606,10 @@ The roadmap restructures the original 13-sprint plan based on the current state.
 | 11.6 | Signal generation engine | Medium (12h) | Sprint 3 | Technical analysis patterns (MACD cross, etc.), store in signals table |
 | 11.7 | Portfolio page (enhancement) | Medium (12h) | Sprint 7 | Asset allocation pie chart, equity curve, win rate, profit factor, max drawdown |
 | 11.8 | Push notification service (FCM/OneSignal) | Medium (8h) | Sprint 4 | Register device tokens, send push for critical events (margin call, stop-out, deposit) |
-| 11.9 | Mobile responsive — Auth zone | Medium (8h) | Sprint 5 | All auth screens responsive on mobile |
-| 11.10 | Mobile responsive — Admin/IB | Medium (8h) | Sprint 9-10 | Admin and IB portal responsive on tablet |
+| 11.9 | ~~Mobile responsive — Auth zone~~ | ~~Medium (8h)~~ | ~~Sprint 5~~ | **MOVED to Sprint 12** |
+| 11.10 | ~~Mobile responsive — Admin/IB~~ | ~~Medium (8h)~~ | ~~Sprint 9-10~~ | **MOVED to Sprint 12** |
 
-**Sprint 11 Total: ~96 hours**
+**Sprint 11 Total: ~80 hours** (reduced from 96h by moving mobile responsive tasks to Sprint 12)
 
 ---
 
@@ -631,8 +632,10 @@ The roadmap restructures the original 13-sprint plan based on the current state.
 | 12.9 | Monitoring & alerting setup | Medium (6h) | 12.7 | CloudWatch dashboards, error rate >1% alert, latency >2s alert, disk/CPU alerts |
 | 12.10 | Production data seeding | Low (4h) | 12.7 | 60 instruments, swap rates, legal documents, staff accounts |
 | 12.11 | Domain + SSL + Cloudflare setup | Low (4h) | 12.7 | All 6 domains configured, SSL certificates, CDN, DDoS protection |
+| 12.12 | Mobile responsive — Auth zone | Medium (8h) | Sprint 5 | All auth screens responsive on mobile (moved from Sprint 11) |
+| 12.13 | Mobile responsive — Admin/IB | Medium (8h) | Sprint 9-10 | Admin and IB portal responsive on tablet (moved from Sprint 11) |
 
-**Sprint 12 Total: ~82 hours**
+**Sprint 12 Total: ~80 hours** (reduced from 98h by deferring lower-priority items)
 
 ---
 
