@@ -655,9 +655,10 @@ Messages shown inline in forms when validation fails.
 |---|---|
 | Email — invalid format | Please enter a valid email address |
 | Email — already registered | An account with this email already exists. Log in instead? |
-| Password — too short | Password must be at least 8 characters |
+| Password — too short | Password must be at least 12 characters |
 | Password — missing uppercase | Password must include at least one uppercase letter |
 | Password — missing number | Password must include at least one number |
+| Password — missing special character | Password must include at least one special character |
 | Confirm password — mismatch | Passwords do not match |
 | Pool Code — invalid | This referral code is not valid. Please check and try again. |
 | Pool Code — missing | A pool code is required to register. Please contact your IB for your code. |

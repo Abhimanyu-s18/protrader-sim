@@ -451,21 +451,20 @@ Super Admin
 
 ### Commission Calculation
 
+> **DECISION (D-03):** IB commission formula includes `contract_size` for forex/indices/commodities per PTS-CALC-001. Stock/crypto use contract_size=1 effectively.
+
 ```
-Price (decimal) = open_rate_scaled / 100000
-trade_notional_cents = units × Price × 100
-                     = units × (open_rate_scaled / 100000) × 100
-                     = (units × open_rate_scaled × 100) / 100000
+trade_notional_cents = (units × contract_size × open_rate_scaled × 100) / 100000
 
 agent_commission_cents = trade_notional_cents × agent.commission_rate_bps / 10000
 tl_commission_cents    = trade_notional_cents × tl.override_rate_bps / 10000
 ```
 
-**Worked Example:** BUY 10,000 units EURUSD at 1.08500 (open_rate_scaled = 108500), agent commission rate = 20 bps (0.20%):
+**Worked Example:** BUY 10,000 units EURUSD at 1.08500 (open_rate_scaled = 108500, contract_size = 100000), agent commission rate = 20 bps (0.20%):
 ```
-Price = 108500 / 100000 = 1.08500
-trade_notional_cents = 10000 × 1.08500 × 100 = 1,085,000 cents = $10,850.00
-agent_commission_cents = 1,085,000 × 20 / 10000 = 2,170 cents = $21.70
+trade_notional_cents = (10000 × 100000 × 108500 × 100) / 100000
+                     = 1,085,000,000 cents = $10,850,000.00
+agent_commission_cents = 1,085,000,000 × 20 / 10000 = 2,170,000 cents = $21,700.00
 ```
 
 **Commission trigger:**
@@ -524,7 +523,7 @@ ws.on('open', () => {
 
 | Queue | Schedule | Function |
 |---|---|---|
-| rollover-daily | Cron: `0 22 * * 1-5` (22:00 UTC Mon–Fri) | Apply overnight swap fees to all open positions |
+| rollover-daily | Cron: `0 22 * * 1,2,4,5` (22:00 UTC Mon–Tue, Thu–Fri; Wed excluded) | Apply overnight swap fees to all open positions |
 | wednesday-triple | Cron: `0 22 * * 3` (22:00 UTC Wed only) | Apply 3× rollover for Wednesday triple swap |
 | alert-monitor | Event-driven (every price tick) | Check active alerts against new price |
 | entry-order-expiry | Delayed job (per order expiry_at) | Cancel expired pending orders |

@@ -164,7 +164,7 @@ Traders are not staff. Traders have their own `users` table with role='TRADER' i
 ### 6.3 Authentication Security
 
 - Passwords: bcrypt with cost factor 12
-- Password requirements: min 8 characters, 1 uppercase, 1 lowercase, 1 number
+- Password requirements: min 12 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character
 - Brute force protection: 5 failed logins → account locked for 15 minutes
 - Refresh tokens: HttpOnly + Secure + SameSite=Strict cookies
 - CSRF protection: custom header `X-Requested-With` on state-changing requests

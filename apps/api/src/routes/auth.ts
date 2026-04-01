@@ -20,9 +20,9 @@ const REFRESH_TOKEN_EXPIRY_REMEMBER = 30 * 24 * 60 * 60 // 30 days
 // ── Schemas ───────────────────────────────────────────────────────
 const RegisterSchema = z.object({
   email: z.string().email().max(255),
-  password: z.string().min(8).regex(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-    'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+  password: z.string().min(12).regex(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
+    'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
   ),
   full_name: z.string().min(2).max(255),
   phone: z.string().min(6).max(30),
@@ -301,7 +301,7 @@ authRouter.post('/reset-password', async (req, res, next) => {
     const { token, password } = req.body as { token?: string; password?: string }
     if (!token || !password) { next(Errors.validation({ token: ['Required'], password: ['Required'] })); return }
 
-    if (password.length < 8) { next(Errors.validation({ password: ['Minimum 8 characters required.'] })); return }
+    if (password.length < 12) { next(Errors.validation({ password: ['Minimum 12 characters required.'] })); return }
 
     const userId = await getRedis().get(`pwd_reset:${token}`)
     if (!userId) { next(Errors.notFound('Reset token')); return }
@@ -327,8 +327,8 @@ authRouter.post('/change-password', requireAuth, async (req, res, next) => {
       next(Errors.validation({ current_password: ['Required'], new_password: ['Required'] }))
       return
     }
-    if (new_password.length < 8) {
-      next(Errors.validation({ new_password: ['Minimum 8 characters required.'] }))
+    if (new_password.length < 12) {
+      next(Errors.validation({ new_password: ['Minimum 12 characters required.'] }))
       return
     }
 

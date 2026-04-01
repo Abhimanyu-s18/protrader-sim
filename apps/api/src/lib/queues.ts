@@ -29,10 +29,10 @@ export const notificationQueue = new Queue(QUEUES.NOTIFICATION, connection)
 
 // ── Scheduled jobs (cron) ─────────────────────────────────────────
 export async function scheduleRecurringJobs(): Promise<void> {
-  // Daily rollover at 22:00 UTC Mon–Fri
+  // Daily rollover at 22:00 UTC Mon–Thu and Fri (skip Wed — handled by wednesday-triple)
   await rolloverQueue.upsertJobScheduler(
     'rollover-daily-job',
-    { pattern: '0 22 * * 1-5', tz: 'UTC' },
+    { pattern: '0 22 * * 1,2,4,5', tz: 'UTC' },
     { name: 'process-rollover', data: {} },
   )
 

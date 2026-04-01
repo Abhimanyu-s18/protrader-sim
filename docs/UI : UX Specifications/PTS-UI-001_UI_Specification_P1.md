@@ -415,13 +415,13 @@ Submit button text changes to: "Sell [SYMBOL] at {order_rate}" (faded until vali
 **Modal:**
 - Title: "Change password"
 - Field 1: "Password *" — current password with eye toggle
-- Field 2: "New password (8+ characters) *" — with eye toggle
+- Field 2: "New password (12+ characters) *" — with eye toggle
 - Field 3: "Retype new password *" — must match Field 2
 - Cancel (gray), Change password (orange)
 
 **Validation:**
 - Current password verified server-side (wrong = 401, inline error below Field 1)
-- New password: minimum 8 characters (client-side)
+- New password: minimum 12 characters (client-side)
 - Confirm: must match new password (client-side, shown on submit attempt)
 
 **Success:** Modal closes, success toast: "Password changed successfully"
