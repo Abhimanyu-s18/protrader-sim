@@ -58,27 +58,31 @@ export const io = new SocketIOServer(httpServer, {
 registerSocketHandlers(io)
 
 // ── Global Middleware ─────────────────────────────────────────────
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'cdn.tradingview.com'],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", 'cdn.tradingview.com'],
+      },
     },
-  },
-}))
+  }),
+)
 
-app.use(cors({
-  origin: [
-    process.env['WEB_URL'] ?? 'http://localhost:3000',
-    process.env['AUTH_URL'] ?? 'http://localhost:3001',
-    process.env['PLATFORM_URL'] ?? 'http://localhost:3002',
-    process.env['ADMIN_URL'] ?? 'http://localhost:3003',
-    process.env['IB_PORTAL_URL'] ?? 'http://localhost:3004',
-    process.env['AUTH_APP_URL'] ?? 'http://localhost:3005',
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-}))
+app.use(
+  cors({
+    origin: [
+      process.env['WEB_URL'] ?? 'http://localhost:3000',
+      process.env['AUTH_URL'] ?? 'http://localhost:3001',
+      process.env['PLATFORM_URL'] ?? 'http://localhost:3002',
+      process.env['ADMIN_URL'] ?? 'http://localhost:3003',
+      process.env['IB_PORTAL_URL'] ?? 'http://localhost:3004',
+      process.env['AUTH_APP_URL'] ?? 'http://localhost:3005',
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  }),
+)
 
 app.use(compression())
 app.use(express.json({ limit: '100kb' }))
@@ -99,7 +103,10 @@ const authLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error_code: 'RATE_LIMITED', message: 'Too many auth attempts. Try again in 15 minutes.' },
+  message: {
+    error_code: 'RATE_LIMITED',
+    message: 'Too many auth attempts. Try again in 15 minutes.',
+  },
 })
 
 app.use('/v1', globalLimiter)
@@ -116,10 +123,13 @@ app.get('/health', (_req, res) => {
 // ── Readiness Check ───────────────────────────────────────────────
 app.get('/ready', (_req, res) => {
   if (!appReady) {
+    const isDev = process.env['NODE_ENV'] === 'development'
+
     return res.status(503).json({
       status: 'not_ready',
       timestamp: new Date().toISOString(),
-      errors: startupErrors,
+      errorsCount: startupErrors.length,
+      ...(isDev && { errorsDetailed: startupErrors }),
     })
   }
   return res.json({ status: 'ready', timestamp: new Date().toISOString() })
@@ -148,7 +158,10 @@ app.use(errorHandler)
 const PORT = parseInt(process.env['PORT'] ?? '4000', 10)
 
 httpServer.listen(PORT, async () => {
-  log.info({ port: PORT, env: process.env['NODE_ENV'] ?? 'development' }, 'ProTraderSim API started, initializing critical services...')
+  log.info(
+    { port: PORT, env: process.env['NODE_ENV'] ?? 'development' },
+    'ProTraderSim API started, initializing critical services...',
+  )
 
   try {
     // Schedule BullMQ recurring jobs (rollover, PnL snapshot, KYC reminder)
@@ -177,7 +190,10 @@ httpServer.listen(PORT, async () => {
     appReady = true
     log.info('All critical services initialized successfully. Server is ready.')
   } else {
-    log.warn({ errors: startupErrors }, 'Server started with warnings but is not ready for traffic.')
+    log.warn(
+      { errors: startupErrors },
+      'Server started with warnings but is not ready for traffic.',
+    )
   }
 })
 
@@ -198,7 +214,7 @@ async function shutdown(signal: string): Promise<void> {
     const timeout = setTimeout(() => {
       reject(new Error('HTTP server close timeout'))
     }, 10000) // 10 second timeout
-    
+
     httpServer.close((err) => {
       clearTimeout(timeout)
       if (err) {
@@ -215,7 +231,7 @@ async function shutdown(signal: string): Promise<void> {
     const timeout = setTimeout(() => {
       reject(new Error('Socket.io close timeout'))
     }, 10000) // 10 second timeout
-    
+
     io.close(() => {
       clearTimeout(timeout)
       log.info('Socket.io closed')

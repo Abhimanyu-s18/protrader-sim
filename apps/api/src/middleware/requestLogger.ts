@@ -12,7 +12,11 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
     const { statusCode } = res
 
     if (url !== '/health') {
-      log.info({ method, url, statusCode, duration }, `${method} ${url} ${statusCode} ${duration}ms`)
+      const level = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info'
+      log[level](
+        { method, url, statusCode, duration },
+        `${method} ${url} ${statusCode} ${duration}ms`,
+      )
     }
   })
 

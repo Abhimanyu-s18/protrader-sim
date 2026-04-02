@@ -47,14 +47,14 @@ pnpm format
 
 ### Apps (5 Next.js + 1 Express)
 
-| App | Port | Purpose |
-|-----|------|---------|
-| `web` | 3000 | Public marketing site |
-| `auth` | 3001 | Login/Register/KYC flows |
-| `platform` | 3002 | Trading dashboard (main user interface) |
-| `admin` | 3003 | Back-office admin panel |
-| `ib-portal` | 3004 | IB Agent/Team Leader portal |
-| `api` | 4000 | Express.js REST API + Socket.io |
+| App         | Port | Purpose                                 |
+| ----------- | ---- | --------------------------------------- |
+| `web`       | 3000 | Public marketing site                   |
+| `auth`      | 3001 | Login/Register/KYC flows                |
+| `platform`  | 3002 | Trading dashboard (main user interface) |
+| `admin`     | 3003 | Back-office admin panel                 |
+| `ib-portal` | 3004 | IB Agent/Team Leader portal             |
+| `api`       | 4000 | Express.js REST API + Socket.io         |
 
 All frontend apps consume the API at `localhost:4000`.
 
@@ -80,10 +80,11 @@ All frontend apps consume the API at `localhost:4000`.
 
 ```typescript
 // CORRECT
-const marginCents = (units * BigInt(contractSize) * openRateScaled * CENTS) / (BigInt(leverage) * PRICE_SCALE)
+const marginCents =
+  (units * BigInt(contractSize) * openRateScaled * CENTS) / (BigInt(leverage) * PRICE_SCALE)
 
 // WRONG — never cast to Number
-const margin = Number(units) * contractSize * Number(price) / leverage
+const margin = (Number(units) * contractSize * Number(price)) / leverage
 ```
 
 ### Type Conventions
@@ -127,18 +128,67 @@ lib/
   redis.ts                   # Cache layer
   prisma.ts                  # Database client
   queues.ts                  # BullMQ job queues
+
+services/
+  market-data.ts             # Market data + pending orders cache
+
+workers/
+  rollover.ts                # Daily swap rollover processor
 ```
+
+**Architecture note**: Despite the "Routes → Services → Database" pattern described in docs, most business logic currently lives directly in route files (e.g., `trades.ts` is ~750 lines). The `services/` directory only contains `market-data.ts`. When adding new features, prefer extracting business logic into service functions for testability, but follow existing patterns for consistency.
+
+### Common Route Patterns
+
+Every route follows this template:
+
+```typescript
+import { Router } from 'express'
+import { prisma } from '../lib/prisma.js'
+import { requireAuth } from '../middleware/auth.js'
+import { serializeBigInt } from '../lib/calculations.js'
+import { z } from 'zod'
+
+export const XRouter = Router()
+XRouter.use(requireAuth)
+
+XRouter.get('/endpoint', async (req, res) => {
+  // 1. Validate query params with Zod
+  const schema = z.object({ limit: z.string().optional() })
+  const parsed = schema.safeParse(req.query)
+  if (!parsed.success) return res.status(400).json({ error: 'Validation failed' })
+
+  // 2. Query with cursor-based pagination (take + 1 trick)
+  const take = Math.min(parseInt(parsed.data.limit ?? '50', 10), 200)
+  const items = await prisma.model.findMany({ take: take + 1 })
+  const hasMore = items.length > take
+  const data = hasMore ? items.slice(0, take) : items
+
+  // 3. Serialize BigInt to strings for JSON response
+  res.json({ data: serializeBigInt({ items: data, has_more: hasMore }) })
+})
+```
+
+**Critical patterns**:
+
+- **BigInt serialization**: Every response with BigInt fields MUST wrap with `serializeBigInt()` — forgetting this causes JSON serialization errors
+- **Cursor-based pagination**: Use `take + 1` trick to detect `has_more` without a second query
+- **Zod validation**: Validate all `req.body` and `req.query` inputs
+- **`as never` enum casting**: Prisma enums require casting string params via `as never` (e.g., `status: kycStatus as never`) — this is a Prisma limitation
 
 ### Socket.io Conventions
 
 **Authentication**: `socket.handshake.auth.token` (RS256 JWT)
 
 **Room naming**:
+
 - `user:{userId}` — private user events (trade updates, account metrics)
 - `prices:{symbol}` — price feed (max 20 subscriptions per connection)
 - `admin:panel` — admin broadcast channel
 
 **Client events**: `subscribe:prices` / `unsubscribe:prices` with `{ symbols: string[] }`
+
+**Server emit helpers**: `emitToUser(io, userId, event, data)`, `emitPriceUpdate(io, symbol, data)`, `emitToAdmin(io, event, data)`
 
 ---
 
@@ -147,11 +197,25 @@ lib/
 PostgreSQL 17 with Prisma ORM.
 
 **Key principles**:
-- Balance is **never stored** — computed from `ledger_transactions`
+
+- Balance is **never stored** — computed via `get_user_balance(userId)` PostgreSQL function
+- `balanceAfterCents` on `ledger_transactions` is an **audit snapshot**, not the source of truth
 - 4-role staff hierarchy: `SUPER_ADMIN` → `ADMIN` → `IB_TEAM_LEADER` → `AGENT`
 - IB commissions tracked per trade in `ib_commissions` table
 
+**Balance computation**:
+
+```typescript
+// CORRECT — use the DB function
+const result = await prisma.$queryRaw`SELECT get_user_balance(${userId})`
+
+// WRONG — there is no balance column on users table
+const user = await prisma.user.findUnique({ where: { id } })
+// user.balance does not exist
+```
+
 **Critical instrument fields**:
+
 - `contractSize` — `100000` for Forex, `1` for stocks
 - `pipDecimalPlaces` — `4` for most Forex, `2` for JPY pairs
 - `marginCallBps` — `10000` = 100%
@@ -190,6 +254,7 @@ marginLevelBps = (equityCents × BPS_SCALE) / usedMarginCents
 3. Push database: `pnpm db:migrate && pnpm db:seed`
 
 **Critical env vars**:
+
 - `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` — RSA key pair (RS256)
 - `DATABASE_URL` / `DIRECT_URL` — connection pooler + direct URLs
 - `NOWPAYMENTS_IPN_SECRET` — webhook signature verification
@@ -245,6 +310,36 @@ pnpm --filter @protrader/api test
 - **Database**: Supabase (eu-west-1)
 - **Cache**: Redis 7 (ElastiCache)
 - **Apps**: Deployed via CI/CD (configure in `.github/workflows/`)
+
+---
+
+## Common Pitfalls & Gotchas
+
+### Financial Operations
+
+- **`$transaction` required for ledger writes** — Any operation modifying balance must use `$transaction` to atomically update the ledger. Use `withSerializableRetry()` wrapper to handle PostgreSQL SSI conflicts (error P2034/40001)
+- **Wednesday triple swap** — Rollover on Wednesday charges 3× the daily swap rate due to Forex 3-day settlement
+- **KYC gate** — Trading, deposits, and withdrawals all require `requireKYC` middleware (`kyc_status` must be `APPROVED`). Routes without it are a compliance bug
+
+### Market Data
+
+- **Live prices required** — Trade creation requires live prices from Redis (`getCachedPrice`). If Twelve Data WebSocket isn't running, trade creation fails with `MARKET_CLOSED`
+- **Pending orders cache** — `market-data.ts` caches pending orders in Redis. Any code modifying orders MUST call `invalidatePendingOrdersCache()` to avoid stale data
+
+### Redis Patterns
+
+- **Margin watch** — `addMarginWatch`/`removeMarginWatch`/`getMarginWatchers` track users with open positions per instrument for margin call sweeps
+- **Price cache** — `prices:{symbol}` keys with 60s TTL. Check Redis before querying external APIs
+
+### Authentication & Security
+
+- **JWT RS256, not HS256** — Requires both `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY`. Using a symmetric key will silently fail authentication
+- **No per-route rate limiting** — Only global 100 req/min limiter exists. Auth endpoints should have 10 req/15min per IP but this isn't implemented yet
+
+### Testing
+
+- **Only calculation tests exist** — `apps/api/src/lib/calculations.test.ts` covers pure functions. No route integration tests, E2E tests, or service tests exist yet
+- **Test gap**: Zero coverage for auth flows, trading operations, payment webhooks, KYC uploads, admin operations, IB portal, Socket.io, or workers
 
 ---
 

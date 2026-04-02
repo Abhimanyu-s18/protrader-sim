@@ -71,10 +71,10 @@ ibRouter.get('/network-stats', async (req, res, next) => {
     let traderIds: bigint[] = []
     if (role === 'AGENT') {
       const traders = await prisma.user.findMany({ where: { agentId }, select: { id: true } })
-      traderIds = traders.map((t: typeof traders[number]) => t.id)
+      traderIds = traders.map((t) => t.id)
     } else if (role === 'IB_TEAM_LEADER') {
       const agents = await prisma.staff.findMany({ where: { teamLeaderId: agentId }, select: { id: true } })
-      const traders = await prisma.user.findMany({ where: { agentId: { in: agents.map((a: typeof agents[number]) => a.id) } }, select: { id: true } })
+      const traders = await prisma.user.findMany({ where: { agentId: { in: agents.map((a) => a.id) } }, select: { id: true } })
       traderIds = traders.map((t) => t.id)
     }
 
@@ -102,7 +102,7 @@ ibRouter.get('/agents', requireRole('IB_TEAM_LEADER', 'SUPER_ADMIN'), async (req
       where: { teamLeaderId: tlId, role: 'AGENT' },
       select: { id: true, fullName: true, email: true, refCode: true, commissionRateBps: true, isActive: true, createdAt: true },
     })
-    const enriched = await Promise.all(agents.map(async (agent: typeof agents[number]) => {
+    const enriched = await Promise.all(agents.map(async (agent) => {
       const traderCount = await prisma.user.count({ where: { agentId: agent.id } })
       const commSum = await prisma.ibCommission.aggregate({ where: { agentId: agent.id }, _sum: { amountCents: true } })
       return { ...agent, trader_count: traderCount, total_commission_cents: (commSum._sum.amountCents ?? 0n).toString() }

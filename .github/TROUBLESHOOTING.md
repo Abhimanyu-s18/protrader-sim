@@ -29,22 +29,26 @@ description: Common errors, diagnosis steps, and fixes for ProTraderSim developm
 ### `pnpm install` hangs or fails
 
 **Diagnosis**:
+
 ```bash
 npm_config_build_from_source=true pnpm install --verbose
 # Look for which package is failing
 ```
 
 **Common causes**:
+
 - Old lock file conflicts
 - Node version mismatch
 
 **Fix**:
+
 ```bash
 rm -rf node_modules pnpm-lock.yaml
 pnpm install
 ```
 
 Or check Node version:
+
 ```bash
 node --version  # Should be 18.x or 20.x
 pnpm --version  # Should be 8.x or 9.x
@@ -55,6 +59,7 @@ pnpm --version  # Should be 8.x or 9.x
 ### Docker containers won't start
 
 **Diagnosis**:
+
 ```bash
 docker compose ps               # Check status
 docker compose logs postgres    # Check postgres logs
@@ -62,11 +67,13 @@ docker compose logs redis       # Check redis logs
 ```
 
 **Common causes**:
+
 - Port conflict (5432, 6379 in use)
 - Disk space full
 - Old containers not cleaned up
 
 **Fix**:
+
 ```bash
 # Clean up completely
 docker compose down -v          # Remove volumes
@@ -82,11 +89,13 @@ kill -9 <PID>
 ### `DATABASE_URL` connection errors
 
 **Symptom**: Can't connect to database
+
 ```
 error: connect ECONNREFUSED 127.0.0.1:5432
 ```
 
 **Check**:
+
 ```bash
 # Verify postgres is running
 docker ps | grep postgres       # Should see postgres container
@@ -99,6 +108,7 @@ psql postgresql://protrader:protrader_local_dev@localhost:5432/protrader_dev
 ```
 
 **Fix**:
+
 ```bash
 docker compose up -d postgres   # Start postgres
 pnpm db:migrate                 # Apply schema
@@ -111,11 +121,13 @@ pnpm db:migrate                 # Apply schema
 ### Migration fails
 
 **Symptom**:
+
 ```
 Error: P1025 schema creation failed (migration: 20240101000000_add_trades)
 ```
 
 **Diagnosis**:
+
 ```bash
 # Check migration files
 ls packages/db/prisma/migrations/
@@ -128,12 +140,14 @@ cat packages/db/prisma/migrations/20240101000000_add_trades/migration.sql
 ```
 
 **Common causes**:
+
 - SQL syntax error in migration
 - Table already exists
 - Foreign key constraint conflict
 - Missing index
 
 **Fix**:
+
 ```bash
 # If migration is broken, reset database
 pnpm db:migrate reset           # ⚠️ Deletes all data
@@ -148,17 +162,20 @@ pnpm db:migrate deploy
 ### Prisma client out of sync
 
 **Symptom**:
+
 ```
 Property 'trades' does not exist on type 'PrismaClient'
 ```
 
 **Diagnosis**:
+
 ```bash
 # Check if client is generated
 ls packages/db/node_modules/@prisma/client
 ```
 
 **Fix**:
+
 ```bash
 pnpm db:generate                # Regenerate Prisma client
 ```
@@ -170,6 +187,7 @@ pnpm db:generate                # Regenerate Prisma client
 **Symptom**: GET /api/positions returns in 800ms (target: 100ms)
 
 **Diagnosis**:
+
 ```bash
 # Enable Prisma query logging
 export PRISMA_CLIENT_QUERY_LOGGING=true
@@ -193,12 +211,13 @@ for (const trade of trades) {
 // ✅ CORRECT: Batch-load with include
 const trades = await prisma.trade.findMany({
   where: { user_id: userId },
-  include: { instrument: true },  // 1 query, 50 rows
+  include: { instrument: true }, // 1 query, 50 rows
 })
 ```
 
 **Fix**:
-- Read [orm-query-optimization SKILL](.github/skills/orm-query-optimization/SKILL.md)
+
+- Read [orm-query-optimization SKILL](./skills/orm-query-optimization/SKILL.md)
 - Update Prisma query to use `.include()` or `.select()`
 - Add index on common filter columns: `CREATE INDEX idx_trades_user_status ON trades(user_id, status)`
 
@@ -209,6 +228,7 @@ const trades = await prisma.trade.findMany({
 ### Foreign Key Violation on Delete
 
 **Symptom**:
+
 ```
 Error: Foreign key constraint failed on the field: 'trades.instrument_id'
 ```
@@ -216,6 +236,7 @@ Error: Foreign key constraint failed on the field: 'trades.instrument_id'
 **Cause**: Trying to delete an instrument that has open trades.
 
 **Fix**:
+
 ```typescript
 // Check before deleting
 const tradesWithInstrument = await prisma.trade.count({
@@ -239,25 +260,29 @@ model Instrument {
 ### 500: "Cannot read properties of null"
 
 **Symptom**:
+
 ```
 TypeError: Cannot read properties of null (reading 'balance')
 at getTradingStats (positions.service.ts:42)
 ```
 
 **Diagnosis**:
+
 1. Read the error stack trace — identifies exact file/line
 2. Check that file at line 42
 3. Look for `.` access on potentially null value
 
 **Common causes**:
+
 - User/wallet not found
 - Trade/instrument not found
 - Middleware didn't set `req.user`
 
 **Fix**:
+
 ```typescript
 // ❌ WRONG
-const balance = wallet.balance  // wallet might be null
+const balance = wallet.balance // wallet might be null
 
 // ✅ CORRECT
 if (!wallet) throw new ApiError(404, 'Wallet not found')
@@ -274,6 +299,7 @@ const balance = wallet?.balance ?? 0n
 **Symptom**: Valid JWT token but getting 401.
 
 **Diagnosis**:
+
 ```bash
 # Check the token
 echo $AUTH_TOKEN | cut -d. -f2 | base64 -d | jq  # Decode JWT payload
@@ -282,12 +308,14 @@ echo $AUTH_TOKEN | cut -d. -f2 | base64 -d | jq  # Decode JWT payload
 ```
 
 **Common causes**:
+
 - JWT algorithm mismatch (RS256 expected, HS256 provided)
 - Token expired
 - Wrong secret key
 - Missing `Authorization: Bearer <token>` header
 
 **Fix**:
+
 ```bash
 # Verify auth middleware
 cat apps/api/src/middleware/auth.ts
@@ -307,6 +335,7 @@ curl -v http://localhost:4000/api/positions \
 **Symptom**: Request rejected with validation error.
 
 **Diagnosis**:
+
 ```bash
 curl -X POST http://localhost:4000/api/trades/open \
   -H "Content-Type: application/json" \
@@ -315,11 +344,13 @@ curl -X POST http://localhost:4000/api/trades/open \
 ```
 
 **Check**:
+
 - Request body fields match schema
 - Types are correct (string, number, etc.)
 - Required fields are present
 
 **Fix**:
+
 ```typescript
 // Review validation schema
 const CreateTradeSchema = z.object({
@@ -338,10 +369,12 @@ const CreateTradeSchema = z.object({
 **Cause**: Rate limiting triggered.
 
 **ProTraderSim rate limits**:
+
 - **Global**: 100 req/min per IP
 - **Auth endpoints**: 10 req/15min per IP (login, register)
 
 **Fix**:
+
 - Wait 1 minute before retrying (global)
 - Wait 15 minutes before retrying auth endpoints
 - Or adjust `RATE_LIMIT_*` environment variables
@@ -353,6 +386,7 @@ const CreateTradeSchema = z.object({
 ### P&L is off by 1-2 cents
 
 **Symptom**:
+
 ```
 Expected P&L: 1250.00 cents
 Actual P&L: 1250.02 cents
@@ -361,6 +395,7 @@ Actual P&L: 1250.02 cents
 **Cause**: BigInt rounding or arithmetic order issue.
 
 **Diagnosis**:
+
 ```bash
 # Add debug logging
 console.log('Price scaled:', priceScaled, 'type:', typeof priceScaled)
@@ -370,15 +405,16 @@ console.log('After division:', numericValue / PRICE_SCALE)
 ```
 
 **Common issues**:
+
 - Division before multiplication (loses least-significant bits)
 - Mixing PRICE_SCALE and BPS_SCALE
 - Using `Number()` instead of `BigInt()`
 
-**Fix**: Re-read [financial-calculations SKILL](.github/skills/financial-calculations/SKILL.md)
+**Fix**: Re-read [financial-calculations SKILL](./skills/financial-calculations/SKILL.md)
 
 ```typescript
 // ❌ WRONG: Division before multiplication
-const pnl = (priceScaled * units) / PRICE_SCALE * CENTS  // Precision loss
+const pnl = ((priceScaled * units) / PRICE_SCALE) * CENTS // Precision loss
 
 // ✅ CORRECT: Multiplication then division
 const pnl = (priceScaled * units * CENTS) / PRICE_SCALE
@@ -391,6 +427,7 @@ const pnl = (priceScaled * units * CENTS) / PRICE_SCALE
 ### Margin calculation wrong
 
 **Symptom**:
+
 ```
 Opened 100,000 unit EUR/USD with leverage 50:1
 Expected margin: ~1,870 cents
@@ -400,6 +437,7 @@ Actual margin: 18,700 cents (off by 10x)
 **Cause**: PRICE_SCALE misapplication.
 
 **Formula**:
+
 ```
 margin = (units × contractSize × priceScaled × CENTS) / (leverage × PRICE_SCALE)
        = (100000 × 100000 × 108500 × 100) / (50 × 100000)
@@ -408,6 +446,7 @@ margin = (units × contractSize × priceScaled × CENTS) / (leverage × PRICE_SC
 ```
 
 **Fix**:
+
 ```bash
 # Check PRICE_SCALE constant
 grep -r "PRICE_SCALE" apps/api/src/lib/calculations.ts
@@ -423,6 +462,7 @@ const PRICE_SCALE = 100000n
 **Symptom**: Margin level drops below 50% but position not auto-closed.
 
 **Diagnosis**:
+
 1. Check margin calculation (see above)
 2. Check stop-out job is running
 
@@ -435,6 +475,7 @@ pnpm --filter @protrader/api dev 2>&1 | grep -E "stop\.out|margin\.call"
 ```
 
 **Fix**:
+
 - Ensure margin calculation is correct
 - Ensure background job `marginWatchJob` is running
 - Check `stopOutBps` in instrument settings (should be 5000 = 50%)
@@ -448,6 +489,7 @@ pnpm --filter @protrader/api dev 2>&1 | grep -E "stop\.out|margin\.call"
 **Symptom**: Position page loads but prices don't change in real-time.
 
 **Diagnosis**:
+
 ```bash
 # Check Socket.io connection
 # Open browser DevTools → Application → Sockets
@@ -461,16 +503,18 @@ docker exec protrader-redis redis-cli KEYS "prices:*"
 ```
 
 **Common causes**:
+
 - Client not subscribed to instrument symbols
 - Socket.io handshake failed (JWT expired)
 - Price feed not publishing updates
 
 **Fix**:
+
 ```javascript
 // Frontend: ensure subscription
 const { subscribe } = usePriceSubscription(['EURUSD', 'GBPUSD'])
 useEffect(() => {
-  subscribe(['EURUSD', 'GBPUSD'])  // Call on mount
+  subscribe(['EURUSD', 'GBPUSD']) // Call on mount
 }, [])
 ```
 
@@ -480,7 +524,7 @@ io.to(`prices:EURUSD`).emit('price:update', {
   symbol: 'EURUSD',
   bid_scaled: '108500',
   ask_scaled: '108510',
-  ts: Date.now()
+  ts: Date.now(),
 })
 ```
 
@@ -493,6 +537,7 @@ io.to(`prices:EURUSD`).emit('price:update', {
 **Symptom**: Chat with users: "I keep getting disconnected"
 
 **Diagnosis**:
+
 ```bash
 # Check websocket library version
 grep "socket.io-client" apps/platform/package.json
@@ -502,21 +547,23 @@ pnpm --filter @protrader/platform dev 2>&1 | grep "socket.*transport"
 ```
 
 **Common causes**:
+
 - Token expires and client doesn't refresh
 - Network latency > timeout threshold
 - Too many subscriptions (max 20 per client)
 
 **Fix**:
+
 ```typescript
 // Implement reconnection strategy
 const socket = io(API_URL, {
   auth: {
-    token: getAuthToken()  // Refresh before each auth attempt
+    token: getAuthToken(), // Refresh before each auth attempt
   },
   reconnection: true,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
-  reconnectionAttempts: 5
+  reconnectionAttempts: 5,
 })
 
 // Handle token expiry
@@ -537,6 +584,7 @@ socket.on('auth_error', () => {
 **Cause**: Rate limiting — max 20 subscriptions per client to prevent abuse.
 
 **Fix**:
+
 ```typescript
 // Limit watchlist to 20 items
 const maxSubscriptions = 20
@@ -558,6 +606,7 @@ if (selectedSymbols.length > maxSubscriptions) {
 **Symptom**: User submits form, API responds successfully, but UI doesn't change.
 
 **Diagnosis**:
+
 ```bash
 # Check React DevTools:
 # → Profiler tab
@@ -570,17 +619,19 @@ if (selectedSymbols.length > maxSubscriptions) {
 ```
 
 **Common causes**:
+
 - State not updated after API call
 - React Query cache not invalidated
 - Component key changed unexpectedly
 
 **Fix**:
+
 ```typescript
 // ✅ CORRECT: Invalidate cache after mutation
 const { mutate } = useMutation(openPosition, {
   onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['positions'] })  // Trigger refetch
-  }
+    queryClient.invalidateQueries({ queryKey: ['positions'] }) // Trigger refetch
+  },
 })
 
 // OR: Update state directly
@@ -589,8 +640,8 @@ const [optimistic, setOptimistic] = useState(positions)
 
 mutate(trade, {
   onSuccess: (result) => {
-    setOptimistic([...optimistic, result])  // Instant update
-  }
+    setOptimistic([...optimistic, result]) // Instant update
+  },
 })
 ```
 
@@ -601,6 +652,7 @@ mutate(trade, {
 **Symptom**: Position page shows old price, receives Socket.io price update but doesn't apply it.
 
 **Diagnosis**:
+
 ```typescript
 // Check if both sources are being merged:
 const { data: positions } = useQuery(['positions'], ...)  // Initial data
@@ -611,11 +663,12 @@ const displayedPrice = livePrice ?? positions[0].current_price
 ```
 
 **Fix**:
+
 ```typescript
 // Merge both sources in component
-const positionsWithLivePrices = positions?.map(pos => ({
+const positionsWithLivePrices = positions?.map((pos) => ({
   ...pos,
-  current_price: livePrices[pos.symbol] ?? pos.current_price
+  current_price: livePrices[pos.symbol] ?? pos.current_price,
 }))
 ```
 
@@ -628,6 +681,7 @@ const positionsWithLivePrices = positions?.map(pos => ({
 **Symptom**: Component has className but styles don't appear.
 
 **Diagnosis**:
+
 ```bash
 # Check if Tailwind is rebuilding
 pnpm --filter @protrader/platform dev --verbose 2>&1 | grep "tailwind"
@@ -637,11 +691,13 @@ cat packages/config/tailwind.config.ts | grep content
 ```
 
 **Common causes**:
+
 - Template path not in tailwind.config.ts `content` array
 - Build cache not cleared
 - Using dynamic class names (not in config at build time)
 
 **Fix**:
+
 ```typescript
 // tailwind.config.ts — ensure all template paths included
 const config: Config = {
@@ -665,6 +721,7 @@ pnpm dev
 **Symptom**: Trader A sees Trader B's positions when accessing positions API.
 
 **Diagnosis**:
+
 ```bash
 # Check if query filters by user_id
 grep -A 5 "GET /api/positions" apps/api/src/routes/trades.ts
@@ -673,19 +730,21 @@ grep -A 5 "GET /api/positions" apps/api/src/routes/trades.ts
 ```
 
 **Common causes**:
+
 - Missing user_id filter in query
 - Using global trader ID instead of req.user.id
 - Test user data not isolated
 
 **Fix**:
+
 ```typescript
 // ✅ CORRECT: Always filter by authenticated user
 router.get('/', authMiddleware, async (req, res) => {
   const positions = await prisma.trade.findMany({
     where: {
-      user_id: req.user.id,    // MUST filter
-      status: 'OPEN'
-    }
+      user_id: req.user.id, // MUST filter
+      status: 'OPEN',
+    },
   })
   res.json(positions)
 })
@@ -700,6 +759,7 @@ router.get('/', authMiddleware, async (req, res) => {
 **Symptom**: Trader successfully calls PUT /api/admin/users/123/role.
 
 **Diagnosis**:
+
 ```bash
 # Check role middleware
 grep -B 3 "PUT /api/admin" apps/api/src/routes/admin.ts
@@ -708,15 +768,16 @@ grep -B 3 "PUT /api/admin" apps/api/src/routes/admin.ts
 ```
 
 **Fix**:
+
 ```typescript
 // ✅ CORRECT: Check role before admin operations
 router.put(
   '/users/:id/role',
   authMiddleware,
-  roleMiddleware(['ADMIN']),  // Enforces role
+  roleMiddleware(['ADMIN']), // Enforces role
   async (req, res) => {
     // Only admins reach here
-  }
+  },
 )
 ```
 
@@ -729,6 +790,7 @@ router.put(
 **Symptom**: NowPayments confirms payment but balance doesn't increase.
 
 **Diagnosis**:
+
 ```bash
 # Check webhook logs
 docker logs protrader-api | grep "webhook" | grep -i deposit
@@ -739,11 +801,13 @@ pnpm db:studio
 ```
 
 **Common causes**:
+
 - Webhook signature verification failing
 - Webhook not reaching API (firewall/network)
 - Database transaction failing silently
 
 **Fix**:
+
 ```typescript
 // Verify webhook signature
 const isValid = verifyNowPaymentsSignature(req.body, shopIdSecret)
@@ -754,17 +818,17 @@ if (!isValid) {
 
 // Idempotency check
 const existingDeposit = await prisma.deposit.findUnique({
-  where: { nowpayments_order_id: req.body.order_id }
+  where: { nowpayments_order_id: req.body.order_id },
 })
 if (existingDeposit) {
-  return res.json({ success: true })  // Already processed
+  return res.json({ success: true }) // Already processed
 }
 
 // Credit balance
 await prisma.$transaction(async (tx) => {
   await tx.deposit.update({ where: { id }, data: { status: 'PAID' } })
   await tx.ledgerTransaction.create({
-    data: { user_id, amount_cents, type: 'DEPOSIT' }
+    data: { user_id, amount_cents, type: 'DEPOSIT' },
   })
 })
 ```
@@ -778,6 +842,7 @@ await prisma.$transaction(async (tx) => {
 **Cause**: Approval doesn't automatically debit — need to implement debit in service.
 
 **Fix**:
+
 ```typescript
 async approveWithdrawal(withdrawalId) {
   const withdrawal = await prisma.withdrawal.findUnique({ where: { id: withdrawalId } })
@@ -788,7 +853,7 @@ async approveWithdrawal(withdrawalId) {
       where: { id },
       data: { status: 'PROCESSING', approved_at: new Date() }
     })
-    
+
     await tx.ledgerTransaction.create({
       data: {
         user_id: withdrawal.user_id,
@@ -809,6 +874,7 @@ async approveWithdrawal(withdrawalId) {
 **Expected behavior**: New commits to `main` trigger redeploy.
 
 **Check status**:
+
 ```bash
 # Visit Railway dashboard
 # → Select app
@@ -817,6 +883,7 @@ async approveWithdrawal(withdrawalId) {
 ```
 
 **If stuck on "Building"**:
+
 ```bash
 # Check logs
 # Check logs
@@ -831,6 +898,7 @@ railway logs --tail -f
 ### Production error rate spiking
 
 **Diagnosis**:
+
 ```bash
 # Check logs
 railway logs api --tail -f
@@ -840,11 +908,13 @@ railway logs api 2>&1 | grep -i error | head -20
 ```
 
 **Common causes**:
+
 - Database connection pooling exhausted
 - API key expired (Twelve Data, NowPayments)
 - Memory leak causing OOM restarts
 
 **Immediate action**:
+
 1. Identify root cause (check logs)
 2. Either fix or rollback recent commit
 3. Notify team
@@ -863,6 +933,7 @@ git push origin main
 **Symptom**: API endpoints slow, >1s latency.
 
 **Diagnosis**:
+
 ```bash
 # Check active connections
 pnpm db:studio
@@ -875,6 +946,7 @@ docker exec protrader-postgres psql -U protrader protrader_dev \
 ```
 
 **Fix**:
+
 - Add index: `CREATE INDEX idx_trades_user_status ON trades(user_id, status)`
 - Optimize query: use `include()` instead of `select()`
 - Cache frequently-accessed data in Redis
@@ -888,18 +960,21 @@ docker exec protrader-postgres psql -U protrader protrader_dev \
 **Symptom**: Process crashes with "FATAL: memory limit exceeded"
 
 **Causes**:
+
 - Socket.io keeping too many connections open
 - Memory leak in service (infinite loop, unbounded cache)
 - Redis connection not closing
 
 **Fix**:
+
 ```typescript
 // Add memory monitoring
 setInterval(() => {
   const used = process.memoryUsage()
   console.log(`Memory: ${Math.round(used.heapUsed / 1024 / 1024)}MB`)
-  
-  if (used.heapUsed > 500 * 1024 * 1024) {  // 500MB threshold
+
+  if (used.heapUsed > 500 * 1024 * 1024) {
+    // 500MB threshold
     console.warn('Memory high, investigating...')
     // Take heap dump, alert team
   }
@@ -912,15 +987,15 @@ setInterval(() => {
 
 ### Ask the Right Agent
 
-| Issue Type | Agent |
-|---|---|
-| API endpoint broken | Debug Agent → Coding Agent |
-| Slow query | Performance Agent |
+| Issue Type           | Agent                                      |
+| -------------------- | ------------------------------------------ |
+| API endpoint broken  | Debug Agent → Coding Agent                 |
+| Slow query           | Performance Agent                          |
 | Financial calc wrong | Debug Agent → financial-calculations skill |
-| Can't log in | Debug Agent → Security Agent |
-| Socket.io issues | Frontend Agent + Performance Agent |
-| UI not updating | Frontend Agent |
-| Production error | Debug Agent first (diagnosis) |
+| Can't log in         | Debug Agent → Security Agent               |
+| Socket.io issues     | Frontend Agent + Performance Agent         |
+| UI not updating      | Frontend Agent                             |
+| Production error     | Debug Agent first (diagnosis)              |
 
 ### Debug Agent Workflow
 
@@ -940,17 +1015,17 @@ setInterval(() => {
 
 ## Document Status
 
-| Area | Coverage | Last Updated |
-|---|---|---|
-| Environment & Setup | 90% | March 2026 |
-| Database | 85% | March 2026 |
-| API Errors | 80% | March 2026 |
-| Financial Calcs | 95% | March 2026 |
-| Socket.io | 75% | March 2026 |
-| Frontend | 70% | March 2026 |
-| Auth & RBAC | 85% | March 2026 |
-| Payment | 80% | March 2026 |
-| Deployment | 75% | March 2026 |
+| Area                | Coverage | Last Updated |
+| ------------------- | -------- | ------------ |
+| Environment & Setup | 90%      | March 2026   |
+| Database            | 85%      | March 2026   |
+| API Errors          | 80%      | March 2026   |
+| Financial Calcs     | 95%      | March 2026   |
+| Socket.io           | 75%      | March 2026   |
+| Frontend            | 70%      | March 2026   |
+| Auth & RBAC         | 85%      | March 2026   |
+| Payment             | 80%      | March 2026   |
+| Deployment          | 75%      | March 2026   |
 
 **Missing coverage** — if you hit an issue not listed, please document it here or tell the team!
 

@@ -29,13 +29,13 @@ describe('calcBidAsk', () => {
   })
 
   it('should apply spread correctly for USDJPY (2 pip decimal places)', () => {
-    // USDJPY mid = 149.500 → 149500n, spread = 12 pips
-    const midScaled = 149500n
+    // USDJPY mid = 149.500 → 14950000n, spread = 12 pips
+    const midScaled = 14950000n
     const { bidScaled, askScaled } = calcBidAsk(midScaled, 12, 2)
 
     // pipSize = 10^(5-2) = 1000, halfSpread = (12 * 1000) / 2 = 6000
-    expect(bidScaled).toBe(143500n)
-    expect(askScaled).toBe(155500n)
+    expect(bidScaled).toBe(14944000n)
+    expect(askScaled).toBe(14956000n)
   })
 
   it('should produce symmetric spread around mid', () => {
@@ -58,14 +58,11 @@ describe('calcMarginCents', () => {
     expect(margin).toBe(21700n) // $217.00
   })
 
-  it('should calculate margin for micro lot (0.01)', () => {
-    // 0.01 lot = 0.01n units, contractSize=100000, price=1.08500, leverage=500
-    // margin = (0.01 * 100000 * 108500 * 100) / (500 * 100000)
-    // Note: BigInt truncates 0.01n to 0n, so use 1n as minimum unit
-    // With units=1: margin = 21700n
-    // Smallest practical: units=1 represents the smallest tradeable unit
-    const margin = calcMarginCents(1n, 100000, 108500n, 500)
-    expect(margin).toBe(21700n) // $217.00
+  it('should calculate margin at high leverage (1000:1)', () => {
+    // 1 unit EURUSD at high leverage reduces margin requirement
+    // margin = (1 * 100000 * 108500 * 100) / (1000 * 100000) = 10850n = $108.50
+    const margin = calcMarginCents(1n, 100000, 108500n, 1000)
+    expect(margin).toBe(10850n) // $108.50
   })
 
   it('should calculate margin for stock (contract size = 1)', () => {
@@ -130,14 +127,12 @@ describe('calcMarginLevelBps', () => {
     // equity $2,000, used margin $2,000 → 100% margin level
     const level = calcMarginLevelBps(200000n, 200000n)
     expect(level).toBe(10000n)
-    expect(level! <= 10000n).toBe(true) // margin call trigger
   })
 
   it('should detect stop-out level (50% = 5000 bps)', () => {
     // equity $1,000, used margin $2,000 → 50% margin level
     const level = calcMarginLevelBps(100000n, 200000n)
     expect(level).toBe(5000n)
-    expect(level! <= 5000n).toBe(true) // stop-out trigger
   })
 })
 
@@ -313,8 +308,13 @@ describe('triple swap precision', () => {
     const daily = calcRolloverCents(1n, 100000, 108500n, -50n, false)
     const triple = calcRolloverCents(1n, 100000, 108500n, -50n, true)
     expect(triple).toBe(daily * 3n)
-    // Ensure no off-by-one from separate calculations
-    expect(triple % 3n).toBe(0n)
+    
+    // Verify no truncation by summing three separate daily calculations
+    const sumOfThreeDays = 
+      calcRolloverCents(1n, 100000, 108500n, -50n, false) +
+      calcRolloverCents(1n, 100000, 108500n, -50n, false) +
+      calcRolloverCents(1n, 100000, 108500n, -50n, false)
+    expect(triple).toBe(sumOfThreeDays)
   })
 })
 
@@ -356,29 +356,88 @@ describe('cascade rounding', () => {
 // ═══════════════════════════════════════════════════════════════════
 
 describe('validateEntryRate', () => {
+  const bidScaled = 108425n
+  const askScaled = 108575n
+  const pipBuffer = 10
+  const pipDecimalPlaces = 4
+  // pipSize = 10^(5-4) = 10, bufferScaled = 10 * 10 = 100
+  // belowBuffer = 108575 - 100 = 108475 (for BUY)
+  // aboveBuffer = 108425 + 100 = 108525 (for SELL)
+
   it('should accept BUY limit order below current ask', () => {
-    const bidScaled = 108425n
-    const askScaled = 108575n
     // BUY limit at 1.08000 (below ask - buffer)
-    const result = validateEntryRate('BUY', 108000n, bidScaled, askScaled, 10, 4)
+    const result = validateEntryRate('BUY', 108000n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
     expect(result.valid).toBe(true)
   })
 
   it('should reject BUY order too close to current ask', () => {
-    const bidScaled = 108425n
-    const askScaled = 108575n
     // BUY at 1.08570 (within 10 pip buffer of ask)
-    // buffer = 10 * 10 = 100, aboveBuffer = 108675, belowBuffer = 108475
-    // 108570 is NOT < 108475 and NOT > 108675
-    const result = validateEntryRate('BUY', 108570n, bidScaled, askScaled, 10, 4)
+    // 108570 is NOT < 108475 (belowBuffer) and NOT > 108525 (aboveBuffer)
+    const result = validateEntryRate('BUY', 108570n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
     expect(result.valid).toBe(false)
   })
 
   it('should accept SELL stop order below current bid', () => {
-    const bidScaled = 108425n
-    const askScaled = 108575n
     // SELL at 1.08000 (below bid - buffer)
-    const result = validateEntryRate('SELL', 108000n, bidScaled, askScaled, 10, 4)
+    const result = validateEntryRate('SELL', 108000n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
+    expect(result.valid).toBe(true)
+  })
+
+  it('should accept BUY stop order above current ask + buffer', () => {
+    // BUY stop at 1.08700 (well above ask + buffer)
+    // aboveBuffer = 108425 + 100 = 108525
+    // 108700 > 108525, should trigger
+    const result = validateEntryRate('BUY', 108700n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
+    expect(result.valid).toBe(true)
+  })
+
+  it('should accept SELL limit order above current bid + buffer', () => {
+    // SELL limit at 1.08600 (above bid + buffer)
+    // aboveBuffer = 108425 + 100 = 108525
+    // 108600 > 108525, should trigger
+    const result = validateEntryRate('SELL', 108600n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
+    expect(result.valid).toBe(true)
+  })
+
+  it('should accept BUY limit at exact lower boundary (ask - buffer)', () => {
+    // BUY limit at exact boundary: askScaled - (10 * 10) = 108575 - 100 = 108475
+    // Boundary value should be valid (not strictly less than)
+    const result = validateEntryRate('BUY', 108475n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
+    expect(result.valid).toBe(true)
+  })
+
+  it('should accept SELL limit at exact upper boundary (bid + buffer)', () => {
+    // SELL limit at exact boundary: bidScaled + (10 * 10) = 108425 + 100 = 108525
+    // Boundary value should be valid (not strictly greater than)
+    const result = validateEntryRate('SELL', 108525n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
+    expect(result.valid).toBe(true)
+  })
+
+  it('should reject BUY limit just above lower boundary', () => {
+    // BUY limit at 108476 (just above boundary)
+    // Within buffer range, should be rejected
+    const result = validateEntryRate('BUY', 108476n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
+    expect(result.valid).toBe(false)
+  })
+
+  it('should reject SELL limit just below upper boundary', () => {
+    // SELL limit at 108524 (just below boundary)
+    // Within buffer range, should be rejected
+    const result = validateEntryRate('SELL', 108524n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
+    expect(result.valid).toBe(false)
+  })
+
+  it('should reject BUY stop just below upper boundary', () => {
+    // BUY stop at 108524 (just below the aboveBuffer threshold)
+    // Not above buffer, should be rejected
+    const result = validateEntryRate('BUY', 108524n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
+    expect(result.valid).toBe(false)
+  })
+
+  it('should accept BUY stop at exact upper boundary', () => {
+    // BUY stop at exact boundary: askScaled + (10 * 10) = 108575 + 100 = 108675
+    // Should be valid (boundary included or very close)
+    const result = validateEntryRate('BUY', 108675n, bidScaled, askScaled, pipBuffer, pipDecimalPlaces)
     expect(result.valid).toBe(true)
   })
 })
@@ -388,14 +447,20 @@ describe('validateEntryRate', () => {
 // ═══════════════════════════════════════════════════════════════════
 
 describe('formatScaledPrice', () => {
-  it('should format forex price correctly', () => {
-    expect(formatScaledPrice(108500n, 4)).toBe('1.08500')
-    expect(formatScaledPrice(149500n, 2)).toBe('1.49500')
+  it('should format forex price with pipDecimalPlaces=4 (EURUSD)', () => {
+    expect(formatScaledPrice(108500n, 4)).toBe('1.0850')
+    expect(formatScaledPrice(1n, 4)).toBe('0.0001')
+    expect(formatScaledPrice(0n, 4)).toBe('0.0000')
   })
 
-  it('should handle small prices', () => {
-    expect(formatScaledPrice(1n, 4)).toBe('0.00001')
-    expect(formatScaledPrice(0n, 4)).toBe('0.00000')
+  it('should format forex price with pipDecimalPlaces=2 (USDJPY)', () => {
+    expect(formatScaledPrice(149500n, 2)).toBe('1.50')
+    expect(formatScaledPrice(15000000n, 2)).toBe('150.00')
+  })
+
+  it('should default to 5 decimal places when pipDecimalPlaces omitted', () => {
+    expect(formatScaledPrice(108500n)).toBe('1.08500')
+    expect(formatScaledPrice(0n)).toBe('0.00000')
   })
 })
 

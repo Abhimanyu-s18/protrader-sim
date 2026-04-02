@@ -10,9 +10,9 @@
  */
 
 // ── Constants ─────────────────────────────────────────────────────
-export const PRICE_SCALE = 100000n   // Price scaling factor (5 decimal places)
-export const CENTS = 100n            // Dollar-to-cents factor
-export const BPS_SCALE = 10000n      // Basis points scale (10000 bps = 100.00%)
+export const PRICE_SCALE = 100000n // Price scaling factor (5 decimal places)
+export const CENTS = 100n // Dollar-to-cents factor
+export const BPS_SCALE = 10000n // Basis points scale (10000 bps = 100.00%)
 export const DAYS_PER_YEAR = 365n
 
 // ── Spread Application ────────────────────────────────────────────
@@ -43,10 +43,11 @@ export function calcBidAsk(
  *
  * Formula: margin_cents = (units × contractSize × openRateScaled × CENTS) / (leverage × PRICE_SCALE)
  *
- * @param units - number of units (e.g. 10000)
+ * @param units - number of units (e.g. 10000) — must be non-negative
  * @param contractSize - instrument contract size (e.g. 100000 for forex, 1 for stocks)
  * @param openRateScaled - entry price × 100000
  * @param leverage - leverage ratio (e.g. 500)
+ * @throws Error if units is negative
  */
 export function calcMarginCents(
   units: bigint,
@@ -54,6 +55,9 @@ export function calcMarginCents(
   openRateScaled: bigint,
   leverage: number,
 ): bigint {
+  if (units < 0n) {
+    throw new Error('units must be non-negative')
+  }
   const numerator = units * BigInt(contractSize) * openRateScaled * CENTS
   const denominator = BigInt(leverage) * PRICE_SCALE
   return numerator / denominator
@@ -80,9 +84,10 @@ export function calcPnlCents(
   units: bigint,
   contractSize: number,
 ): bigint {
-  const priceDiff = direction === 'BUY'
-    ? currentPriceScaled - openRateScaled   // profit when price rises
-    : openRateScaled - currentPriceScaled   // profit when price falls
+  const priceDiff =
+    direction === 'BUY'
+      ? currentPriceScaled - openRateScaled // profit when price rises
+      : openRateScaled - currentPriceScaled // profit when price falls
 
   return (priceDiff * units * BigInt(contractSize) * CENTS) / PRICE_SCALE
 }
@@ -95,11 +100,16 @@ export function calcPnlCents(
  *
  * 10000 bps = 100.00%
  * 15000 bps = 150.00%
+ *
+ * @param equityCents - account equity in cents
+ * @param usedMarginCents - margin currently in use in cents — must be non-negative
+ * @returns margin level in basis points, or null if no margin is used
+ * @throws Error if usedMarginCents is negative
  */
-export function calcMarginLevelBps(
-  equityCents: bigint,
-  usedMarginCents: bigint,
-): bigint | null {
+export function calcMarginLevelBps(equityCents: bigint, usedMarginCents: bigint): bigint | null {
+  if (usedMarginCents < 0n) {
+    throw new Error('usedMarginCents must be non-negative')
+  }
   if (usedMarginCents === 0n) return null
   return (equityCents * BPS_SCALE) / usedMarginCents
 }
@@ -158,7 +168,8 @@ export function calcRolloverCents(
   isWednesday: boolean,
 ): bigint {
   const notionalCents = (units * BigInt(contractSize) * openRateScaled * CENTS) / PRICE_SCALE
-  const dailySwap = (notionalCents * (rateBps < 0n ? -rateBps : rateBps)) / BPS_SCALE / DAYS_PER_YEAR
+  const dailySwap =
+    (notionalCents * (rateBps < 0n ? -rateBps : rateBps)) / BPS_SCALE / DAYS_PER_YEAR
   const multiplier = isWednesday ? 3n : 1n
   // If rate is negative, it's a debit to the trader (positive charge)
   // If rate is positive, it's a credit to the trader (negative charge = income)
@@ -219,28 +230,34 @@ export function calcIbCommissionCents(
 }
 
 /**
- * Convert a decimal price to scaled BigInt without floating-point errors
- * e.g. 1.08500 → 108500n (exact, no Math.round precision loss)
+ * Convert a decimal price to scaled BigInt
+ * e.g. 1.08500 → 108500n
  *
  * @param price - decimal price as a number
  */
 export function priceToScaled(price: number): bigint {
-  // Use string conversion to avoid floating-point precision loss
-  // e.g. 1.08500 * 100000 could be 108499.99999999999 in JS
+  // Multiply by 1e6 (extra digit of precision) then divide by 10n to reduce
+  // floating-point rounding errors before final BigInt conversion
   return BigInt(Math.round(price * 1e6)) / 10n
 }
 
 // ── Display Helpers ───────────────────────────────────────────────
 /**
  * Format a scaled price back to decimal string
- * e.g. 108500n with pipDecimalPlaces=4 → "1.08500"
+ * Always assumes 5 decimal places in scaled value (PRICE_SCALE=100000)
+ * e.g. 108500n with pipDecimalPlaces=4 → "1.0850"
+ * e.g. 15000000n with pipDecimalPlaces=2 → "150.00"
  */
-export function formatScaledPrice(scaled: bigint, _pipDecimalPlaces: number): string {
-  const totalDecimals = 5 // Always 5 decimal places in our scale
-  const str = scaled.toString().padStart(totalDecimals + 1, '0')
-  const intPart = str.slice(0, -(totalDecimals))
-  const decPart = str.slice(-(totalDecimals))
-  return `${intPart}.${decPart}`
+export function formatScaledPrice(scaled: bigint, pipDecimalPlaces: number = 5): string {
+  const STORAGE_DECIMALS = 5 // PRICE_SCALE = 100000
+  const isNegative = scaled < 0n
+  const abs = isNegative ? -scaled : scaled
+  const str = abs.toString().padStart(STORAGE_DECIMALS + 1, '0')
+  const intPart = str.slice(0, -STORAGE_DECIMALS)
+  const fullDecPart = str.slice(-STORAGE_DECIMALS)
+  const decPart = fullDecPart.slice(0, pipDecimalPlaces)
+  const result = `${intPart}.${decPart}`
+  return isNegative ? `-${result}` : result
 }
 
 /**
@@ -260,7 +277,7 @@ export function formatCents(cents: bigint, currencySymbol = '$'): string {
  * Call this before res.json() on any object containing BigInt
  */
 export function serializeBigInt(obj: unknown): unknown {
-  return JSON.parse(JSON.stringify(obj, (_key, value) =>
-    typeof value === 'bigint' ? value.toString() : value
-  ))
+  return JSON.parse(
+    JSON.stringify(obj, (_key, value) => (typeof value === 'bigint' ? value.toString() : value)),
+  )
 }

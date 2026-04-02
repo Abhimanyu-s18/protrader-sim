@@ -19,14 +19,19 @@ const REFRESH_TOKEN_EXPIRY_REMEMBER = 30 * 24 * 60 * 60 // 30 days
 // ── Schemas ───────────────────────────────────────────────────────
 const RegisterSchema = z.object({
   email: z.string().email().max(255),
-  password: z.string().min(12).regex(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
-    'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-  ),
+  password: z
+    .string()
+    .min(12)
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
+      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+    ),
   full_name: z.string().min(2).max(255),
   phone: z.string().min(6).max(30),
   country: z.string().min(2).max(100),
-  terms_accepted: z.literal(true, { errorMap: () => ({ message: 'You must accept the terms and conditions.' }) }),
+  terms_accepted: z.literal(true, {
+    errorMap: () => ({ message: 'You must accept the terms and conditions.' }),
+  }),
   ref_code: z.string().optional(),
 })
 
@@ -37,14 +42,22 @@ const LoginSchema = z.object({
 })
 
 const PasswordSchema = z.object({
-  password: z.string().min(12).regex(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
-    'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-  ),
+  password: z
+    .string()
+    .min(12)
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
+      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+    ),
 })
 
 // ── Helpers ───────────────────────────────────────────────────────
-function generateAccessToken(payload: { user_id: string; email: string; role: string; kyc_status: string }): string {
+function generateAccessToken(payload: {
+  user_id: string
+  email: string
+  role: string
+  kyc_status: string
+}): string {
   return jwt.sign(payload, JWT_PRIVATE_KEY, {
     algorithm: 'RS256',
     expiresIn: ACCESS_TOKEN_EXPIRY,
@@ -84,7 +97,9 @@ authRouter.post('/register', async (req, res, next) => {
     const passwordHash = await bcrypt.hash(password, 12)
 
     // Generate account_number and lead_id via DB functions
-    const [{ generate_account_number: accountNumber }] = await prisma.$queryRaw<[{ generate_account_number: string }]>`
+    const [{ generate_account_number: accountNumber }] = await prisma.$queryRaw<
+      [{ generate_account_number: string }]
+    >`
       SELECT generate_account_number()
     `
     const [{ generate_lead_id: leadId }] = await prisma.$queryRaw<[{ generate_lead_id: string }]>`
@@ -104,8 +119,15 @@ authRouter.post('/register', async (req, res, next) => {
         agentId,
       },
       select: {
-        id: true, email: true, fullName: true, accountNumber: true, leadId: true,
-        kycStatus: true, accountStatus: true, emailVerified: true, createdAt: true,
+        id: true,
+        email: true,
+        fullName: true,
+        accountNumber: true,
+        leadId: true,
+        kycStatus: true,
+        accountStatus: true,
+        emailVerified: true,
+        createdAt: true,
       },
     })
 
@@ -135,11 +157,13 @@ authRouter.post('/register', async (req, res, next) => {
       },
     })
 
-    res.status(201).json(serializeBigInt({
-      user,
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    }))
+    res.status(201).json(
+      serializeBigInt({
+        user,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      }),
+    )
   } catch (err) {
     next(err)
   }
@@ -159,9 +183,15 @@ authRouter.post('/login', async (req, res, next) => {
     const user = await prisma.user.findUnique({
       where: { email },
       select: {
-        id: true, email: true, fullName: true, passwordHash: true,
-        accountNumber: true, kycStatus: true, accountStatus: true,
-        emailVerified: true, agentId: true,
+        id: true,
+        email: true,
+        fullName: true,
+        passwordHash: true,
+        accountNumber: true,
+        kycStatus: true,
+        accountStatus: true,
+        emailVerified: true,
+        agentId: true,
       },
     })
 
@@ -171,7 +201,13 @@ authRouter.post('/login', async (req, res, next) => {
     }
 
     if (user.accountStatus === 'SUSPENDED') {
-      next(new AppError('ACCOUNT_SUSPENDED', 'Your account has been suspended. Please contact support.', 403))
+      next(
+        new AppError(
+          'ACCOUNT_SUSPENDED',
+          'Your account has been suspended. Please contact support.',
+          403,
+        ),
+      )
       return
     }
 
@@ -197,11 +233,13 @@ authRouter.post('/login', async (req, res, next) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash: _ph, ...safeUser } = user
 
-    res.json(serializeBigInt({
-      user: safeUser,
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    }))
+    res.json(
+      serializeBigInt({
+        user: safeUser,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      }),
+    )
   } catch (err) {
     next(err)
   }
@@ -211,11 +249,16 @@ authRouter.post('/login', async (req, res, next) => {
 authRouter.post('/refresh', async (req, res, next) => {
   try {
     const { refresh_token } = req.body as { refresh_token?: string }
-    if (!refresh_token) { next(Errors.unauthorized()); return }
+    if (!refresh_token) {
+      next(Errors.unauthorized())
+      return
+    }
 
     const session = await prisma.session.findUnique({
       where: { refreshToken: refresh_token },
-      include: { user: { select: { id: true, email: true, kycStatus: true, accountStatus: true } } },
+      include: {
+        user: { select: { id: true, email: true, kycStatus: true, accountStatus: true } },
+      },
     })
 
     if (!session || !session.user || session.expiresAt < new Date()) {
@@ -224,7 +267,20 @@ authRouter.post('/refresh', async (req, res, next) => {
     }
 
     if (session.user.accountStatus === 'SUSPENDED') {
-      next(Errors.forbidden())
+      try {
+        // Invalidate ALL sessions for the suspended user, not just the current one
+        await prisma.session.deleteMany({ where: { userId: session.user.id } })
+      } catch (deleteErr) {
+        // Log but proceed with suspension response
+        console.error('Failed to delete suspended user sessions:', deleteErr)
+      }
+      next(
+        new AppError(
+          'ACCOUNT_SUSPENDED',
+          'Your account has been suspended. Please contact support.',
+          403,
+        ),
+      )
       return
     }
 
@@ -268,10 +324,16 @@ authRouter.post('/logout', requireAuth, async (req, res, next) => {
 authRouter.post('/verify-email', async (req, res, next) => {
   try {
     const { token } = req.body as { token?: string }
-    if (!token) { next(Errors.notFound('Verification token')); return }
+    if (!token) {
+      next(Errors.notFound('Verification token'))
+      return
+    }
 
     const userId = await getRedis().get(`email_verify:${token}`)
-    if (!userId) { next(Errors.notFound('Verification token')); return }
+    if (!userId) {
+      next(Errors.notFound('Verification token'))
+      return
+    }
 
     await prisma.user.update({ where: { id: BigInt(userId) }, data: { emailVerified: true } })
     await getRedis().del(`email_verify:${token}`)
@@ -286,7 +348,10 @@ authRouter.post('/verify-email', async (req, res, next) => {
 authRouter.post('/forgot-password', async (req, res, next) => {
   try {
     const { email } = req.body as { email?: string }
-    if (!email) { res.json({ success: true }); return } // Always succeed to prevent enumeration
+    if (!email) {
+      res.json({ success: true })
+      return
+    } // Always succeed to prevent enumeration
 
     const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
     if (user) {
@@ -305,16 +370,26 @@ authRouter.post('/forgot-password', async (req, res, next) => {
 authRouter.post('/reset-password', async (req, res, next) => {
   try {
     const { token, password } = req.body as { token?: string; password?: string }
-    if (!token || !password) { next(Errors.validation({ token: ['Required'], password: ['Required'] })); return }
+    if (!token || !password) {
+      next(Errors.validation({ token: ['Required'], password: ['Required'] }))
+      return
+    }
 
     const passwordValidation = PasswordSchema.safeParse({ password })
     if (!passwordValidation.success) {
-      next(Errors.validation(passwordValidation.error.flatten().fieldErrors as Record<string, unknown>))
+      next(
+        Errors.validation(
+          passwordValidation.error.flatten().fieldErrors as Record<string, unknown>,
+        ),
+      )
       return
     }
 
     const userId = await getRedis().get(`pwd_reset:${token}`)
-    if (!userId) { next(Errors.notFound('Reset token')); return }
+    if (!userId) {
+      next(Errors.notFound('Reset token'))
+      return
+    }
 
     const passwordHash = await bcrypt.hash(password, 12)
     await prisma.user.update({ where: { id: BigInt(userId) }, data: { passwordHash } })
@@ -332,7 +407,10 @@ authRouter.post('/reset-password', async (req, res, next) => {
 // ── POST /v1/auth/change-password ────────────────────────────────
 authRouter.post('/change-password', requireAuth, async (req, res, next) => {
   try {
-    const { current_password, new_password } = req.body as { current_password?: string; new_password?: string }
+    const { current_password, new_password } = req.body as {
+      current_password?: string
+      new_password?: string
+    }
     if (!current_password || !new_password) {
       next(Errors.validation({ current_password: ['Required'], new_password: ['Required'] }))
       return
@@ -341,7 +419,12 @@ authRouter.post('/change-password', requireAuth, async (req, res, next) => {
     const passwordValidation = PasswordSchema.safeParse({ password: new_password })
     if (!passwordValidation.success) {
       const fieldErrors = passwordValidation.error.flatten().fieldErrors
-      next(Errors.validation({ new_password: (fieldErrors.password || []).map(String) } as Record<string, unknown>))
+      next(
+        Errors.validation({ new_password: (fieldErrors.password || []).map(String) } as Record<
+          string,
+          unknown
+        >),
+      )
       return
     }
 
@@ -349,7 +432,10 @@ authRouter.post('/change-password', requireAuth, async (req, res, next) => {
       where: { id: BigInt(req.user!.user_id) },
       select: { id: true, passwordHash: true },
     })
-    if (!user) { next(Errors.unauthorized()); return }
+    if (!user) {
+      next(Errors.unauthorized())
+      return
+    }
 
     const valid = await bcrypt.compare(current_password, user.passwordHash)
     if (!valid) {

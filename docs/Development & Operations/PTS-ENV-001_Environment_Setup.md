@@ -5,6 +5,23 @@
 
 ---
 
+## ⚠️ SECURITY NOTICE
+
+**CRITICAL**: Environment files (`.env`, `.env.supabase`, `.env.*.bak`) contain secrets and must NEVER be committed to Git.
+
+**Committed Environment Files Are IMMEDIATE Security Incidents:**
+1. Any `.env*` files found committed in repository history must be removed immediately using `git filter-repo` or `BFG`
+2. Exposed credentials must be rotated immediately (database passwords, API keys, AWS credentials, etc.)
+3. Add environment files to `.gitignore` before they can be committed
+
+**Proper Practice:**
+- Use `.env.example` as a template with placeholder values
+- Copy `.env.example` to `.env` locally and populate with real credentials
+- `.env` files are already in `.gitignore` — respect this
+- Never commit any variant of environment files (`.env.bak`, `.env.local`, `.env.*.bak`, etc.)
+
+---
+
 ## Prerequisites
 
 Before starting, confirm you have the following installed:
@@ -58,9 +75,28 @@ cp apps/platform/.env.example apps/platform/.env.local
 cp apps/admin/.env.example apps/admin/.env.local
 cp apps/ib-portal/.env.example apps/ib-portal/.env.local
 
-# Database package
+# Database package (Supabase credentials)
 cp packages/db/.env.example packages/db/.env
+# Then edit packages/db/.env and add your Supabase connection URLs
 ```
+
+### `packages/db/.env` (Supabase Database Credentials)
+
+For local development, use the PostgreSQL instance started by Docker Compose:
+
+```bash
+# Connection pooler URL (for Prisma queries)  
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/protrader_dev"
+
+# Direct connection URL (for migrations only)
+DIRECT_URL="postgresql://postgres:postgres@localhost:5432/protrader_dev"
+```
+
+For staging/production, use Supabase URLs:
+- `DATABASE_URL` = Supabase Connection Pooler (eu-west-1)
+- `DIRECT_URL` = Supabase Direct Connection
+
+**NEVER commit this file.** It's in `.gitignore`. Use `.env.example` as your template.
 
 ### Root `.env` (shared by all services via Turborepo)
 

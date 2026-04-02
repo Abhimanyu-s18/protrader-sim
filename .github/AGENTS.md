@@ -1,6 +1,6 @@
 ---
-name: "ProTrader Agent Framework"
-description: "Master registry and coordination guide for the ProTrader AI agent ecosystem."
+name: 'ProTrader Agent Framework'
+description: 'Master registry and coordination guide for the ProTrader AI agent ecosystem.'
 ---
 
 # ProTrader Agent Framework
@@ -16,38 +16,43 @@ This framework provides **14 specialized AI agents** that work together to optim
 ## 👥 Agent Roster
 
 ### Tier 1: Coordination & Planning
-| # | Agent | Role | Specialization | Location |
-|---|-------|------|----------------|----------|
-| 1 | **Orchestrator** ⭐ | Master coordinator | Task decomposition, agent routing, result aggregation, SLA tracking | [orchestrator.agent.md](orchestrator.agent.md) |
+
+| #   | Agent               | Role               | Specialization                                                      | Location                                                     |
+| --- | ------------------- | ------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 1   | **Orchestrator** ⭐ | Master coordinator | Task decomposition, agent routing, result aggregation, SLA tracking | [agents/Orchestrator.agent.md](agents/Orchestrator.agent.md) |
 
 ### Tier 2: Discovery & Architecture
-| # | Agent | Role | Specialization | Location |
-|---|-------|------|----------------|----------|
-| 2 | **Research** | Market intelligence | Competitor analysis, regulatory tracking, vendor evaluation | [research.agent.md](research.agent.md) |
-| 3 | **Architect** | System design | Architecture decisions, capacity planning, disaster recovery | [architect.agent.md](architect.agent.md) |
+
+| #   | Agent         | Role                | Specialization                                               | Location                                               |
+| --- | ------------- | ------------------- | ------------------------------------------------------------ | ------------------------------------------------------ |
+| 2   | **Research**  | Market intelligence | Competitor analysis, regulatory tracking, vendor evaluation  | [agents/Research.agent.md](agents/Research.agent.md)   |
+| 3   | **Architect** | System design       | Architecture decisions, capacity planning, disaster recovery | [agents/Architect.agent.md](agents/Architect.agent.md) |
 
 ### Tier 3: Design & Frontend
-| # | Agent | Role | Specialization | Location |
-|---|-------|------|----------------|----------|
-| 4 | **UI/UX Designer** | User experience | A/B testing, mobile patterns, dark mode, user analytics | [ui-ux-designer.agent.md](ui-ux-designer.agent.md) |
-| 5 | **Frontend** | React/Next.js development | Performance budgets, accessibility scoring, state management | [frontend.agent.md](frontend.agent.md) |
+
+| #   | Agent              | Role                      | Specialization                                               | Location                                                         |
+| --- | ------------------ | ------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| 4   | **UI/UX Designer** | User experience           | A/B testing, mobile patterns, dark mode, user analytics      | [agents/UI-UX-Designer.agent.md](agents/UI-UX-Designer.agent.md) |
+| 5   | **Frontend**       | React/Next.js development | Performance budgets, accessibility scoring, state management | [agents/Frontend.agent.md](agents/Frontend.agent.md)             |
 
 ### Tier 4: Backend Implementation
-| # | Agent | Role | Specialization | Location |
-|---|-------|------|----------------|----------|
-| 6 | **Coding** | Backend implementation | Code generation, multi-database, advanced error handling | [coding.agent.md](coding.agent.md) |
+
+| #   | Agent      | Role                   | Specialization                                           | Location                                         |
+| --- | ---------- | ---------------------- | -------------------------------------------------------- | ------------------------------------------------ |
+| 6   | **Coding** | Backend implementation | Code generation, multi-database, advanced error handling | [agents/Coding.agent.md](agents/Coding.agent.md) |
 
 ### Tier 5: Quality & Operations
-| # | Agent | Role | Specialization | Location |
-|---|-------|------|----------------|----------|
-| 7 | **Security** | Compliance & security | Vulnerability scanning, regulatory compliance, secrets management | [security.agent.md](security.agent.md) |
-| 8 | **Test** | Quality assurance | Test generation, financial validation, coverage analysis | [test.agent.md](test.agent.md) |
-| 9 | **Schema** | Data management | Database design, migrations, query optimization | [schema.agent.md](schema.agent.md) |
-| 10 | **Debug** | Troubleshooting | Error diagnosis, root cause, regression analysis | [debug.agent.md](debug.agent.md) |
-| 11 | **Code Review** | Quality gates | Static analysis, PR review, performance anti-patterns | [code-review.agent.md](code-review.agent.md) |
-| 12 | **Documentation** | Knowledge mgmt | API docs, READMEs, changelogs, onboarding | [documentation.agent.md](documentation.agent.md) |
-| 13 | **Performance** | Optimization | Profiling, latency tuning, load testing | [performance.agent.md](performance.agent.md) |
-| 14 | **DevOps** | Deployment | CI/CD, infrastructure, secrets rotation | [devops.agent.md](devops.agent.md) |
+
+| #   | Agent             | Role                  | Specialization                                                    | Location                                                       |
+| --- | ----------------- | --------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
+| 7   | **Security**      | Compliance & security | Vulnerability scanning, regulatory compliance, secrets management | [agents/Security.agent.md](agents/Security.agent.md)           |
+| 8   | **Test**          | Quality assurance     | Test generation, financial validation, coverage analysis          | [agents/Test.agent.md](agents/Test.agent.md)                   |
+| 9   | **Schema**        | Data management       | Database design, migrations, query optimization                   | [agents/Schema.agent.md](agents/Schema.agent.md)               |
+| 10  | **Debug**         | Troubleshooting       | Error diagnosis, root cause, regression analysis                  | [agents/Debug.agent.md](agents/Debug.agent.md)                 |
+| 11  | **Code Review**   | Quality gates         | Static analysis, PR review, performance anti-patterns             | [agents/Code-Review.agent.md](agents/Code-Review.agent.md)     |
+| 12  | **Documentation** | Knowledge mgmt        | API docs, READMEs, changelogs, onboarding                         | [agents/Documentation.agent.md](agents/Documentation.agent.md) |
+| 13  | **Performance**   | Optimization          | Profiling, latency tuning, load testing                           | [agents/Performance.agent.md](agents/Performance.agent.md)     |
+| 14  | **DevOps**        | Deployment            | CI/CD, infrastructure, secrets rotation                           | [agents/Devops.agent.md](agents/Devops.agent.md)               |
 
 **Total**: **14 specialized agents** covering full SDLC + Operations.
 
@@ -56,6 +61,7 @@ This framework provides **14 specialized AI agents** that work together to optim
 ## 🚀 Quick Start
 
 ### For Feature Implementation
+
 ```
 You: "Build a trailing stop loss feature"
        ↓
@@ -71,6 +77,7 @@ Result: Feature spec, design doc, component specs, code review checklist
 ```
 
 ### For Problem Solving
+
 ```
 You: "The dashboard is loading slowly"
        ↓
@@ -88,6 +95,7 @@ Result: Root cause analysis + optimization PR
 ## 📋 Common Agent Use Cases
 
 ### Research Agent → When You Need:
+
 - ✅ Competitor benchmarking (features, performance, UI/UX)
 - ✅ Market research (trader workflows, pain points)
 - ✅ Technology landscape (CFD platforms, real-time systems)
@@ -99,6 +107,7 @@ Result: Root cause analysis + optimization PR
 ---
 
 ### Architect Agent → When You Need:
+
 - ✅ System architecture design (monolith vs microservices)
 - ✅ Database schema planning (ledger-based balance, trade lifecycle)
 - ✅ API contract definition (REST endpoints, request/response shapes)
@@ -112,6 +121,7 @@ Result: Root cause analysis + optimization PR
 ---
 
 ### UI/UX Designer Agent → When You Need:
+
 - ✅ User journey mapping (steps from goal to completion)
 - ✅ Interaction design (gesture, keyboard, real-time feedback)
 - ✅ Wireframes & prototypes (desktop, tablet, mobile layouts)
@@ -124,6 +134,7 @@ Result: Root cause analysis + optimization PR
 ---
 
 ### Frontend Agent → When You Need:
+
 - ✅ React components (functional, hooks, lifecycle)
 - ✅ Next.js pages & routing (Server Components, data fetching)
 - ✅ Form implementation (validation, error display, submission)
@@ -137,6 +148,7 @@ Result: Root cause analysis + optimization PR
 ---
 
 ### Coding Agent → When You Need:
+
 - ✅ API endpoint implementation (REST routes, validation, error handling)
 - ✅ Database migrations (schema changes, Prisma models)
 - ✅ Financial calculations (BigInt arithmetic, P&L, margin)
@@ -152,6 +164,7 @@ Result: Root cause analysis + optimization PR
 ## 🔄 Agent Coordination Patterns
 
 ### Pattern 1: Sequential Dependency (Standard Feature Flow)
+
 ```
 Research Agent
       ↓ (market insights)
@@ -165,6 +178,7 @@ Tests & Review
 ```
 
 ### Pattern 2: Parallel Specialization
+
 ```
 Orchestrator
 │
@@ -174,6 +188,7 @@ Orchestrator
 ```
 
 ### Pattern 3: Troubleshooting & Optimization
+
 ```
 Orchestrator
 │
@@ -187,12 +202,14 @@ Orchestrator
 ## 📚 Agent Interaction Guidelines
 
 ### Invoking an Agent
+
 1. **Simply ask** – "Design a trailing stop loss feature" → Orchestrator routes
 2. **Be specific** – "Audit accessibility on the trading dashboard" → UI/UX Designer
 3. **Provide context** – Reference existing code, architecture docs, or assumptions
 4. **Give constraints** – Performance targets, regulatory limits, tech stack
 
 ### Interpreting Agent Output
+
 - **Research Agent** → Brief with citations, feature matrix, compliance checklist
 - **Architect Agent** → ADR, schema sketch, API contract, scalability estimate
 - **UI/UX Designer** → Wireframes, user journey, interaction specs, accessibility checklist
@@ -200,7 +217,9 @@ Orchestrator
 - **Coding Agent** → API routes, migrations, service code, tests
 
 ### When Agents Can't Help
+
 If an agent lacks context or the task is outside scope:
+
 - It will suggest similar agents or alternative approaches
 - Escalate to Orchestrator with more context
 - Combine agents for complex problems (e.g., "Design + implement")
@@ -212,12 +231,14 @@ If an agent lacks context or the task is outside scope:
 Each agent deeply understands:
 
 ### Financial Precision
+
 - **Prices**: BIGINT scaled ×100000 (5 decimals)
 - **Money**: BIGINT cents (never Float/Decimal)
 - **BPS**: 10000 units = 100% (margins, commissions)
 - **Golden Rule**: Division ALWAYS last in calculations
 
 ### Trading Domain
+
 - **Leverage**: 1:1 to 1:500 per instrument
 - **Margin Call**: Triggered at 10% equity remaining
 - **Stop Out**: 5% remaining (forced position close)
@@ -225,6 +246,7 @@ Each agent deeply understands:
 - **Multi-asset**: Forex (100,000 contract), Stocks (1 contract), Crypto (varies)
 
 ### Architecture Reality
+
 - **Tech Stack**: Turborepo, Next.js 15, Express.js, PostgreSQL 17, Redis 7, Socket.io
 - **5 Next.js apps**: web, auth, platform (dashboard), admin, ib-portal
 - **1 Express API**: Serves all frontends on port 4000
@@ -232,6 +254,7 @@ Each agent deeply understands:
 - **Jobs**: BullMQ for margin calls, swaps, settlement
 
 ### Regulatory Constraints
+
 - **FSC Mauritius** + **FSA Seychelles** regulated
 - **KYC Required**: Identity + address verification
 - **AML Compliance**: Position limits, withdrawal delays
@@ -248,7 +271,7 @@ Your ProTrader agent framework is working well when:
 ✅ **UI/UX improvements** follow trader workflows, not guesses  
 ✅ **Code quality** maintains 100% financial precision (all BigInt math)  
 ✅ **Real-time systems** scale to 1000+ concurrent traders without latency  
-✅ **Regulatory compliance** is baked into design, not bolted on afterward  
+✅ **Regulatory compliance** is baked into design, not bolted on afterward
 
 ---
 
@@ -359,8 +382,9 @@ Each `.agent.md` file has:
 
 ---
 
-**Framework Version**: 2.0 (14 agents, full SDLC + Operations coverage)  
-**Last Updated**: Post-enhancement (all 6 core agents at v1.1, 8 specialists at v1.0)  
-**Status**: 🟢 Production Ready  
+**Framework Version**: 2.0 (14 agents, full SDLC + Operations coverage)
+**Last Updated**: Post-enhancement (all 6 core agents at v1.1, 8 specialists at v1.0)
+**Status**: 🟢 Production Ready
 
 **Entry Point**: Use [orchestrator.agent.md](orchestrator.agent.md) for all requests
+```

@@ -96,6 +96,8 @@ export function stopMarketData(): void {
 /**
  * Get cached pending entry orders for an instrument, or fetch from DB and cache.
  * Cache key: pending_orders:{instrumentId} with TTL to minimize stale data.
+ * Filters out orders that have expired (expiryAt <= now) when reading from cache or DB.
+ * TTL is set to the minimum of the configured TTL and the time until earliest expiry.
  *
  * NOTE: For optimal performance with cache misses, a composite index should exist:
  *   CREATE INDEX idx_trade_pending_orders
@@ -104,19 +106,20 @@ export function stopMarketData(): void {
  *
  * This ensures occasional DB reads (cache misses) remain efficient.
  */
-async function getCachedPendingOrders(
-  instrumentId: string,
-): Promise<Array<{
-  id: bigint
-  userId: bigint
-  direction: 'BUY' | 'SELL'
-  units: bigint
-  entryRateScaled: bigint | null
-  stopLossScaled: bigint | null
-  takeProfitScaled: bigint | null
-}>> {
+async function getCachedPendingOrders(instrumentId: string): Promise<
+  Array<{
+    id: bigint
+    userId: bigint
+    direction: 'BUY' | 'SELL'
+    units: bigint
+    entryRateScaled: bigint | null
+    stopLossScaled: bigint | null
+    takeProfitScaled: bigint | null
+  }>
+> {
   const redis = getRedis()
   const cacheKey = `pending_orders:${instrumentId}`
+  const now = new Date()
 
   // Try cache first
   const cached = await redis.get(cacheKey)
@@ -130,16 +133,26 @@ async function getCachedPendingOrders(
         entryRateScaled: string | null
         stopLossScaled: string | null
         takeProfitScaled: string | null
+        expiryAt: string | null
       }>
-      return orders.map(o => ({
-        id: BigInt(o.id),
-        userId: BigInt(o.userId),
-        direction: o.direction,
-        units: BigInt(o.units),
-        entryRateScaled: o.entryRateScaled ? BigInt(o.entryRateScaled) : null,
-        stopLossScaled: o.stopLossScaled ? BigInt(o.stopLossScaled) : null,
-        takeProfitScaled: o.takeProfitScaled ? BigInt(o.takeProfitScaled) : null,
-      }))
+
+      // Filter out expired orders and convert to BigInt types
+      const validOrders = orders
+        .filter((o) => o.expiryAt === null || new Date(o.expiryAt) > now)
+        .map((o) => ({
+          id: BigInt(o.id),
+          userId: BigInt(o.userId),
+          direction: o.direction,
+          units: BigInt(o.units),
+          entryRateScaled: o.entryRateScaled ? BigInt(o.entryRateScaled) : null,
+          stopLossScaled: o.stopLossScaled ? BigInt(o.stopLossScaled) : null,
+          takeProfitScaled: o.takeProfitScaled ? BigInt(o.takeProfitScaled) : null,
+        }))
+
+      if (validOrders.length > 0) {
+        return validOrders
+      }
+      // If all cached orders were expired, fall through to fetch fresh from DB
     } catch (err) {
       log.warn({ err, cacheKey }, 'Failed to parse cached pending orders, falling back to DB')
     }
@@ -151,10 +164,7 @@ async function getCachedPendingOrders(
       instrumentId: BigInt(instrumentId),
       status: 'PENDING',
       orderType: 'ENTRY',
-      OR: [
-        { expiryAt: null },
-        { expiryAt: { gt: new Date() } },
-      ],
+      OR: [{ expiryAt: null }, { expiryAt: { gt: now } }],
     },
     select: {
       id: true,
@@ -164,12 +174,13 @@ async function getCachedPendingOrders(
       entryRateScaled: true,
       stopLossScaled: true,
       takeProfitScaled: true,
+      expiryAt: true,
     },
   })
 
-  // Cache the result
+  // Cache the result with TTL limited by nearest expiry
   try {
-    const serialized = orders.map((o: typeof orders[number]) => ({
+    const serialized = orders.map((o: (typeof orders)[number]) => ({
       id: o.id.toString(),
       userId: o.userId.toString(),
       direction: o.direction,
@@ -177,13 +188,31 @@ async function getCachedPendingOrders(
       entryRateScaled: o.entryRateScaled?.toString() ?? null,
       stopLossScaled: o.stopLossScaled?.toString() ?? null,
       takeProfitScaled: o.takeProfitScaled?.toString() ?? null,
+      expiryAt: o.expiryAt?.toISOString() ?? null,
     }))
-    await redis.setex(cacheKey, PENDING_ORDERS_CACHE_TTL_SECONDS, JSON.stringify(serialized))
+
+    // Calculate TTL: min(configured TTL, time until earliest expiry)
+    let cacheTtl = PENDING_ORDERS_CACHE_TTL_SECONDS
+    const expiringOrders = orders.filter((o) => o.expiryAt !== null)
+    if (expiringOrders.length > 0) {
+      const nearestExpiry = expiringOrders.reduce((earliest, o) => {
+        if (!o.expiryAt) return earliest
+        return o.expiryAt < earliest ? o.expiryAt : earliest
+      }, expiringOrders[0]!.expiryAt!)
+
+      const secondsUntilExpiry = Math.max(
+        1,
+        Math.ceil((nearestExpiry.getTime() - now.getTime()) / 1000),
+      )
+      cacheTtl = Math.min(cacheTtl, secondsUntilExpiry)
+    }
+
+    await redis.setex(cacheKey, cacheTtl, JSON.stringify(serialized))
   } catch (err) {
     log.error({ err, cacheKey }, 'Failed to cache pending orders')
   }
 
-  return orders.map((o: typeof orders[number]) => ({
+  return orders.map((o: (typeof orders)[number]) => ({
     id: o.id,
     userId: o.userId,
     direction: o.direction as 'BUY' | 'SELL',
@@ -204,7 +233,6 @@ export async function invalidatePendingOrdersCache(instrumentId: string): Promis
   const cacheKey = `pending_orders:${instrumentId}`
   await redis.del(cacheKey)
 }
-
 
 /**
  * Load active instruments from database into memory.
@@ -229,7 +257,15 @@ async function loadInstruments(): Promise<void> {
   for (const inst of instruments) {
     const tdSymbol = inst.twelveDataSymbol ?? inst.symbol
     if (instrumentMap.has(tdSymbol)) {
-      log.error({ tdSymbol, instrumentId: inst.id.toString(), symbol: inst.symbol, existingId: instrumentMap.get(tdSymbol)?.id }, 'Duplicate instrument TD symbol found — skipping duplicate')
+      log.error(
+        {
+          tdSymbol,
+          instrumentId: inst.id.toString(),
+          symbol: inst.symbol,
+          existingId: instrumentMap.get(tdSymbol)?.id,
+        },
+        'Duplicate instrument TD symbol found — skipping duplicate',
+      )
       continue
     }
     instrumentMap.set(tdSymbol, {
@@ -298,8 +334,11 @@ function scheduleReconnect(): void {
   reconnectAttempts++
   // Exponential backoff: 2^n with a cap at 2^10 (1024x base delay)
   const exponent = Math.min(Math.max(reconnectAttempts - 1, 0), 10)
-  const delay = RECONNECT_DELAY_MS * (2 ** exponent)
-  log.info({ attempt: reconnectAttempts, delayMs: delay }, 'Scheduling reconnect with exponential backoff')
+  const delay = RECONNECT_DELAY_MS * 2 ** exponent
+  log.info(
+    { attempt: reconnectAttempts, delayMs: delay },
+    'Scheduling reconnect with exponential backoff',
+  )
   setTimeout(() => {
     if (isRunning) connect()
   }, delay)
@@ -315,10 +354,12 @@ function subscribeAll(): void {
   // Subscribe in batches of 20 to avoid overwhelming the connection
   for (let i = 0; i < symbols.length; i += 20) {
     const batch = symbols.slice(i, i + 20)
-    ws.send(JSON.stringify({
-      action: 'subscribe',
-      params: { symbols: batch.join(',') },
-    }))
+    ws.send(
+      JSON.stringify({
+        action: 'subscribe',
+        params: { symbols: batch.join(',') },
+      }),
+    )
   }
 
   log.info({ symbolCount: symbols.length }, 'Subscribed to price feeds')
@@ -368,7 +409,7 @@ function parseTick(msg: Record<string, unknown>): TickData | null {
   const symbol = msg['symbol']
   const price = msg['price']
 
-  if (typeof symbol !== 'string' || typeof price !== 'string' && typeof price !== 'number') {
+  if (typeof symbol !== 'string' || (typeof price !== 'string' && typeof price !== 'number')) {
     return null
   }
 
@@ -392,15 +433,17 @@ function parseTick(msg: Record<string, unknown>): TickData | null {
 
   const maybeNum = (v: unknown): number | undefined =>
     typeof v === 'string' ? parseFloat(v) : typeof v === 'number' ? v : undefined
+
+  const isValidNum = (n: number | undefined): n is number => n !== undefined && Number.isFinite(n)
+
   const open = maybeNum(msg['open'])
   const high = maybeNum(msg['high'])
   const low = maybeNum(msg['low'])
   const close = maybeNum(msg['close'])
-  if (open !== undefined) tick.open = open
-  if (high !== undefined) tick.high = high
-  if (low !== undefined) tick.low = low
-  if (close !== undefined) tick.close = close
-
+  if (isValidNum(open)) tick.open = open
+  if (isValidNum(high)) tick.high = high
+  if (isValidNum(low)) tick.low = low
+  if (isValidNum(close)) tick.close = close
   return tick
 }
 
@@ -504,9 +547,10 @@ async function checkStopLossTakeProfit(
     for (const trade of trades) {
       // Check stop loss
       if (trade.stopLossScaled != null) {
-        const slTriggered = trade.direction === 'BUY'
-          ? bidScaled <= trade.stopLossScaled
-          : askScaled >= trade.stopLossScaled
+        const slTriggered =
+          trade.direction === 'BUY'
+            ? bidScaled <= trade.stopLossScaled
+            : askScaled >= trade.stopLossScaled
 
         if (slTriggered) {
           await closeTradeWithReason(trade, inst, bidScaled, askScaled, 'STOP_LOSS', userId)
@@ -516,9 +560,10 @@ async function checkStopLossTakeProfit(
 
       // Check take profit
       if (trade.takeProfitScaled != null) {
-        const tpTriggered = trade.direction === 'BUY'
-          ? bidScaled >= trade.takeProfitScaled
-          : askScaled <= trade.takeProfitScaled
+        const tpTriggered =
+          trade.direction === 'BUY'
+            ? bidScaled >= trade.takeProfitScaled
+            : askScaled <= trade.takeProfitScaled
 
         if (tpTriggered) {
           await closeTradeWithReason(trade, inst, bidScaled, askScaled, 'TAKE_PROFIT', userId)
@@ -540,7 +585,13 @@ async function checkStopLossTakeProfit(
  * SELL: tracks trough ask price, triggers when ask rises above trough + distance
  */
 async function processTrailingStop(
-  trade: { id: bigint; direction: 'BUY' | 'SELL'; units: bigint | number; openRateScaled: bigint; trailingStopPips: number | null },
+  trade: {
+    id: bigint
+    direction: 'BUY' | 'SELL'
+    units: bigint | number
+    openRateScaled: bigint
+    trailingStopPips: number | null
+  },
   inst: InstrumentInfo,
   bidScaled: bigint,
   askScaled: bigint,
@@ -592,7 +643,13 @@ async function processTrailingStop(
  * Close a trade due to SL/TP/trailing stop trigger.
  */
 async function closeTradeWithReason(
-  trade: { id: bigint; userId?: bigint; direction: 'BUY' | 'SELL'; units: bigint | number; openRateScaled: bigint },
+  trade: {
+    id: bigint
+    userId?: bigint
+    direction: 'BUY' | 'SELL'
+    units: bigint | number
+    openRateScaled: bigint
+  },
   inst: InstrumentInfo,
   bidScaled: bigint,
   askScaled: bigint,
@@ -610,46 +667,49 @@ async function closeTradeWithReason(
   )
 
   const shouldRemoveMarginWatch = await withSerializableRetry(() =>
-    prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Lock user row
-      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`
+    prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Lock user row
+        await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`
 
-      const [balanceRow] = await tx.$queryRaw<[{ balance_cents: bigint }]>`
+        const [balanceRow] = await tx.$queryRaw<[{ balance_cents: bigint }]>`
         SELECT get_user_balance(${userId}) AS balance_cents
       `
-      const currentBalance = balanceRow?.balance_cents ?? 0n
-      const newBalance = currentBalance + realizedPnl
+        const currentBalance = balanceRow?.balance_cents ?? 0n
+        const newBalance = currentBalance + realizedPnl
 
-      const updateResult = await tx.trade.updateMany({
-        where: { id: trade.id, status: 'OPEN' },
-        data: {
-          status: 'CLOSED',
-          closeRateScaled,
-          realizedPnlCents: realizedPnl,
-          closeAt: new Date(),
-          closedBy,
-        },
-      })
-      if (updateResult.count !== 1) return false // Already closed by concurrent operation
+        const updateResult = await tx.trade.updateMany({
+          where: { id: trade.id, status: 'OPEN' },
+          data: {
+            status: 'CLOSED',
+            closeRateScaled,
+            realizedPnlCents: realizedPnl,
+            closeAt: new Date(),
+            closedBy,
+          },
+        })
+        if (updateResult.count !== 1) return false // Already closed by concurrent operation
 
-      await tx.ledgerTransaction.create({
-        data: {
-          userId,
-          transactionType: 'TRADE_CLOSE',
-          amountCents: realizedPnl,
-          balanceAfterCents: newBalance,
-          referenceId: trade.id,
-          referenceType: 'TRADE',
-          description: `Trade closed by ${closedBy}: ${trade.direction} ${trade.units} ${inst.symbol}`,
-        },
-      })
+        await tx.ledgerTransaction.create({
+          data: {
+            userId,
+            transactionType: 'TRADE_CLOSE',
+            amountCents: realizedPnl,
+            balanceAfterCents: newBalance,
+            referenceId: trade.id,
+            referenceType: 'TRADE',
+            description: `Trade closed by ${closedBy}: ${trade.direction} ${trade.units} ${inst.symbol}`,
+          },
+        })
 
-      // Check if any open trades remain for this instrument+user atomically
-      const remaining = await tx.trade.count({
-        where: { userId, instrumentId: BigInt(inst.id), status: 'OPEN' },
-      })
-      return remaining === 0
-    }, { isolationLevel: 'Serializable' }),
+        // Check if any open trades remain for this instrument+user atomically
+        const remaining = await tx.trade.count({
+          where: { userId, instrumentId: BigInt(inst.id), status: 'OPEN' },
+        })
+        return remaining === 0
+      },
+      { isolationLevel: 'Serializable' },
+    ),
   )
 
   // Remove from margin watch if no more open positions (after transaction completes safely)
@@ -659,17 +719,25 @@ async function closeTradeWithReason(
 
   // Notify user via Socket.io
   if (ioRef) {
-    emitToUser(ioRef, userIdStr, 'trade:closed', serializeBigInt({
-      trade_id: trade.id,
-      symbol: inst.symbol,
-      direction: trade.direction,
-      closed_by: closedBy,
-      realized_pnl_cents: realizedPnl.toString(),
-      realized_pnl_formatted: formatCents(realizedPnl),
-    }))
+    emitToUser(
+      ioRef,
+      userIdStr,
+      'trade:closed',
+      serializeBigInt({
+        trade_id: trade.id,
+        symbol: inst.symbol,
+        direction: trade.direction,
+        closed_by: closedBy,
+        realized_pnl_cents: realizedPnl.toString(),
+        realized_pnl_formatted: formatCents(realizedPnl),
+      }),
+    )
   }
 
-  log.info({ tradeId: trade.id.toString(), closedBy, pnl: realizedPnl.toString() }, 'Trade closed by trigger')
+  log.info(
+    { tradeId: trade.id.toString(), closedBy, pnl: realizedPnl.toString() },
+    'Trade closed by trigger',
+  )
 }
 
 // ── Entry Order Checks ─────────────────────────────────────────
@@ -690,9 +758,10 @@ async function checkEntryOrders(
   for (const order of pendingOrders) {
     if (order.entryRateScaled == null) continue
 
-    const triggered = order.direction === 'BUY'
-      ? askScaled <= order.entryRateScaled
-      : bidScaled >= order.entryRateScaled
+    const triggered =
+      order.direction === 'BUY'
+        ? askScaled <= order.entryRateScaled
+        : bidScaled >= order.entryRateScaled
 
     if (triggered) {
       await executeEntryOrder(order, inst, bidScaled, askScaled)
@@ -718,80 +787,93 @@ async function executeEntryOrder(
   askScaled: bigint,
 ): Promise<void> {
   const openRateScaled = order.direction === 'BUY' ? askScaled : bidScaled
-  const marginCents = (BigInt(inst.contractSize) * order.units * openRateScaled * 100n)
-    / (BigInt(inst.leverage) * 100000n)
+  const marginCents =
+    (BigInt(inst.contractSize) * order.units * openRateScaled * 100n) /
+    (BigInt(inst.leverage) * 100000n)
 
   try {
     await withSerializableRetry(() =>
-      prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Lock user row
-        await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${order.userId} FOR UPDATE`
+      prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          // Lock user row
+          await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${order.userId} FOR UPDATE`
 
-        // Check available margin
-        const [balanceRow] = await tx.$queryRaw<[{ balance_cents: bigint }]>`
+          // Check available margin
+          const [balanceRow] = await tx.$queryRaw<[{ balance_cents: bigint }]>`
           SELECT get_user_balance(${order.userId}) AS balance_cents
         `
-        const openTrades = await tx.trade.findMany({
-          where: { userId: order.userId, status: 'OPEN' },
-          select: { marginRequiredCents: true, unrealizedPnlCents: true },
-        })
-        const usedMargin = openTrades.reduce((sum: bigint, t: { marginRequiredCents: bigint }) => sum + t.marginRequiredCents, 0n)
-        const unrealizedPnl = openTrades.reduce((sum: bigint, t: { unrealizedPnlCents: bigint }) => sum + t.unrealizedPnlCents, 0n)
-        const equity = (balanceRow?.balance_cents ?? 0n) + unrealizedPnl
-        const available = equity - usedMargin
-
-        if (marginCents > available) {
-          // Cancel order — insufficient margin
-          await tx.trade.update({
-            where: { id: order.id },
-            data: { status: 'CANCELLED' },
+          const openTrades = await tx.trade.findMany({
+            where: { userId: order.userId, status: 'OPEN' },
+            select: { marginRequiredCents: true, unrealizedPnlCents: true },
           })
-          log.info({ orderId: order.id.toString() }, 'Entry order cancelled — insufficient margin')
-          return
-        }
+          const usedMargin = openTrades.reduce(
+            (sum: bigint, t: { marginRequiredCents: bigint }) => sum + t.marginRequiredCents,
+            0n,
+          )
+          const unrealizedPnl = openTrades.reduce(
+            (sum: bigint, t: { unrealizedPnlCents: bigint }) => sum + t.unrealizedPnlCents,
+            0n,
+          )
+          const equity = (balanceRow?.balance_cents ?? 0n) + unrealizedPnl
+          const available = equity - usedMargin
 
-        // Update trade to OPEN
-        const updateResult = await tx.trade.updateMany({
-          where: { id: order.id, status: 'PENDING' },
-          data: {
-            status: 'OPEN',
-            openRateScaled,
-            marginRequiredCents: marginCents,
-          },
-        })
-        if (updateResult.count !== 1) return // Already processed
-
-        // Create IB commission if agent assigned
-        const user = await tx.user.findUnique({
-          where: { id: order.userId },
-          select: { agentId: true },
-        })
-        if (user?.agentId) {
-          const agent = await tx.staff.findUnique({
-            where: { id: user.agentId },
-            select: { id: true, commissionRateBps: true },
-          })
-          if (agent) {
-            const commissionCents = calcIbCommissionCents(
-              order.units,
-              inst.contractSize,
-              openRateScaled,
-              agent.commissionRateBps,
+          if (marginCents > available) {
+            // Cancel order — insufficient margin
+            await tx.trade.update({
+              where: { id: order.id },
+              data: { status: 'CANCELLED' },
+            })
+            log.info(
+              { orderId: order.id.toString() },
+              'Entry order cancelled — insufficient margin',
             )
-            if (commissionCents > 0n) {
-              await tx.ibCommission.create({
-                data: {
-                  agentId: agent.id,
-                  traderId: order.userId,
-                  tradeId: order.id,
-                  amountCents: commissionCents,
-                  rateBps: agent.commissionRateBps,
-                },
-              })
+            return
+          }
+
+          // Update trade to OPEN
+          const updateResult = await tx.trade.updateMany({
+            where: { id: order.id, status: 'PENDING' },
+            data: {
+              status: 'OPEN',
+              openRateScaled,
+              marginRequiredCents: marginCents,
+            },
+          })
+          if (updateResult.count !== 1) return // Already processed
+
+          // Create IB commission if agent assigned
+          const user = await tx.user.findUnique({
+            where: { id: order.userId },
+            select: { agentId: true },
+          })
+          if (user?.agentId) {
+            const agent = await tx.staff.findUnique({
+              where: { id: user.agentId },
+              select: { id: true, commissionRateBps: true },
+            })
+            if (agent) {
+              const commissionCents = calcIbCommissionCents(
+                order.units,
+                inst.contractSize,
+                openRateScaled,
+                agent.commissionRateBps,
+              )
+              if (commissionCents > 0n) {
+                await tx.ibCommission.create({
+                  data: {
+                    agentId: agent.id,
+                    traderId: order.userId,
+                    tradeId: order.id,
+                    amountCents: commissionCents,
+                    rateBps: agent.commissionRateBps,
+                  },
+                })
+              }
             }
           }
-        }
-      }, { isolationLevel: 'Serializable' }),
+        },
+        { isolationLevel: 'Serializable' },
+      ),
     )
 
     // Add to margin watch immediately BEFORE any other async operations.
@@ -807,13 +889,18 @@ async function executeEntryOrder(
 
     // Notify user
     if (ioRef) {
-      emitToUser(ioRef, order.userId.toString(), 'trade:opened', serializeBigInt({
-        trade_id: order.id,
-        symbol: inst.symbol,
-        direction: order.direction,
-        units: order.units.toString(),
-        open_rate_scaled: openRateScaled.toString(),
-      }))
+      emitToUser(
+        ioRef,
+        order.userId.toString(),
+        'trade:opened',
+        serializeBigInt({
+          trade_id: order.id,
+          symbol: inst.symbol,
+          direction: order.direction,
+          units: order.units.toString(),
+          open_rate_scaled: openRateScaled.toString(),
+        }),
+      )
     }
 
     log.info({ orderId: order.id.toString(), symbol: inst.symbol }, 'Entry order executed')
@@ -822,20 +909,16 @@ async function executeEntryOrder(
   }
 }
 
-
 // ── Alert Checks ────────────────────────────────────────────────
 
 /**
  * Check active alerts for this instrument against current price.
  * Uses Redis sorted set for efficient O(log n) range queries.
  */
-async function checkAlerts(
-  inst: InstrumentInfo,
-  midScaled: bigint,
-): Promise<void> {
+async function checkAlerts(inst: InstrumentInfo, midScaled: bigint): Promise<void> {
   const redis = getRedis()
   const alertIndexKey = `alert_index:${inst.symbol}`
-  
+
   // Convert midScaled (BigInt) to string for Redis sorted set comparison.
   // Redis zrangebyscore accepts string scores and compares them numerically.
   // This preserves precision for large prices that exceed Number.MAX_SAFE_INTEGER.
@@ -885,18 +968,23 @@ async function checkAlerts(
         userId: alert.userId,
         type: 'ALERT_TRIGGERED',
         title: 'Price Alert Triggered',
-        message: `${inst.symbol} has reached ${formatCents(midScaled * 100n / 100000n)} — alert: ${alert.alertType.replace(/_/g, ' ').toLowerCase()}`,
+        message: `${inst.symbol} has reached ${formatCents((midScaled * 100n) / 100000n)} — alert: ${alert.alertType.replace(/_/g, ' ').toLowerCase()}`,
       },
     })
 
     // Notify user via Socket.io
     if (ioRef) {
-      emitToUser(ioRef, alert.userId.toString(), 'alert:triggered', serializeBigInt({
-        alert_id: alert.id,
-        symbol: inst.symbol,
-        alert_type: alert.alertType,
-        trigger_scaled: alert.triggerScaled.toString(),
-      }))
+      emitToUser(
+        ioRef,
+        alert.userId.toString(),
+        'alert:triggered',
+        serializeBigInt({
+          alert_id: alert.id,
+          symbol: inst.symbol,
+          alert_type: alert.alertType,
+          trigger_scaled: alert.triggerScaled.toString(),
+        }),
+      )
     }
 
     log.info({ alertId: alert.id.toString(), symbol: inst.symbol }, 'Alert triggered')

@@ -19,7 +19,7 @@ watchlistRouter.get('/', async (req, res, next) => {
     })
 
     // Enrich with live prices
-    const enriched = await Promise.all(items.map(async (item: typeof items[number]) => {
+    const enriched = await Promise.all(items.map(async (item) => {
       const cached = await getCachedPrice(item.instrument.symbol)
       let live_price = null
       if (cached) {

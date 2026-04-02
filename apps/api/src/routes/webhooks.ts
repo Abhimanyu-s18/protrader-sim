@@ -23,8 +23,7 @@ webhooksRouter.post('/nowpayments', async (req, res, next) => {
     }
 
     const { payment_id, payment_status, pay_currency, order_id } = req.body as {
-      payment_id: string; payment_status: string; price_amount: number
-      price_currency: string; pay_currency: string; order_id: string
+      payment_id: string; payment_status: string; pay_currency: string; order_id: string
     }
 
     if (payment_status === 'finished' || payment_status === 'confirmed') {

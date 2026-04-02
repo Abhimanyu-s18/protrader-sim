@@ -1,0 +1,21 @@
+{
+  "name": "pre-commit-validation",
+  "description": "Run linting and type-checking before agent makes file changes to ensure code quality",
+  "event": "PostToolUse",
+  "condition": {
+    "type": "tool_use",
+    "tools": ["replace_string_in_file", "multi_replace_string_in_file", "create_file"]
+  },
+  "action": {
+    "type": "command",
+    "command": "pnpm lint && pnpm typecheck",
+    "cwd": ".",
+    "timeout": 60,
+    "onFailure": {
+      "type": "warning",
+      "message": "Code changes introduced lint or type errors. Please review and fix before continuing."
+    }
+  },
+  "priority": "medium",
+  "enabled": true
+}

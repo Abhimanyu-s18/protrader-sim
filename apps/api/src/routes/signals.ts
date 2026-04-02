@@ -13,8 +13,11 @@ signalsRouter.get('/', async (req, res, next) => {
     let instrumentIds: bigint[] | undefined
 
     if (watchlist_only === 'true') {
-      const wl = await prisma.watchlistItem.findMany({ where: { userId: BigInt(req.user!.user_id) }, select: { instrumentId: true } })
-      instrumentIds = wl.map((w: typeof wl[number]) => w.instrumentId)
+      const wl = await prisma.watchlistItem.findMany({
+        where: { userId: BigInt(req.user!.user_id) },
+        select: { instrumentId: true },
+      })
+      instrumentIds = wl.map((w) => w.instrumentId)
     }
 
     const signals = await prisma.signal.findMany({
@@ -24,10 +27,16 @@ signalsRouter.get('/', async (req, res, next) => {
         ...(instrumentIds ? { instrumentId: { in: instrumentIds } } : {}),
         ...(asset_class ? { instrument: { assetClass: asset_class as never } } : {}),
       },
-      include: { instrument: { select: { symbol: true, displayName: true, assetClass: true, pipDecimalPlaces: true } } },
+      include: {
+        instrument: {
+          select: { symbol: true, displayName: true, assetClass: true, pipDecimalPlaces: true },
+        },
+      },
       orderBy: { generatedAt: 'desc' },
       take: 100,
     })
     res.json(serializeBigInt(signals))
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })

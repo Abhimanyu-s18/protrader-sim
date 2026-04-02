@@ -365,6 +365,7 @@ model Trade {
   @@index([userId, status])
   @@index([instrumentId], map: "idx_trades_instrument_open")
   @@index([status, openAt])
+  @@index([status, lastRolloverDate])
   @@map("trades")
 }
 
@@ -427,6 +428,7 @@ model Withdrawal {
   amountCents          BigInt           @map("amount_cents")
   cryptoCurrency       String           @map("crypto_currency") @db.VarChar(10)
   walletAddress        String           @map("wallet_address") @db.VarChar(255)
+  network              String?          @db.VarChar(10)
   reason               String?          @db.Text
   status               WithdrawalStatus @default(PENDING)
   nowpaymentsPayoutId  String?          @map("nowpayments_payout_id") @db.VarChar(255)

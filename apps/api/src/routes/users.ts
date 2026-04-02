@@ -1,12 +1,16 @@
 import { Router, type Router as ExpressRouter } from 'express'
-import type { TransactionType } from '@prisma/client'
+import { TransactionType } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
-import { calcAccountMetrics, calcPnlCents, formatCents, serializeBigInt } from '../lib/calculations.js'
+import {
+  calcAccountMetrics,
+  calcPnlCents,
+  formatCents,
+  serializeBigInt,
+} from '../lib/calculations.js'
 import { getCachedPrice } from '../lib/redis.js'
-
 
 export const usersRouter: ExpressRouter = Router()
 
@@ -19,58 +23,109 @@ usersRouter.get('/me', async (req, res, next) => {
     const user = await prisma.user.findUnique({
       where: { id: BigInt(req.user!.user_id) },
       select: {
-        id: true, accountNumber: true, leadId: true, email: true,
-        fullName: true, phone: true, country: true, addressLine1: true,
-        addressCity: true, addressCountry: true, dateOfBirth: true,
-        tradingExperience: true, profession: true, languagePreference: true,
-        kycStatus: true, accountStatus: true, emailVerified: true,
-        popupSoundEnabled: true, avatarUrl: true, agentId: true,
-        createdAt: true, updatedAt: true,
+        id: true,
+        accountNumber: true,
+        leadId: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        country: true,
+        addressLine1: true,
+        addressCity: true,
+        addressCountry: true,
+        dateOfBirth: true,
+        tradingExperience: true,
+        profession: true,
+        languagePreference: true,
+        kycStatus: true,
+        accountStatus: true,
+        emailVerified: true,
+        popupSoundEnabled: true,
+        avatarUrl: true,
+        agentId: true,
+        createdAt: true,
+        updatedAt: true,
       },
     })
-    if (!user) { next(Errors.notFound('User')); return }
+    if (!user) {
+      next(Errors.notFound('User'))
+      return
+    }
     res.json(serializeBigInt(user))
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // ── PUT /v1/users/me ────────────────────────────────────────────
-const UpdateProfileSchema = z.object({
-  full_name: z.string().min(2).max(255).optional(),
-  phone: z.string().min(6).max(30).optional(),
-  address_line1: z.string().max(255).optional(),
-  address_city: z.string().max(100).optional(),
-  address_country: z.string().max(100).optional(),
-  date_of_birth: z.string().optional(),
-  trading_experience: z.enum(['Beginner', 'Intermediate', 'Advanced', 'Professional']).optional(),
-  profession: z.string().max(100).optional(),
-  language_preference: z.string().max(10).optional(),
-  popup_sound_enabled: z.boolean().optional(),
-})
+const UpdateProfileSchema = z
+  .object({
+    full_name: z.string().min(2).max(255).optional(),
+    phone: z.string().min(6).max(30).optional(),
+    address_line1: z.string().max(255).optional(),
+    address_city: z.string().max(100).optional(),
+    address_country: z.string().max(100).optional(),
+    date_of_birth: z.string().optional(),
+    trading_experience: z.enum(['Beginner', 'Intermediate', 'Advanced', 'Professional']).optional(),
+    profession: z.string().max(100).optional(),
+    language_preference: z.string().max(10).optional(),
+    popup_sound_enabled: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.date_of_birth === undefined) return true
+      const d = new Date(data.date_of_birth)
+      return !isNaN(d.getTime())
+    },
+    { message: 'Invalid date format for date_of_birth', path: ['date_of_birth'] },
+  )
 
 usersRouter.put('/me', async (req, res, next) => {
   try {
     const body = UpdateProfileSchema.safeParse(req.body)
-    if (!body.success) { next(Errors.validation(body.error.flatten().fieldErrors as Record<string, unknown>)); return }
+    if (!body.success) {
+      next(Errors.validation(body.error.flatten().fieldErrors as Record<string, unknown>))
+      return
+    }
 
     const updated = await prisma.user.update({
       where: { id: BigInt(req.user!.user_id) },
       data: {
-        ...(body.data.full_name && { fullName: body.data.full_name }),
-        ...(body.data.phone && { phone: body.data.phone }),
+        ...(body.data.full_name !== undefined && { fullName: body.data.full_name }),
+        ...(body.data.phone !== undefined && { phone: body.data.phone }),
         ...(body.data.address_line1 !== undefined && { addressLine1: body.data.address_line1 }),
         ...(body.data.address_city !== undefined && { addressCity: body.data.address_city }),
-        ...(body.data.address_country !== undefined && { addressCountry: body.data.address_country }),
-        ...(body.data.date_of_birth && { dateOfBirth: new Date(body.data.date_of_birth) }),
-        ...(body.data.trading_experience && { tradingExperience: body.data.trading_experience }),
+        ...(body.data.address_country !== undefined && {
+          addressCountry: body.data.address_country,
+        }),
+        ...(body.data.date_of_birth !== undefined && {
+          dateOfBirth: new Date(body.data.date_of_birth),
+        }),
+        ...(body.data.trading_experience !== undefined && {
+          tradingExperience: body.data.trading_experience,
+        }),
         ...(body.data.profession !== undefined && { profession: body.data.profession }),
-        ...(body.data.language_preference && { languagePreference: body.data.language_preference }),
-        ...(body.data.popup_sound_enabled !== undefined && { popupSoundEnabled: body.data.popup_sound_enabled }),
+        ...(body.data.language_preference !== undefined && {
+          languagePreference: body.data.language_preference,
+        }),
+        ...(body.data.popup_sound_enabled !== undefined && {
+          popupSoundEnabled: body.data.popup_sound_enabled,
+        }),
       },
-      select: { id: true, fullName: true, phone: true, languagePreference: true, popupSoundEnabled: true, updatedAt: true },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        languagePreference: true,
+        popupSoundEnabled: true,
+        updatedAt: true,
+      },
     })
 
     res.json(serializeBigInt(updated))
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // ── GET /v1/users/me/account-metrics ────────────────────────────
@@ -86,7 +141,9 @@ usersRouter.get('/me/account-metrics', async (req, res, next) => {
     // Open trades with live PnL
     const openTrades = await prisma.trade.findMany({
       where: { userId, status: 'OPEN' },
-      include: { instrument: { select: { symbol: true, pipDecimalPlaces: true, contractSize: true } } },
+      include: {
+        instrument: { select: { symbol: true, pipDecimalPlaces: true, contractSize: true } },
+      },
     })
 
     let unrealizedPnl = 0n
@@ -97,9 +154,8 @@ usersRouter.get('/me/account-metrics', async (req, res, next) => {
       usedMargin += trade.marginRequiredCents
       const cached = await getCachedPrice(trade.instrument.symbol)
       if (cached) {
-        const currentPrice = trade.direction === 'BUY'
-          ? BigInt(cached.bid_scaled)
-          : BigInt(cached.ask_scaled)
+        const currentPrice =
+          trade.direction === 'BUY' ? BigInt(cached.bid_scaled) : BigInt(cached.ask_scaled)
         const pnl = calcPnlCents(
           trade.direction,
           trade.openRateScaled,
@@ -108,10 +164,14 @@ usersRouter.get('/me/account-metrics', async (req, res, next) => {
           trade.instrument.contractSize,
         )
         unrealizedPnl += pnl
-        exposure += (trade.units * BigInt(trade.instrument.contractSize) * BigInt(cached.mid_scaled) * 100n) / 100000n
+        exposure +=
+          (trade.units * BigInt(trade.instrument.contractSize) * BigInt(cached.mid_scaled) * 100n) /
+          100000n
       } else {
         unrealizedPnl += trade.unrealizedPnlCents
-        exposure += (trade.units * BigInt(trade.instrument.contractSize) * trade.openRateScaled * 100n) / 100000n
+        exposure +=
+          (trade.units * BigInt(trade.instrument.contractSize) * trade.openRateScaled * 100n) /
+          100000n
       }
     }
 
@@ -144,7 +204,9 @@ usersRouter.get('/me/account-metrics', async (req, res, next) => {
       realized_pnl_cents: realizedPnl.toString(),
       realized_pnl_formatted: formatCents(realizedPnl),
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // ── GET /v1/users/me/financial-summary ──────────────────────────
@@ -160,7 +222,7 @@ usersRouter.get('/me/financial-summary', async (req, res, next) => {
     })
 
     const byType = Object.fromEntries(
-      summaryRows.map((r: typeof summaryRows[number]) => [r.transactionType, r._sum.amountCents ?? 0n])
+      summaryRows.map((r) => [r.transactionType, r._sum.amountCents ?? 0n]),
     ) as Record<TransactionType, bigint>
 
     const get = (type: TransactionType) => byType[type] ?? 0n
@@ -168,41 +230,81 @@ usersRouter.get('/me/financial-summary', async (req, res, next) => {
     res.json({
       deposits_cents: get('DEPOSIT').toString(),
       deposits_formatted: formatCents(get('DEPOSIT')),
-      withdrawals_cents: (-(get('WITHDRAWAL'))).toString(),
-      withdrawals_formatted: formatCents(-(get('WITHDRAWAL'))),
-      rollover_paid_cents: (-(get('ROLLOVER'))).toString(),
-      rollover_paid_formatted: formatCents(-(get('ROLLOVER'))),
+      withdrawals_cents: (-get('WITHDRAWAL')).toString(),
+      withdrawals_formatted: formatCents(-get('WITHDRAWAL')),
+      rollover_paid_cents: (-get('ROLLOVER')).toString(),
+      rollover_paid_formatted: formatCents(-get('ROLLOVER')),
       trading_benefits_cents: get('TRADING_BENEFIT').toString(),
       cashback_cents: get('CASHBACK').toString(),
       manual_adjustments_cents: get('MANUAL_ADJUSTMENT').toString(),
       cash_dividends_cents: get('DIVIDEND').toString(),
-      taxes_cents: (-(get('TAX'))).toString(),
-      commissions_cents: (-(get('COMMISSION'))).toString(),
-      fees_cents: (-(get('FEE'))).toString(),
+      taxes_cents: (-get('TAX')).toString(),
+      commissions_cents: (-get('COMMISSION')).toString(),
+      fees_cents: (-get('FEE')).toString(),
       stock_split_rounding_cents: get('STOCK_SPLIT_ROUNDING').toString(),
       transfers_cents: get('TRANSFER').toString(),
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // ── GET /v1/users/me/ledger ──────────────────────────────────────
 usersRouter.get('/me/ledger', async (req, res, next) => {
   try {
     const userId = BigInt(req.user!.user_id)
-    const { cursor, limit = '50', type } = req.query
-    const take = Math.min(parseInt(limit as string, 10), 200)
+    const { cursor, limit = '50', type } = req.query as Record<string, string | undefined>
+
+    // Parse and validate cursor
+    let cursorId: bigint | undefined
+    if (cursor) {
+      try {
+        cursorId = BigInt(cursor)
+      } catch {
+        next(Errors.validation({ cursor: ['Invalid cursor format. Must be a valid integer.'] }))
+        return
+      }
+    }
+
+    // Parse and bound limit
+    const limitNum = parseInt(limit ?? '50', 10)
+    if (isNaN(limitNum) || limitNum < 1) {
+      next(Errors.validation({ limit: ['Invalid limit. Must be a positive integer.'] }))
+      return
+    }
+    const take = Math.min(limitNum, 200)
+
+    // Validate type against TransactionType enum
+    const validTypes = Object.values(TransactionType) as string[]
+    let validatedType: TransactionType | undefined
+    if (type) {
+      if (!validTypes.includes(type)) {
+        next(
+          Errors.validation({
+            type: [`Invalid transaction type. Must be one of: ${validTypes.join(', ')}`],
+          }),
+        )
+        return
+      }
+      validatedType = type as TransactionType
+    }
 
     const transactions = await prisma.ledgerTransaction.findMany({
       where: {
         userId,
-        ...(cursor ? { id: { lt: BigInt(cursor as string) } } : {}),
-        ...(type ? { transactionType: type as TransactionType } : {}),
+        ...(cursorId ? { id: { lt: cursorId } } : {}),
+        ...(validatedType ? { transactionType: validatedType } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: take + 1,
       select: {
-        id: true, transactionType: true, amountCents: true,
-        balanceAfterCents: true, description: true, referenceType: true, createdAt: true,
+        id: true,
+        transactionType: true,
+        amountCents: true,
+        balanceAfterCents: true,
+        description: true,
+        referenceType: true,
+        createdAt: true,
       },
     })
 
@@ -211,13 +313,17 @@ usersRouter.get('/me/ledger', async (req, res, next) => {
     const nextCursor = hasMore ? items[items.length - 1]?.id.toString() : null
 
     res.json({
-      data: serializeBigInt(items.map((t: typeof items[number]) => ({
-        ...t,
-        amount_formatted: formatCents(t.amountCents),
-        balance_after_formatted: formatCents(t.balanceAfterCents),
-      }))),
+      data: serializeBigInt(
+        items.map((t) => ({
+          ...t,
+          amount_formatted: formatCents(t.amountCents),
+          balance_after_formatted: formatCents(t.balanceAfterCents),
+        })),
+      ),
       next_cursor: nextCursor,
       has_more: hasMore,
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })

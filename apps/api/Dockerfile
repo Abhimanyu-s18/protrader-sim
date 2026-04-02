@@ -54,6 +54,12 @@ COPY --from=builder /app/packages/db/node_modules/.prisma ./packages/db/node_mod
 
 WORKDIR /app/apps/api
 
+# Create non-root user and set ownership
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
+    chown -R appuser:appgroup /app
+
+USER appuser
+
 EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

@@ -159,9 +159,9 @@ describe('Trailing Stop — Peak Tracking Logic', () => {
     expect(triggerLevel).toBe(108_400n)
 
     // Price drops below trigger → close
-    expect((108_395n) <= triggerLevel).toBe(true)
+    expect(108_395n <= triggerLevel).toBe(true)
     // Price above trigger → hold
-    expect((108_405n) <= triggerLevel).toBe(false)
+    expect(108_405n <= triggerLevel).toBe(false)
   })
 
   it('should calculate trigger level for SELL trailing stop', () => {
@@ -173,9 +173,9 @@ describe('Trailing Stop — Peak Tracking Logic', () => {
     expect(triggerLevel).toBe(108_600n)
 
     // Price rises above trigger → close
-    expect((108_605n) >= triggerLevel).toBe(true)
+    expect(108_605n >= triggerLevel).toBe(true)
     // Price below trigger → hold
-    expect((108_595n) >= triggerLevel).toBe(false)
+    expect(108_595n >= triggerLevel).toBe(false)
   })
 
   it('should update peak for BUY when new high reached', () => {
@@ -302,7 +302,7 @@ describe('Stop Loss / Take Profit — Trigger Logic', () => {
     const stopLoss = 108_400n
 
     expect(bidScaled <= stopLoss).toBe(false)
-    expect((108_395n) <= stopLoss).toBe(true)
+    expect(108_395n <= stopLoss).toBe(true)
   })
 
   it('should trigger BUY TP when ask >= takeProfit', () => {
@@ -310,7 +310,7 @@ describe('Stop Loss / Take Profit — Trigger Logic', () => {
     const takeProfit = 108_600n
 
     expect(askScaled >= takeProfit).toBe(false)
-    expect((108_605n) >= takeProfit).toBe(true)
+    expect(108_605n >= takeProfit).toBe(true)
   })
 
   it('should trigger SELL SL when ask >= stopLoss', () => {
@@ -318,7 +318,7 @@ describe('Stop Loss / Take Profit — Trigger Logic', () => {
     const stopLoss = 108_600n
 
     expect(askScaled >= stopLoss).toBe(false)
-    expect((108_605n) >= stopLoss).toBe(true)
+    expect(108_605n >= stopLoss).toBe(true)
   })
 
   it('should trigger SELL TP when bid <= takeProfit', () => {
@@ -326,7 +326,7 @@ describe('Stop Loss / Take Profit — Trigger Logic', () => {
     const takeProfit = 108_400n
 
     expect(bidScaled <= takeProfit).toBe(false)
-    expect((108_395n) <= takeProfit).toBe(true)
+    expect(108_395n <= takeProfit).toBe(true)
   })
 })
 
@@ -344,7 +344,6 @@ describe('Margin Level — Call and Stop-Out Detection', () => {
   it('should NOT trigger margin call above 100%', () => {
     const level = calcMarginLevelBps(6_0000n, 5_0000n)
     expect(level).toBe(12_000n)
-    expect(level != null && level > 10_000n).toBe(true)
   })
 
   it('should return null when no margin used', () => {
@@ -452,7 +451,7 @@ describe('calcBidAsk — Edge Cases & Invalid Inputs', () => {
 
   it('should handle very large spread (1000 pips)', () => {
     const { bidScaled, askScaled } = calcBidAsk(108_500n, 1000, 4)
-    expect(askScaled - bidScaled).toBe(10_000_000n) // 1000 pips = 10000000 scaled
+    expect(askScaled - bidScaled).toBe(10_000n) // 1000 pips × 10n per pip = 10000n
   })
 
   it('should handle JPY pair (2 decimal places)', () => {
@@ -499,7 +498,13 @@ describe('calcPnlCents — Edge Cases & Invalid Inputs', () => {
   it('should handle invalid direction fallback (non-BUY treated as SELL)', () => {
     // Since the function only checks direction === 'BUY', anything else is treated as SELL
     const buyResult = calcPnlCents('BUY', openRate, 108_700n, units, contractSize)
-    const invalid = calcPnlCents('INVALID' as 'BUY' | 'SELL', openRate, 108_700n, units, contractSize)
+    const invalid = calcPnlCents(
+      'INVALID' as 'BUY' | 'SELL',
+      openRate,
+      108_700n,
+      units,
+      contractSize,
+    )
     // Invalid direction would fall through to SELL logic
     expect(invalid).not.toBe(buyResult)
   })
@@ -529,9 +534,10 @@ describe('calcMarginCents — Edge Cases & Invalid Inputs', () => {
     expect(result).toBe(0n)
   })
 
-  it('should handle negative units (short position)', () => {
-    const result = calcMarginCents(-units, contractSize, openRate, 500)
-    expect(result).toBeLessThan(0n)
+  it('should reject negative units', () => {
+    expect(() => {
+      calcMarginCents(-units, contractSize, openRate, 500)
+    }).toThrow('units must be non-negative')
   })
 
   it('should handle zero leverage (undefined behavior)', () => {
@@ -629,10 +635,10 @@ describe('calcMarginLevelBps — Edge Cases & Invalid Inputs', () => {
     expect(result).toBeLessThan(0n)
   })
 
-  it('should handle negative margin (unusual but supported)', () => {
-    const result = calcMarginLevelBps(10_000n, -5000n)
-    // This would produce negative result (unusual edge case)
-    expect(typeof result).toBe('bigint')
+  it('should reject negative margin used', () => {
+    expect(() => {
+      calcMarginLevelBps(10_000n, -5000n)
+    }).toThrow('usedMarginCents must be non-negative')
   })
 
   it('should handle extremely large equity', () => {
