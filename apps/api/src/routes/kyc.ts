@@ -1,15 +1,15 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
 import { serializeBigInt } from '../lib/calculations.js'
 import multer from 'multer'
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+
 import crypto from 'crypto'
 import path from 'path'
 
-export const kycRouter = Router()
+export const kycRouter: ExpressRouter = Router()
 kycRouter.use(requireAuth)
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'application/pdf']
@@ -55,13 +55,13 @@ kycRouter.post('/documents', upload.single('file'), async (req, res, next) => {
 
     const { document_category, document_type, is_primary = 'true' } = req.body as Record<string, string>
     const validCategories = ['IDENTITY', 'ADDRESS', 'MISCELLANEOUS']
-    if (!validCategories.includes(document_category)) {
+    if (!validCategories.includes(document_category ?? '')) {
       next(Errors.validation({ document_category: ['Must be IDENTITY, ADDRESS, or MISCELLANEOUS.'] })); return
     }
 
     const userId = BigInt(req.user!.user_id)
     const ext = path.extname(req.file.originalname).toLowerCase()
-    const r2Key = `kyc/${userId}/${document_category.toLowerCase()}/${crypto.randomUUID()}${ext}`
+    const r2Key = `kyc/${userId}/${(document_category ?? '').toLowerCase()}/${crypto.randomUUID()}${ext}`
 
     // Upload to Cloudflare R2
     await r2.send(new PutObjectCommand({
@@ -69,7 +69,7 @@ kycRouter.post('/documents', upload.single('file'), async (req, res, next) => {
       Key: r2Key,
       Body: req.file.buffer,
       ContentType: req.file.mimetype,
-      Metadata: { user_id: userId.toString(), category: document_category },
+      Metadata: { user_id: userId.toString(), category: document_category ?? '' },
     }))
 
     const doc = await prisma.kycDocument.create({

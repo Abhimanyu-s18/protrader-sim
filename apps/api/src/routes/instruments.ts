@@ -1,10 +1,10 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { getCachedPrice } from '../lib/redis.js'
-import { calcBidAsk, formatScaledPrice, serializeBigInt } from '../lib/calculations.js'
+import { formatScaledPrice, serializeBigInt } from '../lib/calculations.js'
 import { Errors } from '../middleware/errorHandler.js'
 
-export const instrumentsRouter = Router()
+export const instrumentsRouter: ExpressRouter = Router()
 
 // GET /v1/instruments — list all active instruments, optionally filtered by asset_class
 instrumentsRouter.get('/', async (req, res, next) => {

@@ -1,11 +1,11 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth, requireKYC } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
 import { serializeBigInt, formatCents } from '../lib/calculations.js'
 
-export const depositsRouter = Router()
+export const depositsRouter: ExpressRouter = Router()
 depositsRouter.use(requireAuth)
 
 const CreateDepositSchema = z.object({

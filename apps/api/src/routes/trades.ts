@@ -1,5 +1,6 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
 import { prisma, withSerializableRetry } from '../lib/prisma.js'
 import { requireAuth, requireKYC } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
@@ -16,7 +17,7 @@ import {
 } from '../lib/calculations.js'
 import { getCachedPrice, addMarginWatch, removeMarginWatch } from '../lib/redis.js'
 
-export const tradesRouter = Router()
+export const tradesRouter: ExpressRouter = Router()
 tradesRouter.use(requireAuth)
 
 // ── Schemas ───────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ const PartialCloseSchema = z.object({
 })
 
 const TrailingStopSchema = z.object({
-  trailing_stop_pips: z.number().int().positive(),
+  trailing_stop_pips: z.number().int().positive().nullable(),
 })
 
 // ── POST /v1/trades — Open a trade ───────────────────────────────
@@ -96,8 +97,8 @@ tradesRouter.post('/', requireKYC, async (req, res, next) => {
       where: { userId, status: 'OPEN' },
       select: { marginRequiredCents: true, unrealizedPnlCents: true },
     })
-    const usedMargin = openTrades.reduce((sum, t) => sum + t.marginRequiredCents, 0n)
-    const unrealizedPnl = openTrades.reduce((sum, t) => sum + t.unrealizedPnlCents, 0n)
+    const usedMargin = openTrades.reduce((sum: bigint, t: typeof openTrades[number]) => sum + t.marginRequiredCents, 0n)
+    const unrealizedPnl = openTrades.reduce((sum: bigint, t: typeof openTrades[number]) => sum + t.unrealizedPnlCents, 0n)
     const equity = balanceRow.balance_cents + unrealizedPnl
     const available = equity - usedMargin
 
@@ -112,7 +113,7 @@ tradesRouter.post('/', requireKYC, async (req, res, next) => {
     const agent = user?.agentId ? await prisma.staff.findUnique({ where: { id: user.agentId }, select: { id: true, commissionRateBps: true, teamLeaderId: true, overrideRateBps: true } }) : null
 
     // Create trade + commission in transaction
-    const trade = await prisma.$transaction(async (tx) => {
+    const trade = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const newTrade = await tx.trade.create({
         data: {
           userId,
@@ -188,8 +189,10 @@ tradesRouter.get('/', async (req, res, next) => {
 // ── GET /v1/trades/:id — Single trade ────────────────────────────
 tradesRouter.get('/:id', async (req, res, next) => {
   try {
+    const tradeIdParam = req.params['id']
+    if (!tradeIdParam || typeof tradeIdParam !== 'string') { next(Errors.validation({ id: ['Invalid ID'] })); return }
     const trade = await prisma.trade.findFirst({
-      where: { id: BigInt(req.params['id']!), userId: BigInt(req.user!.user_id) },
+      where: { id: BigInt(tradeIdParam), userId: BigInt(req.user!.user_id) },
       include: { instrument: true },
     })
     if (!trade) { next(Errors.notFound('Trade')); return }
@@ -201,7 +204,9 @@ tradesRouter.get('/:id', async (req, res, next) => {
 tradesRouter.post('/:id/close', requireKYC, async (req, res, next) => {
   try {
     const userId = BigInt(req.user!.user_id)
-    const tradeId = BigInt(req.params['id']!)
+    const tradeIdParam = req.params['id']
+    if (!tradeIdParam || typeof tradeIdParam !== 'string') { next(Errors.validation({ id: ['Invalid ID'] })); return }
+    const tradeId = BigInt(tradeIdParam)
 
     const trade = await prisma.trade.findFirst({
       where: { id: tradeId, userId, status: 'OPEN' },
@@ -223,7 +228,7 @@ tradesRouter.post('/:id/close', requireKYC, async (req, res, next) => {
     // and abort if conflicts occur (non-blocking); for guaranteed row-level locking use SELECT FOR UPDATE
     // Wrapped with retry handler for transient serialization conflicts (P2034 / 40001)
     const updatedTrade = await withSerializableRetry(async () =>
-      prisma.$transaction(async (tx) => {
+      prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Lock user row to serialize concurrent balance-affecting operations
         // This ensures sequential execution of balance computation + ledger writes per user
         await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`
@@ -329,7 +334,9 @@ tradesRouter.post('/:id/partial-close', requireKYC, async (req, res, next) => {
     if (!body.success) { next(Errors.validation(body.error.flatten().fieldErrors as Record<string, unknown>)); return }
 
     const userId = BigInt(req.user!.user_id)
-    const tradeId = BigInt(req.params['id']!)
+    const tradeIdParam = req.params['id']
+    if (!tradeIdParam || typeof tradeIdParam !== 'string') { next(Errors.validation({ id: ['Invalid ID'] })); return }
+    const tradeId = BigInt(tradeIdParam)
     const closeUnits = BigInt(body.data.units)
 
     const trade = await prisma.trade.findFirst({
@@ -337,11 +344,6 @@ tradesRouter.post('/:id/partial-close', requireKYC, async (req, res, next) => {
       include: { instrument: true },
     })
     if (!trade) { next(Errors.notFound('Trade')); return }
-
-    if (closeUnits >= trade.units) {
-      next(Errors.validation({ units: ['Partial close units must be less than total position units. Use /close to close entire position.'] }))
-      return
-    }
 
     const cached = await getCachedPrice(trade.instrument.symbol)
     if (!cached) { next(Errors.marketClosed(trade.instrument.symbol)); return }
@@ -353,24 +355,60 @@ tradesRouter.post('/:id/partial-close', requireKYC, async (req, res, next) => {
     // Calculate pro-rata P&L for the partial close
     const partialPnl = calcPnlCents(trade.direction, trade.openRateScaled, closeRateScaled, closeUnits, trade.instrument.contractSize)
 
-    // Pro-rata margin for the closed portion
-    const closedMargin = (trade.marginRequiredCents * closeUnits) / trade.units
-
     const updatedTrade = await withSerializableRetry(() =>
-      prisma.$transaction(async (tx) => {
+      prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Lock user row
         await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`
 
-        // Verify still open
-        const updateResult = await tx.trade.updateMany({
-          where: { id: tradeId, status: 'OPEN' },
-          data: {
-            units: { decrement: closeUnits },
-            marginRequiredCents: { decrement: closedMargin },
-          },
-        })
-        if (updateResult.count !== 1) {
-          throw new Error('Trade already closed or not found')
+        // Lock trade and verify conditions atomically within transaction
+        const tradeSnapshot = await tx.$queryRaw<[{ id: bigint; units: bigint; margin_required_cents: bigint; status: string }]>`
+          SELECT id, units, margin_required_cents, status FROM "trades" WHERE id = ${tradeId} FOR UPDATE
+        `
+
+        if (!tradeSnapshot || !tradeSnapshot[0]) {
+          throw new Error('Trade not found')
+        }
+
+        const { units: tradeUnits, margin_required_cents: marginRequiredCents, status } = tradeSnapshot[0]
+
+        // Validate close units inside transaction to prevent race condition
+        if (closeUnits >= tradeUnits) {
+          throw new Error('Partial close units must be less than total position units. Use /close to close entire position.')
+        }
+
+        if (status !== 'OPEN') {
+          throw new Error('Trade is not open')
+        }
+
+        // Calculate margin with floor division to prevent drift
+        // For partial closes: use floor division
+        // For final close: allocate remaining margin to close drift
+        const remainingUnits = tradeUnits - closeUnits
+        let closedMargin: bigint
+
+        if (remainingUnits === 0n) {
+          // Final close: allocate all remaining margin to prevent drift
+          closedMargin = marginRequiredCents
+        } else {
+          // Partial close: use floor division
+          closedMargin = (marginRequiredCents * closeUnits) / tradeUnits
+        }
+
+        // Perform atomic update with status and units check
+        await tx.$executeRaw`
+          UPDATE "trades"
+          SET units = units - ${closeUnits},
+              margin_required_cents = margin_required_cents - ${closedMargin}
+          WHERE id = ${tradeId} AND status = 'OPEN' AND units >= ${closeUnits}
+        `
+
+        // Verify the update succeeded
+        const updateVerify = await tx.$queryRaw<[{ count: bigint }]>`
+          SELECT COUNT(*) as count FROM "trades" WHERE id = ${tradeId} AND units = ${remainingUnits}
+        `
+
+        if (!updateVerify || updateVerify[0]?.count !== 1n) {
+          throw new Error('Failed to update trade units — possible concurrent close')
         }
 
         // Get current balance and create ledger entry
@@ -393,10 +431,13 @@ tradesRouter.post('/:id/partial-close', requireKYC, async (req, res, next) => {
         })
 
         // Return updated trade
-        return tx.trade.findUnique({ where: { id: tradeId } })
+        const updated = await tx.trade.findUnique({ where: { id: tradeId } })
+        if (!updated) throw new Error('Failed to retrieve updated trade')
+        return updated
       }, { isolationLevel: 'Serializable' }),
     )
 
+    if (!updatedTrade) { next(Errors.notFound('Trade')); return }
     res.json(serializeBigInt({
       ...updatedTrade,
       partial_close_units: closeUnits.toString(),
@@ -409,8 +450,10 @@ tradesRouter.post('/:id/partial-close', requireKYC, async (req, res, next) => {
 // ── DELETE /v1/trades/:id — Cancel pending entry order ───────────
 tradesRouter.delete('/:id', async (req, res, next) => {
   try {
+    const tradeIdParam = req.params['id']
+    if (!tradeIdParam || typeof tradeIdParam !== 'string') { next(Errors.validation({ id: ['Invalid ID'] })); return }
     const trade = await prisma.trade.findFirst({
-      where: { id: BigInt(req.params['id']!), userId: BigInt(req.user!.user_id), status: 'PENDING' },
+      where: { id: BigInt(tradeIdParam), userId: BigInt(req.user!.user_id), status: 'PENDING' },
     })
     if (!trade) { next(Errors.notFound('Trade')); return }
 

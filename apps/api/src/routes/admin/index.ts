@@ -1,5 +1,6 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { requireAuth, requireRole } from '../../middleware/auth.js'
 import { Errors } from '../../middleware/errorHandler.js'
@@ -7,7 +8,7 @@ import { serializeBigInt, formatCents } from '../../lib/calculations.js'
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
-export const adminRouter = Router()
+export const adminRouter: ExpressRouter = Router()
 adminRouter.use(requireAuth)
 adminRouter.use(requireRole('SUPER_ADMIN', 'ADMIN'))
 
@@ -184,7 +185,7 @@ adminRouter.put('/withdrawals/:id', async (req, res, next) => {
     const withdrawalId = BigInt(req.params['id']!)
 
     // Process withdrawal within a transaction with proper isolation
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Re-fetch withdrawal inside transaction with status check
       const w = await tx.withdrawal.findUnique({ where: { id: withdrawalId }, select: { id: true, userId: true, amountCents: true, status: true } })
       if (!w) {

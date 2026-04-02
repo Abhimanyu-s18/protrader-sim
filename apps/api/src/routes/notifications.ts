@@ -1,9 +1,9 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { serializeBigInt } from '../lib/calculations.js'
 
-export const notificationsRouter = Router()
+export const notificationsRouter: ExpressRouter = Router()
 notificationsRouter.use(requireAuth)
 
 // GET /v1/notifications

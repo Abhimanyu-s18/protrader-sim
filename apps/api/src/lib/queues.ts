@@ -1,5 +1,8 @@
-import { Queue, Worker, QueueEvents } from 'bullmq'
+import { Queue } from 'bullmq'
 import { getRedis } from './redis.js'
+import { createLogger } from './logger.js'
+
+const log = createLogger('queues')
 
 // ── Queue names ───────────────────────────────────────────────────
 export const QUEUES = {
@@ -57,5 +60,5 @@ export async function scheduleRecurringJobs(): Promise<void> {
     { name: 'send-kyc-reminders', data: {} },
   )
 
-  console.log('[BullMQ] Recurring jobs scheduled')
+  log.info('Recurring jobs scheduled')
 }

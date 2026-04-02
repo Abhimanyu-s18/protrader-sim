@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -6,7 +6,7 @@ import { Errors } from '../middleware/errorHandler.js'
 import { serializeBigInt } from '../lib/calculations.js'
 import { getRedis } from '../lib/redis.js'
 
-export const alertsRouter = Router()
+export const alertsRouter: ExpressRouter = Router()
 alertsRouter.use(requireAuth)
 
 const CreateAlertSchema = z.object({

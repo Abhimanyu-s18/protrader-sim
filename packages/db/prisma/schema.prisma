@@ -348,6 +348,7 @@ model Trade {
   realizedPnlCents         BigInt?        @map("realized_pnl_cents")
   rolloverAccumulatedCents BigInt         @default(0) @map("rollover_accumulated_cents")
   overnightCount           Int            @default(0) @map("overnight_count")
+  lastRolloverDate         DateTime?      @map("last_rollover_date") @db.Timestamptz
   commissionCents          BigInt         @default(0) @map("commission_cents")
   status                   TradeStatus    @default(OPEN)
   openAt                   DateTime       @default(now()) @map("open_at") @db.Timestamptz

@@ -1,4 +1,7 @@
 import { Redis } from 'ioredis'
+import { createLogger } from './logger.js'
+
+const log = createLogger('redis')
 
 let redisClient: Redis | null = null
 
@@ -11,11 +14,11 @@ export function getRedis(): Redis {
     })
 
     redisClient.on('error', (err) => {
-      console.error('[Redis] Connection error:', err)
+      log.error({ err }, 'Connection error')
     })
 
     redisClient.on('connect', () => {
-      console.log('[Redis] Connected')
+      log.info('Connected')
     })
   }
 

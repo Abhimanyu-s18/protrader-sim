@@ -1,11 +1,12 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma.js'
+import type { Prisma } from '@prisma/client'
+import { prisma, withSerializableRetry } from '../lib/prisma.js'
 import { requireAuth, requireKYC } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
 import { serializeBigInt, formatCents } from '../lib/calculations.js'
 
-export const withdrawalsRouter = Router()
+export const withdrawalsRouter: ExpressRouter = Router()
 withdrawalsRouter.use(requireAuth)
 
 const CreateWithdrawalSchema = z.object({
@@ -27,39 +28,44 @@ withdrawalsRouter.post('/', requireKYC, async (req, res, next) => {
 
     // Check available balance
     // Deduct immediately to prevent double withdrawal - within transaction with proper isolation
-    const withdrawal = await prisma.$transaction(async (tx) => {
-      // Lock balance calculation by querying within transaction
-      const [balanceRow] = await tx.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${userId}) AS balance_cents`
-      const currentBalance = balanceRow?.balance_cents ?? 0n
+    // Uses serializable isolation with retry for transient conflicts
+    const withdrawal = await withSerializableRetry(async () =>
+      prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        // Lock user row to serialize concurrent balance-affecting operations
+        await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`
 
-      // Query trades inside transaction for consistent reads
-      const openTrades = await tx.trade.findMany({ where: { userId, status: 'OPEN' }, select: { marginRequiredCents: true, unrealizedPnlCents: true } })
-      const usedMargin = openTrades.reduce((s, t) => s + t.marginRequiredCents, 0n)
-      const unrealized = openTrades.reduce((s, t) => s + t.unrealizedPnlCents, 0n)
+        const [balanceRow] = await tx.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${userId}) AS balance_cents`
+        const currentBalance = balanceRow?.balance_cents ?? 0n
 
-      const available = currentBalance + unrealized - usedMargin
+        // Compute used margin from open trades (within transaction for consistent read)
+        const openTrades = await tx.trade.findMany({ where: { userId, status: 'OPEN' }, select: { marginRequiredCents: true } })
+        const usedMargin = openTrades.reduce((s: bigint, t: typeof openTrades[number]) => s + t.marginRequiredCents, 0n)
 
-      if (amountCents > available) {
-        throw Errors.insufficientFunds()
-      }
+        // Available balance = settled balance - used margin
+        // Do NOT use cached unrealizedPnlCents as it may be stale
+        const available = currentBalance - usedMargin
 
-      const newBalance = currentBalance - amountCents
+        if (amountCents > available) {
+          throw Errors.insufficientFunds()
+        }
 
-      const w = await tx.withdrawal.create({
-        data: { userId, amountCents, cryptoCurrency: crypto_currency, walletAddress: wallet_address, reason: reason ?? null },
+        const newBalance = currentBalance - amountCents
+
+        const w = await tx.withdrawal.create({
+          data: { userId, amountCents, cryptoCurrency: crypto_currency, walletAddress: wallet_address, reason: reason ?? null },
+        })
+        await tx.ledgerTransaction.create({
+          data: {
+            userId, transactionType: 'WITHDRAWAL', amountCents: -amountCents,
+            balanceAfterCents: newBalance, referenceId: w.id, referenceType: 'WITHDRAWAL',
+            description: `Withdrawal request: ${crypto_currency}`,
+          },
+        })
+        return w
+      }, {
+        isolationLevel: 'Serializable',
       })
-      await tx.ledgerTransaction.create({
-        data: {
-          userId, transactionType: 'WITHDRAWAL', amountCents: -amountCents,
-          balanceAfterCents: newBalance, referenceId: w.id, referenceType: 'WITHDRAWAL',
-          description: `Withdrawal request: ${crypto_currency}`,
-        },
-      })
-      return w
-    }, {
-      // Serializable isolation for financial consistency
-      isolationLevel: 'Serializable',
-    })
+    )
 
     res.status(201).json(serializeBigInt({ ...withdrawal, amount_formatted: formatCents(withdrawal.amountCents) }))
   } catch (err) { next(err) }

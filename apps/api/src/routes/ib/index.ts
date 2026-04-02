@@ -1,9 +1,9 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { prisma } from '../../lib/prisma.js'
 import { requireAuth, requireRole } from '../../middleware/auth.js'
 import { serializeBigInt, formatCents } from '../../lib/calculations.js'
 
-export const ibRouter = Router()
+export const ibRouter: ExpressRouter = Router()
 ibRouter.use(requireAuth)
 ibRouter.use(requireRole('IB_TEAM_LEADER', 'AGENT', 'SUPER_ADMIN', 'ADMIN'))
 
@@ -71,10 +71,10 @@ ibRouter.get('/network-stats', async (req, res, next) => {
     let traderIds: bigint[] = []
     if (role === 'AGENT') {
       const traders = await prisma.user.findMany({ where: { agentId }, select: { id: true } })
-      traderIds = traders.map((t) => t.id)
+      traderIds = traders.map((t: typeof traders[number]) => t.id)
     } else if (role === 'IB_TEAM_LEADER') {
       const agents = await prisma.staff.findMany({ where: { teamLeaderId: agentId }, select: { id: true } })
-      const traders = await prisma.user.findMany({ where: { agentId: { in: agents.map((a) => a.id) } }, select: { id: true } })
+      const traders = await prisma.user.findMany({ where: { agentId: { in: agents.map((a: typeof agents[number]) => a.id) } }, select: { id: true } })
       traderIds = traders.map((t) => t.id)
     }
 
@@ -102,7 +102,7 @@ ibRouter.get('/agents', requireRole('IB_TEAM_LEADER', 'SUPER_ADMIN'), async (req
       where: { teamLeaderId: tlId, role: 'AGENT' },
       select: { id: true, fullName: true, email: true, refCode: true, commissionRateBps: true, isActive: true, createdAt: true },
     })
-    const enriched = await Promise.all(agents.map(async (agent) => {
+    const enriched = await Promise.all(agents.map(async (agent: typeof agents[number]) => {
       const traderCount = await prisma.user.count({ where: { agentId: agent.id } })
       const commSum = await prisma.ibCommission.aggregate({ where: { agentId: agent.id }, _sum: { amountCents: true } })
       return { ...agent, trader_count: traderCount, total_commission_cents: (commSum._sum.amountCents ?? 0n).toString() }

@@ -1,9 +1,9 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
-import { serializeBigInt, formatCents } from '../lib/calculations.js'
 import crypto from 'crypto'
 
-export const webhooksRouter = Router()
+export const webhooksRouter: ExpressRouter = Router()
 
 // POST /v1/webhooks/nowpayments
 // NowPayments IPN webhook — payment status updates
@@ -22,7 +22,7 @@ webhooksRouter.post('/nowpayments', async (req, res, next) => {
       }
     }
 
-    const { payment_id, payment_status, price_amount, price_currency, pay_currency, order_id } = req.body as {
+    const { payment_id, payment_status, pay_currency, order_id } = req.body as {
       payment_id: string; payment_status: string; price_amount: number
       price_currency: string; pay_currency: string; order_id: string
     }
@@ -33,7 +33,7 @@ webhooksRouter.post('/nowpayments', async (req, res, next) => {
 
       const totalAmountCents = deposit.amountCents + deposit.bonusCents
 
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         await tx.deposit.update({
           where: { id: deposit.id },
           data: { status: 'COMPLETED', nowpaymentsPaymentId: payment_id, processedAt: new Date() },

@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import WebSocket from 'ws'
 import { prisma, withSerializableRetry } from '../lib/prisma.js'
-import { getRedis, setCachedPrice } from '../lib/redis.js'
+import { getRedis, setCachedPrice, removeMarginWatch, addMarginWatch } from '../lib/redis.js'
 import {
   calcBidAsk,
   calcPnlCents,
@@ -19,12 +19,24 @@ const log = createLogger('market-data')
 const TWELVE_DATA_WS_URL = 'wss://ws.twelvedata.com/v1/quotes/price'
 const RECONNECT_DELAY_MS = 5000
 const MAX_RECONNECT_ATTEMPTS = 50
+const PENDING_ORDERS_CACHE_TTL_SECONDS = 60
 
 let ws: WebSocket | null = null
 let reconnectAttempts = 0
 let ioRef: SocketIOServer | null = null
 let instrumentMap: Map<string, InstrumentInfo> = new Map()
 let isRunning = false
+
+// ── Pending Orders Cache ────────────────────────────────────────
+// The checkEntryOrders function caches pending entry orders in Redis to avoid
+// querying the DB on every price tick. Cache is keyed by instrumentId.
+// IMPORTANT: Any code that creates, updates, or cancels pending orders MUST
+// call invalidatePendingOrdersCache(instrumentId) to maintain consistency.
+// This includes:
+// - Order creation routes (likely in apps/api/src/routes/trades.ts or similar)
+// - Order cancellation from user API
+// - Any admin/agent operations that modify order status
+// ────────────────────────────────────────────────────────────────
 
 interface InstrumentInfo {
   id: string
@@ -34,6 +46,8 @@ interface InstrumentInfo {
   leverage: number
   spreadPips: number
   pipDecimalPlaces: number
+  // TODO: Use marginCallBps and stopOutBps for real-time margin monitoring
+  // Future feature: detect when user equity falls below margin call (e.g., 100%) or stop out (e.g., 50%) thresholds
   marginCallBps: bigint
   stopOutBps: bigint
 }
@@ -61,7 +75,7 @@ export async function startMarketData(socketIO: SocketIOServer): Promise<void> {
   ioRef = socketIO
   await loadInstruments()
   connect()
-  log.info({ instrumentCount: instrumentMap.size }, 'Market data pipeline started')
+  log.info({ instrumentCount: instrumentMap.size }, 'Market data pipeline connection initiated')
 }
 
 /**
@@ -73,8 +87,124 @@ export function stopMarketData(): void {
     ws.close(1000, 'Shutdown')
     ws = null
   }
+  reconnectAttempts = 0
+  ioRef = null
+  instrumentMap.clear()
   log.info('Market data pipeline stopped')
 }
+
+/**
+ * Get cached pending entry orders for an instrument, or fetch from DB and cache.
+ * Cache key: pending_orders:{instrumentId} with TTL to minimize stale data.
+ *
+ * NOTE: For optimal performance with cache misses, a composite index should exist:
+ *   CREATE INDEX idx_trade_pending_orders
+ *   ON "Trade"(instrumentId, status, orderType)
+ *   WHERE status = 'PENDING' AND orderType = 'ENTRY'
+ *
+ * This ensures occasional DB reads (cache misses) remain efficient.
+ */
+async function getCachedPendingOrders(
+  instrumentId: string,
+): Promise<Array<{
+  id: bigint
+  userId: bigint
+  direction: 'BUY' | 'SELL'
+  units: bigint
+  entryRateScaled: bigint | null
+  stopLossScaled: bigint | null
+  takeProfitScaled: bigint | null
+}>> {
+  const redis = getRedis()
+  const cacheKey = `pending_orders:${instrumentId}`
+
+  // Try cache first
+  const cached = await redis.get(cacheKey)
+  if (cached) {
+    try {
+      const orders = JSON.parse(cached) as Array<{
+        id: string
+        userId: string
+        direction: 'BUY' | 'SELL'
+        units: string
+        entryRateScaled: string | null
+        stopLossScaled: string | null
+        takeProfitScaled: string | null
+      }>
+      return orders.map(o => ({
+        id: BigInt(o.id),
+        userId: BigInt(o.userId),
+        direction: o.direction,
+        units: BigInt(o.units),
+        entryRateScaled: o.entryRateScaled ? BigInt(o.entryRateScaled) : null,
+        stopLossScaled: o.stopLossScaled ? BigInt(o.stopLossScaled) : null,
+        takeProfitScaled: o.takeProfitScaled ? BigInt(o.takeProfitScaled) : null,
+      }))
+    } catch (err) {
+      log.warn({ err, cacheKey }, 'Failed to parse cached pending orders, falling back to DB')
+    }
+  }
+
+  // Cache miss or parse error — fetch from DB
+  const orders = await prisma.trade.findMany({
+    where: {
+      instrumentId: BigInt(instrumentId),
+      status: 'PENDING',
+      orderType: 'ENTRY',
+      OR: [
+        { expiryAt: null },
+        { expiryAt: { gt: new Date() } },
+      ],
+    },
+    select: {
+      id: true,
+      userId: true,
+      direction: true,
+      units: true,
+      entryRateScaled: true,
+      stopLossScaled: true,
+      takeProfitScaled: true,
+    },
+  })
+
+  // Cache the result
+  try {
+    const serialized = orders.map((o: typeof orders[number]) => ({
+      id: o.id.toString(),
+      userId: o.userId.toString(),
+      direction: o.direction,
+      units: o.units.toString(),
+      entryRateScaled: o.entryRateScaled?.toString() ?? null,
+      stopLossScaled: o.stopLossScaled?.toString() ?? null,
+      takeProfitScaled: o.takeProfitScaled?.toString() ?? null,
+    }))
+    await redis.setex(cacheKey, PENDING_ORDERS_CACHE_TTL_SECONDS, JSON.stringify(serialized))
+  } catch (err) {
+    log.error({ err, cacheKey }, 'Failed to cache pending orders')
+  }
+
+  return orders.map((o: typeof orders[number]) => ({
+    id: o.id,
+    userId: o.userId,
+    direction: o.direction as 'BUY' | 'SELL',
+    units: o.units,
+    entryRateScaled: o.entryRateScaled,
+    stopLossScaled: o.stopLossScaled,
+    takeProfitScaled: o.takeProfitScaled,
+  }))
+}
+
+/**
+ * Invalidate pending orders cache for an instrument.
+ * Called when orders are created, updated, or cancelled.
+ * EXPORTED: Other modules (routes, services) must call this when mutating pending orders.
+ */
+export async function invalidatePendingOrdersCache(instrumentId: string): Promise<void> {
+  const redis = getRedis()
+  const cacheKey = `pending_orders:${instrumentId}`
+  await redis.del(cacheKey)
+}
+
 
 /**
  * Load active instruments from database into memory.
@@ -98,6 +228,10 @@ async function loadInstruments(): Promise<void> {
   instrumentMap = new Map()
   for (const inst of instruments) {
     const tdSymbol = inst.twelveDataSymbol ?? inst.symbol
+    if (instrumentMap.has(tdSymbol)) {
+      log.error({ tdSymbol, instrumentId: inst.id.toString(), symbol: inst.symbol, existingId: instrumentMap.get(tdSymbol)?.id }, 'Duplicate instrument TD symbol found — skipping duplicate')
+      continue
+    }
     instrumentMap.set(tdSymbol, {
       id: inst.id.toString(),
       symbol: inst.symbol,
@@ -162,8 +296,10 @@ function scheduleReconnect(): void {
   }
 
   reconnectAttempts++
-  const delay = RECONNECT_DELAY_MS * Math.min(reconnectAttempts, 10)
-  log.info({ attempt: reconnectAttempts, delayMs: delay }, 'Scheduling reconnect')
+  // Exponential backoff: 2^n with a cap at 2^10 (1024x base delay)
+  const exponent = Math.min(Math.max(reconnectAttempts - 1, 0), 10)
+  const delay = RECONNECT_DELAY_MS * (2 ** exponent)
+  log.info({ attempt: reconnectAttempts, delayMs: delay }, 'Scheduling reconnect with exponential backoff')
   setTimeout(() => {
     if (isRunning) connect()
   }, delay)
@@ -254,10 +390,16 @@ function parseTick(msg: Record<string, unknown>): TickData | null {
     tick.change = msg['change']
   }
 
-  if (typeof msg['open'] === 'string') tick.open = parseFloat(msg['open'])
-  if (typeof msg['high'] === 'string') tick.high = parseFloat(msg['high'])
-  if (typeof msg['low'] === 'string') tick.low = parseFloat(msg['low'])
-  if (typeof msg['close'] === 'string') tick.close = parseFloat(msg['close'])
+  const maybeNum = (v: unknown): number | undefined =>
+    typeof v === 'string' ? parseFloat(v) : typeof v === 'number' ? v : undefined
+  const open = maybeNum(msg['open'])
+  const high = maybeNum(msg['high'])
+  const low = maybeNum(msg['low'])
+  const close = maybeNum(msg['close'])
+  if (open !== undefined) tick.open = open
+  if (high !== undefined) tick.high = high
+  if (low !== undefined) tick.low = low
+  if (close !== undefined) tick.close = close
 
   return tick
 }
@@ -311,11 +453,24 @@ async function processTick(tick: TickData): Promise<void> {
   }
 
   // Run price-triggered checks in parallel
-  await Promise.allSettled([
+  const checkNames = ['checkStopLossTakeProfit', 'checkEntryOrders', 'checkAlerts']
+  const results = await Promise.allSettled([
     checkStopLossTakeProfit(inst, bidScaled, askScaled),
     checkEntryOrders(inst, bidScaled, askScaled),
     checkAlerts(inst, midScaled),
   ])
+
+  // Log any rejected checks instead of silently swallowing errors
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i]
+    if (result && result.status === 'rejected') {
+      const rejectedResult = result as PromiseRejectedResult
+      log.error(
+        { error: rejectedResult.reason, checkFunction: checkNames[i], symbol: inst.symbol },
+        `Price check failed: ${checkNames[i]}`,
+      )
+    }
+  }
 }
 
 /**
@@ -362,8 +517,8 @@ async function checkStopLossTakeProfit(
       // Check take profit
       if (trade.takeProfitScaled != null) {
         const tpTriggered = trade.direction === 'BUY'
-          ? askScaled >= trade.takeProfitScaled
-          : bidScaled <= trade.takeProfitScaled
+          ? bidScaled >= trade.takeProfitScaled
+          : askScaled <= trade.takeProfitScaled
 
         if (tpTriggered) {
           await closeTradeWithReason(trade, inst, bidScaled, askScaled, 'TAKE_PROFIT', userId)
@@ -454,7 +609,7 @@ async function closeTradeWithReason(
     inst.contractSize,
   )
 
-  await withSerializableRetry(() =>
+  const shouldRemoveMarginWatch = await withSerializableRetry(() =>
     prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Lock user row
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`
@@ -475,7 +630,7 @@ async function closeTradeWithReason(
           closedBy,
         },
       })
-      if (updateResult.count !== 1) return // Already closed by concurrent operation
+      if (updateResult.count !== 1) return false // Already closed by concurrent operation
 
       await tx.ledgerTransaction.create({
         data: {
@@ -488,15 +643,17 @@ async function closeTradeWithReason(
           description: `Trade closed by ${closedBy}: ${trade.direction} ${trade.units} ${inst.symbol}`,
         },
       })
+
+      // Check if any open trades remain for this instrument+user atomically
+      const remaining = await tx.trade.count({
+        where: { userId, instrumentId: BigInt(inst.id), status: 'OPEN' },
+      })
+      return remaining === 0
     }, { isolationLevel: 'Serializable' }),
   )
 
-  // Remove from margin watch if no more open positions
-  const remaining = await prisma.trade.count({
-    where: { userId, instrumentId: BigInt(inst.id), status: 'OPEN' },
-  })
-  if (remaining === 0) {
-    const { removeMarginWatch } = await import('../lib/redis.js')
+  // Remove from margin watch if no more open positions (after transaction completes safely)
+  if (shouldRemoveMarginWatch) {
     await removeMarginWatch(inst.id, userIdStr)
   }
 
@@ -521,23 +678,14 @@ async function closeTradeWithReason(
  * Check pending entry orders for this instrument against current prices.
  * BUY entry triggers when ask reaches or goes below entry rate
  * SELL entry triggers when bid reaches or goes above entry rate
+ * Uses cached pending orders to avoid DB query on every tick.
  */
 async function checkEntryOrders(
   inst: InstrumentInfo,
   bidScaled: bigint,
   askScaled: bigint,
 ): Promise<void> {
-  const pendingOrders = await prisma.trade.findMany({
-    where: {
-      instrumentId: BigInt(inst.id),
-      status: 'PENDING',
-      orderType: 'ENTRY',
-      OR: [
-        { expiryAt: null },
-        { expiryAt: { gt: new Date() } },
-      ],
-    },
-  })
+  const pendingOrders = await getCachedPendingOrders(inst.id)
 
   for (const order of pendingOrders) {
     if (order.entryRateScaled == null) continue
@@ -646,9 +794,16 @@ async function executeEntryOrder(
       }, { isolationLevel: 'Serializable' }),
     )
 
-    // Add to margin watch
-    const { addMarginWatch } = await import('../lib/redis.js')
+    // Add to margin watch immediately BEFORE any other async operations.
+    // This is critical: checkStopLossTakeProfit queries the margin_watch set,
+    // so the user must be added to margin watch before price ticks can check for SL/TP.
+    // Otherwise a race with removeMarginWatch (from closeTradeWithReason) could cause
+    // the user's position to never be monitored. Doing this before cache invalidation
+    // ensures trade state and margin watch state stay synchronized.
     await addMarginWatch(inst.id, order.userId.toString())
+
+    // Invalidate pending orders cache for this instrument after successful transaction
+    await invalidatePendingOrdersCache(inst.id)
 
     // Notify user
     if (ioRef) {
@@ -667,6 +822,7 @@ async function executeEntryOrder(
   }
 }
 
+
 // ── Alert Checks ────────────────────────────────────────────────
 
 /**
@@ -679,13 +835,18 @@ async function checkAlerts(
 ): Promise<void> {
   const redis = getRedis()
   const alertIndexKey = `alert_index:${inst.symbol}`
-  const midNum = Number(midScaled)
+  
+  // Convert midScaled (BigInt) to string for Redis sorted set comparison.
+  // Redis zrangebyscore accepts string scores and compares them numerically.
+  // This preserves precision for large prices that exceed Number.MAX_SAFE_INTEGER.
+  const midScaledStr = midScaled.toString()
 
   // Get all alerts that should trigger based on price
-  // PRICE_ABOVE / PRICE_REACHES: trigger when mid >= trigger
-  // PRICE_BELOW: trigger when mid <= trigger
-  const triggeredAbove = await redis.zrangebyscore(alertIndexKey, '-inf', midNum)
-  const allAlertIds = [...new Set(triggeredAbove)]
+  // PRICE_ABOVE / PRICE_REACHES: trigger when mid >= trigger (use score <= midScaledStr)
+  // PRICE_BELOW: trigger when mid <= trigger (use score >= midScaledStr)
+  const triggeredAbove = await redis.zrangebyscore(alertIndexKey, '-inf', midScaledStr)
+  const triggeredBelow = await redis.zrangebyscore(alertIndexKey, midScaledStr, '+inf')
+  const allAlertIds = [...new Set([...triggeredAbove, ...triggeredBelow])]
 
   if (allAlertIds.length === 0) return
 
@@ -707,11 +868,15 @@ async function checkAlerts(
 
     if (!shouldTrigger) continue
 
-    // Trigger the alert
-    await prisma.alert.update({
-      where: { id: alert.id },
+    // Trigger the alert atomically to prevent multiple concurrent updates
+    const updateResult = await prisma.alert.updateMany({
+      where: { id: alert.id, status: 'ACTIVE' },
       data: { status: 'TRIGGERED', triggeredAt: new Date() },
     })
+    if (updateResult.count === 0) {
+      // Already triggered by concurrent operation
+      continue
+    }
     await redis.zrem(alertIndexKey, alertIdStr)
 
     // Create notification

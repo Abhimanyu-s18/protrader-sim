@@ -344,9 +344,7 @@ describe('Margin Level — Call and Stop-Out Detection', () => {
   it('should NOT trigger margin call above 100%', () => {
     const level = calcMarginLevelBps(6_0000n, 5_0000n)
     expect(level).toBe(12_000n)
-    if (level !== null) {
-      expect(level > 10_000n).toBe(true)
-    }
+    expect(level != null && level > 10_000n).toBe(true)
   })
 
   it('should return null when no margin used', () => {
@@ -369,5 +367,294 @@ describe('IB Commission — With Contract Size', () => {
 
   it('should return zero for zero rate', () => {
     expect(calcIbCommissionCents(100_000n, 100_000, 108_500n, 0)).toBe(0n)
+  })
+})
+
+// ────────────────────────────────────────────────────────────────
+// EDGE CASES & INVALID INPUTS
+// ────────────────────────────────────────────────────────────────
+
+describe('calcRolloverCents — Edge Cases & Invalid Inputs', () => {
+  const contractSize = 100_000
+  const openRate = 108_500n
+
+  it('should handle zero units gracefully', () => {
+    const result = calcRolloverCents(0n, contractSize, openRate, -5n, false)
+    expect(result).toBe(0n)
+  })
+
+  it('should handle negative units (unexpected but should not crash)', () => {
+    // Negative units represent a short position (though unlikely input)
+    const result = calcRolloverCents(-100_000n, contractSize, openRate, -5n, false)
+    expect(typeof result).toBe('bigint')
+    // Result should be negative of positive case
+    expect(result).toBeLessThan(0n)
+  })
+
+  it('should handle very large units without overflow', () => {
+    const largeUnits = 999_999_999_999n
+    const result = calcRolloverCents(largeUnits, contractSize, openRate, -5n, false)
+    expect(typeof result).toBe('bigint')
+    expect(result).toBeGreaterThan(0n)
+  })
+
+  it('should handle zero rate (no swap charge)', () => {
+    const result = calcRolloverCents(100_000n, contractSize, openRate, 0n, false)
+    expect(result).toBe(0n)
+  })
+
+  it('should handle very large positive rate', () => {
+    const largeRate = 10_000n // 100% annual — extreme case
+    const result = calcRolloverCents(100_000n, contractSize, openRate, largeRate, false)
+    expect(typeof result).toBe('bigint')
+    expect(result).toBeLessThan(0n) // Positive rate = credit (negative charge)
+  })
+
+  it('should apply 3x multiplier on Wednesday for positive rate', () => {
+    const rate = 5n
+    const daily = calcRolloverCents(100_000n, contractSize, openRate, rate, false)
+    const wednesday = calcRolloverCents(100_000n, contractSize, openRate, rate, true)
+    expect(wednesday).toBe(daily * 3n)
+  })
+
+  it('should handle very small (1 unit) position', () => {
+    const result = calcRolloverCents(1n, contractSize, openRate, -5n, false)
+    expect(typeof result).toBe('bigint')
+  })
+})
+
+describe('calcBidAsk — Edge Cases & Invalid Inputs', () => {
+  it('should handle zero mid price', () => {
+    const { bidScaled, askScaled } = calcBidAsk(0n, 1, 4)
+    expect(bidScaled).toBeLessThanOrEqual(0n)
+    expect(askScaled).toBeGreaterThanOrEqual(0n)
+  })
+
+  it('should handle extremely large mid price without overflow', () => {
+    const hugeMid = 999_999_999_999n
+    const { bidScaled, askScaled } = calcBidAsk(hugeMid, 1, 4)
+    expect(askScaled - bidScaled).toBe(20n) // 1 pip = 10n (for 4 decimals)
+    expect(askScaled).toBeGreaterThan(bidScaled)
+  })
+
+  it('should handle negative mid price (invalid but calculation must not crash)', () => {
+    const { bidScaled, askScaled } = calcBidAsk(-108_500n, 1, 4)
+    expect(typeof bidScaled).toBe('bigint')
+    expect(typeof askScaled).toBe('bigint')
+    expect(askScaled).toBeGreaterThan(bidScaled)
+  })
+
+  it('should handle negative spread pips', () => {
+    const { bidScaled, askScaled } = calcBidAsk(108_500n, -1, 4)
+    // Negative spread inverts bid/ask
+    expect(bidScaled).toBeGreaterThan(askScaled)
+  })
+
+  it('should handle very large spread (1000 pips)', () => {
+    const { bidScaled, askScaled } = calcBidAsk(108_500n, 1000, 4)
+    expect(askScaled - bidScaled).toBe(10_000_000n) // 1000 pips = 10000000 scaled
+  })
+
+  it('should handle JPY pair (2 decimal places)', () => {
+    const mid = 15_000_000n // 150.00000
+    const { bidScaled, askScaled } = calcBidAsk(mid, 1, 2)
+    // pip size for 2 decimals = 1000
+    expect(askScaled - bidScaled).toBe(1000n)
+  })
+
+  it('should handle unusual pip decimal places (edge: 0)', () => {
+    const { bidScaled, askScaled } = calcBidAsk(108_500n, 1, 0)
+    // pip size = 10^5 = 100000
+    expect(askScaled - bidScaled).toBe(100_000n)
+  })
+})
+
+describe('calcPnlCents — Edge Cases & Invalid Inputs', () => {
+  const contractSize = 100_000
+  const openRate = 108_500n
+  const units = 100_000n
+
+  it('should handle zero units', () => {
+    const result = calcPnlCents('BUY', openRate, 108_700n, 0n, contractSize)
+    expect(result).toBe(0n)
+  })
+
+  it('should handle negative units (short position equivalent)', () => {
+    const result = calcPnlCents('BUY', openRate, 108_700n, -100_000n, contractSize)
+    expect(result).toBeLessThan(0n)
+  })
+
+  it('should handle identical open and current price (zero P&L)', () => {
+    const result = calcPnlCents('BUY', openRate, openRate, units, contractSize)
+    expect(result).toBe(0n)
+  })
+
+  it('should handle extremely large price difference', () => {
+    const hugeDiff = 999_999_999_999n
+    const result = calcPnlCents('BUY', openRate, openRate + hugeDiff, units, contractSize)
+    expect(typeof result).toBe('bigint')
+    expect(result).toBeGreaterThan(0n)
+  })
+
+  it('should handle invalid direction fallback (non-BUY treated as SELL)', () => {
+    // Since the function only checks direction === 'BUY', anything else is treated as SELL
+    const buyResult = calcPnlCents('BUY', openRate, 108_700n, units, contractSize)
+    const invalid = calcPnlCents('INVALID' as 'BUY' | 'SELL', openRate, 108_700n, units, contractSize)
+    // Invalid direction would fall through to SELL logic
+    expect(invalid).not.toBe(buyResult)
+  })
+
+  it('should produce opposite P&L for BUY vs SELL at same price', () => {
+    const currentPrice = 108_300n // Price drop
+    const buyPnl = calcPnlCents('BUY', openRate, currentPrice, units, contractSize)
+    const sellPnl = calcPnlCents('SELL', openRate, currentPrice, units, contractSize)
+    expect(buyPnl).toBeLessThan(0n) // BUY loses on price drop
+    expect(sellPnl).toBeGreaterThan(0n) // SELL profits on price drop
+    expect(buyPnl).toBe(-sellPnl)
+  })
+
+  it('should handle very small position (1 unit)', () => {
+    const result = calcPnlCents('BUY', openRate, 108_700n, 1n, contractSize)
+    expect(result).toBeGreaterThan(0n)
+  })
+})
+
+describe('calcMarginCents — Edge Cases & Invalid Inputs', () => {
+  const contractSize = 100_000
+  const openRate = 108_500n
+  const units = 100_000n
+
+  it('should handle zero units', () => {
+    const result = calcMarginCents(0n, contractSize, openRate, 500)
+    expect(result).toBe(0n)
+  })
+
+  it('should handle negative units (short position)', () => {
+    const result = calcMarginCents(-units, contractSize, openRate, 500)
+    expect(result).toBeLessThan(0n)
+  })
+
+  it('should handle zero leverage (undefined behavior)', () => {
+    // This is a critical error — division by zero
+    expect(() => {
+      calcMarginCents(units, contractSize, openRate, 0)
+    }).toThrow()
+  })
+
+  it('should handle minimum standard leverage (1x)', () => {
+    const result = calcMarginCents(units, contractSize, openRate, 1)
+    expect(result).toBeGreaterThan(0n)
+  })
+
+  it('should handle maximum standard leverage (500x)', () => {
+    const result = calcMarginCents(units, contractSize, openRate, 500)
+    expect(result).toBeGreaterThan(0n)
+  })
+
+  it('should handle very large leverage (unusual)', () => {
+    const result = calcMarginCents(units, contractSize, openRate, 1000)
+    const standardResult = calcMarginCents(units, contractSize, openRate, 500)
+    expect(result).toBeLessThan(standardResult)
+  })
+
+  it('should handle very large units without overflow', () => {
+    const largeUnits = 999_999_999_999n
+    const result = calcMarginCents(largeUnits, contractSize, openRate, 500)
+    expect(typeof result).toBe('bigint')
+    expect(result).toBeGreaterThan(0n)
+  })
+
+  it('should handle stock with 1:1 contract size', () => {
+    const result = calcMarginCents(10n, 1, 15_000_000n, 10)
+    expect(result).toBeGreaterThan(0n)
+  })
+})
+
+describe('calcIbCommissionCents — Edge Cases & Invalid Inputs', () => {
+  const contractSize = 100_000
+  const openRate = 108_500n
+
+  it('should handle zero units', () => {
+    const result = calcIbCommissionCents(0n, contractSize, openRate, 30)
+    expect(result).toBe(0n)
+  })
+
+  it('should handle negative units', () => {
+    const result = calcIbCommissionCents(-100_000n, contractSize, openRate, 30)
+    expect(result).toBeLessThan(0n)
+  })
+
+  it('should handle negative commission rate (rebate scenario)', () => {
+    const result = calcIbCommissionCents(100_000n, contractSize, openRate, -30)
+    expect(result).toBeLessThan(0n)
+  })
+
+  it('should handle zero commission rate', () => {
+    const result = calcIbCommissionCents(100_000n, contractSize, openRate, 0)
+    expect(result).toBe(0n)
+  })
+
+  it('should handle very large commission rate (unusual)', () => {
+    const result = calcIbCommissionCents(100_000n, contractSize, openRate, 1000)
+    expect(result).toBeGreaterThan(0n)
+  })
+
+  it('should handle very large units', () => {
+    const largeUnits = 999_999_999_999n
+    const result = calcIbCommissionCents(largeUnits, contractSize, openRate, 30)
+    expect(typeof result).toBe('bigint')
+    expect(result).toBeGreaterThan(0n)
+  })
+
+  it('should handle stock trade with rate', () => {
+    const result = calcIbCommissionCents(10n, 1, 15_000_000n, 10)
+    expect(result).toBeGreaterThan(0n)
+  })
+})
+
+describe('calcMarginLevelBps — Edge Cases & Invalid Inputs', () => {
+  it('should return null when margin used is zero', () => {
+    const result = calcMarginLevelBps(10_000n, 0n)
+    expect(result).toBeNull()
+  })
+
+  it('should handle zero equity (complete loss)', () => {
+    const result = calcMarginLevelBps(0n, 5000n)
+    expect(result).toBe(0n)
+  })
+
+  it('should handle negative equity (account underwater)', () => {
+    const result = calcMarginLevelBps(-1000n, 5000n)
+    // Negative equity / positive margin = negative margin level
+    expect(result).toBeLessThan(0n)
+  })
+
+  it('should handle negative margin (unusual but supported)', () => {
+    const result = calcMarginLevelBps(10_000n, -5000n)
+    // This would produce negative result (unusual edge case)
+    expect(typeof result).toBe('bigint')
+  })
+
+  it('should handle extremely large equity', () => {
+    const largeEquity = 999_999_999_999n
+    const result = calcMarginLevelBps(largeEquity, 5000n)
+    expect(result).toBeGreaterThan(0n)
+    // Should be (999999999999 * 10000) / 5000
+    expect(result).toBe((largeEquity * 10000n) / 5000n)
+  })
+
+  it('should detect margin call exactly at 100% (10000 bps)', () => {
+    const result = calcMarginLevelBps(5000n, 5000n)
+    expect(result).toBe(10_000n)
+  })
+
+  it('should detect stop-out exactly at 50% (5000 bps)', () => {
+    const result = calcMarginLevelBps(2500n, 5000n)
+    expect(result).toBe(5_000n)
+  })
+
+  it('should handle equity == used margin (100% level)', () => {
+    const result = calcMarginLevelBps(1000n, 1000n)
+    expect(result).toBe(10_000n)
   })
 })

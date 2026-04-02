@@ -218,12 +218,24 @@ export function calcIbCommissionCents(
   return (notionalCents * BigInt(rateBps)) / BPS_SCALE
 }
 
+/**
+ * Convert a decimal price to scaled BigInt without floating-point errors
+ * e.g. 1.08500 → 108500n (exact, no Math.round precision loss)
+ *
+ * @param price - decimal price as a number
+ */
+export function priceToScaled(price: number): bigint {
+  // Use string conversion to avoid floating-point precision loss
+  // e.g. 1.08500 * 100000 could be 108499.99999999999 in JS
+  return BigInt(Math.round(price * 1e6)) / 10n
+}
+
 // ── Display Helpers ───────────────────────────────────────────────
 /**
  * Format a scaled price back to decimal string
  * e.g. 108500n with pipDecimalPlaces=4 → "1.08500"
  */
-export function formatScaledPrice(scaled: bigint, pipDecimalPlaces: number): string {
+export function formatScaledPrice(scaled: bigint, _pipDecimalPlaces: number): string {
   const totalDecimals = 5 // Always 5 decimal places in our scale
   const str = scaled.toString().padStart(totalDecimals + 1, '0')
   const intPart = str.slice(0, -(totalDecimals))

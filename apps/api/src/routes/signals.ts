@@ -1,9 +1,9 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { serializeBigInt } from '../lib/calculations.js'
 
-export const signalsRouter = Router()
+export const signalsRouter: ExpressRouter = Router()
 signalsRouter.use(requireAuth)
 
 // GET /v1/signals
@@ -14,7 +14,7 @@ signalsRouter.get('/', async (req, res, next) => {
 
     if (watchlist_only === 'true') {
       const wl = await prisma.watchlistItem.findMany({ where: { userId: BigInt(req.user!.user_id) }, select: { instrumentId: true } })
-      instrumentIds = wl.map((w) => w.instrumentId)
+      instrumentIds = wl.map((w: typeof wl[number]) => w.instrumentId)
     }
 
     const signals = await prisma.signal.findMany({

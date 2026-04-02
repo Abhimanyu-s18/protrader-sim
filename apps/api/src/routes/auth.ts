@@ -1,18 +1,17 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { prisma } from '../lib/prisma.js'
 import { getRedis } from '../lib/redis.js'
-import { Errors } from '../middleware/errorHandler.js'
+import { AppError, Errors } from '../middleware/errorHandler.js'
 import { requireAuth } from '../middleware/auth.js'
 import { serializeBigInt } from '../lib/calculations.js'
 import crypto from 'crypto'
 
-export const authRouter = Router()
+export const authRouter: ExpressRouter = Router()
 
 const JWT_PRIVATE_KEY = process.env['JWT_PRIVATE_KEY'] ?? ''
-const JWT_PUBLIC_KEY = process.env['JWT_PUBLIC_KEY'] ?? ''
 const ACCESS_TOKEN_EXPIRY = '15m'
 const REFRESH_TOKEN_EXPIRY_DEFAULT = 7 * 24 * 60 * 60 // 7 days in seconds
 const REFRESH_TOKEN_EXPIRY_REMEMBER = 30 * 24 * 60 * 60 // 30 days
@@ -130,8 +129,8 @@ authRouter.post('/register', async (req, res, next) => {
       data: {
         userId: user.id,
         refreshToken,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
+        ipAddress: req.ip ?? null,
+        userAgent: req.headers['user-agent'] ?? null,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DEFAULT * 1000),
       },
     })
@@ -167,12 +166,12 @@ authRouter.post('/login', async (req, res, next) => {
     })
 
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-      next(new Errors.unauthorized().constructor('INVALID_CREDENTIALS', 'Invalid email or password.', 401))
+      next(new AppError('INVALID_CREDENTIALS', 'Invalid email or password.', 401))
       return
     }
 
     if (user.accountStatus === 'SUSPENDED') {
-      next(new Errors.forbidden().constructor('ACCOUNT_SUSPENDED', 'Your account has been suspended. Please contact support.', 403))
+      next(new AppError('ACCOUNT_SUSPENDED', 'Your account has been suspended. Please contact support.', 403))
       return
     }
 
@@ -189,8 +188,8 @@ authRouter.post('/login', async (req, res, next) => {
       data: {
         userId: user.id,
         refreshToken,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
+        ipAddress: req.ip ?? null,
+        userAgent: req.headers['user-agent'] ?? null,
         expiresAt: new Date(Date.now() + ttl * 1000),
       },
     })

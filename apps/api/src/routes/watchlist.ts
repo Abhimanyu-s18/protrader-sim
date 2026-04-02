@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -6,7 +6,7 @@ import { Errors } from '../middleware/errorHandler.js'
 import { serializeBigInt, calcBidAsk, formatScaledPrice } from '../lib/calculations.js'
 import { getCachedPrice } from '../lib/redis.js'
 
-export const watchlistRouter = Router()
+export const watchlistRouter: ExpressRouter = Router()
 watchlistRouter.use(requireAuth)
 
 // GET /v1/watchlist
@@ -19,7 +19,7 @@ watchlistRouter.get('/', async (req, res, next) => {
     })
 
     // Enrich with live prices
-    const enriched = await Promise.all(items.map(async (item) => {
+    const enriched = await Promise.all(items.map(async (item: typeof items[number]) => {
       const cached = await getCachedPrice(item.instrument.symbol)
       let live_price = null
       if (cached) {

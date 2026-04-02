@@ -37,7 +37,7 @@ export async function withSerializableRetry<T>(
     } catch (err) {
       const error = err as Record<string, unknown> & Error
       const isSerializableConflict =
-        error.code === 'P2034' || error?.meta?.code === '40001'
+        error?.code === 'P2034' || (error?.meta as Record<string, unknown>)?.code === '40001'
 
       if (!isSerializableConflict || attempt === maxRetries - 1) {
         // Not a serialization conflict or we're out of retries - throw original error

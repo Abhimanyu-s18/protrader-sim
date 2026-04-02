@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { type Express } from 'express'
 import { createServer } from 'http'
 import { Server as SocketIOServer } from 'socket.io'
 import cors from 'cors'
@@ -33,8 +33,12 @@ import './workers/rollover.js'
 
 const log = createLogger('server')
 
-const app = express()
+const app: Express = express()
 const httpServer = createServer(app)
+
+// ── Readiness State ───────────────────────────────────────────────
+let appReady = false
+let startupErrors: string[] = []
 
 // ── Socket.io ─────────────────────────────────────────────────────
 export const io = new SocketIOServer(httpServer, {
@@ -106,7 +110,19 @@ app.use('/v1/auth/change-password', authLimiter)
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'protrader-api' })
+  return res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'protrader-api' })
+})
+
+// ── Readiness Check ───────────────────────────────────────────────
+app.get('/ready', (_req, res) => {
+  if (!appReady) {
+    return res.status(503).json({
+      status: 'not_ready',
+      timestamp: new Date().toISOString(),
+      errors: startupErrors,
+    })
+  }
+  return res.json({ status: 'ready', timestamp: new Date().toISOString() })
 })
 
 // ── API Routes ────────────────────────────────────────────────────
@@ -131,18 +147,38 @@ app.use(errorHandler)
 // ── Start ─────────────────────────────────────────────────────────
 const PORT = parseInt(process.env['PORT'] ?? '4000', 10)
 
-httpServer.listen(PORT, () => {
-  log.info({ port: PORT, env: process.env['NODE_ENV'] ?? 'development' }, 'ProTraderSim API started')
+httpServer.listen(PORT, async () => {
+  log.info({ port: PORT, env: process.env['NODE_ENV'] ?? 'development' }, 'ProTraderSim API started, initializing critical services...')
 
-  // Schedule BullMQ recurring jobs (rollover, PnL snapshot, KYC reminder)
-  scheduleRecurringJobs().catch((err) => {
-    log.error({ err }, 'Failed to schedule recurring jobs')
-  })
+  try {
+    // Schedule BullMQ recurring jobs (rollover, PnL snapshot, KYC reminder)
+    log.info('Scheduling recurring jobs...')
+    await scheduleRecurringJobs()
+    log.info('Recurring jobs scheduled successfully')
+  } catch (err) {
+    const msg = `Failed to schedule recurring jobs: ${err instanceof Error ? err.message : String(err)}`
+    log.error({ err }, msg)
+    startupErrors.push(msg)
+  }
 
-  // Start market data pipeline (Twelve Data WebSocket → Redis → Socket.io)
-  startMarketData(io).catch((err) => {
-    log.error({ err }, 'Failed to start market data pipeline')
-  })
+  try {
+    // Start market data pipeline (Twelve Data WebSocket → Redis → Socket.io)
+    log.info('Starting market data pipeline...')
+    await startMarketData(io)
+    log.info('Market data pipeline started successfully')
+  } catch (err) {
+    const msg = `Failed to start market data pipeline: ${err instanceof Error ? err.message : String(err)}`
+    log.error({ err }, msg)
+    startupErrors.push(msg)
+  }
+
+  // Mark app as ready only if no startup errors occurred
+  if (startupErrors.length === 0) {
+    appReady = true
+    log.info('All critical services initialized successfully. Server is ready.')
+  } else {
+    log.warn({ errors: startupErrors }, 'Server started with warnings but is not ready for traffic.')
+  }
 })
 
 // ── Graceful Shutdown ─────────────────────────────────────────────
@@ -157,15 +193,42 @@ async function shutdown(signal: string): Promise<void> {
   // Stop market data pipeline
   stopMarketData()
 
-  // Stop accepting new connections
-  httpServer.close(() => {
-    log.info('HTTP server closed')
+  // Create Promises for httpServer.close and io.close with timeout
+  const closeHttpServer = new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('HTTP server close timeout'))
+    }, 10000) // 10 second timeout
+    
+    httpServer.close((err) => {
+      clearTimeout(timeout)
+      if (err) {
+        log.error({ err }, 'Error closing HTTP server')
+        reject(err)
+      } else {
+        log.info('HTTP server closed')
+        resolve()
+      }
+    })
   })
 
-  // Close Socket.io
-  io.close(() => {
-    log.info('Socket.io closed')
+  const closeSocketIO = new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Socket.io close timeout'))
+    }, 10000) // 10 second timeout
+    
+    io.close(() => {
+      clearTimeout(timeout)
+      log.info('Socket.io closed')
+      resolve()
+    })
   })
+
+  // Await both server closures in parallel
+  try {
+    await Promise.all([closeHttpServer, closeSocketIO])
+  } catch (err) {
+    log.error({ err }, 'Error closing servers during shutdown')
+  }
 
   // Disconnect Prisma
   try {

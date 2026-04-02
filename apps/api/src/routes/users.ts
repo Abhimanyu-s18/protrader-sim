@@ -1,13 +1,14 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
+import type { TransactionType } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
 import { calcAccountMetrics, calcPnlCents, formatCents, serializeBigInt } from '../lib/calculations.js'
 import { getCachedPrice } from '../lib/redis.js'
-import type { TransactionType } from '@prisma/client'
 
-export const usersRouter = Router()
+
+export const usersRouter: ExpressRouter = Router()
 
 // All user routes require auth
 usersRouter.use(requireAuth)
@@ -159,7 +160,7 @@ usersRouter.get('/me/financial-summary', async (req, res, next) => {
     })
 
     const byType = Object.fromEntries(
-      summaryRows.map((r) => [r.transactionType, r._sum.amountCents ?? 0n])
+      summaryRows.map((r: typeof summaryRows[number]) => [r.transactionType, r._sum.amountCents ?? 0n])
     ) as Record<TransactionType, bigint>
 
     const get = (type: TransactionType) => byType[type] ?? 0n
@@ -210,7 +211,7 @@ usersRouter.get('/me/ledger', async (req, res, next) => {
     const nextCursor = hasMore ? items[items.length - 1]?.id.toString() : null
 
     res.json({
-      data: serializeBigInt(items.map((t) => ({
+      data: serializeBigInt(items.map((t: typeof items[number]) => ({
         ...t,
         amount_formatted: formatCents(t.amountCents),
         balance_after_formatted: formatCents(t.balanceAfterCents),

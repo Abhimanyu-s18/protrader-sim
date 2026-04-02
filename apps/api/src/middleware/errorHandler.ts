@@ -1,4 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
+import { createLogger } from '../lib/logger.js'
+
+const log = createLogger('error-handler')
 
 export class AppError extends Error {
   constructor(
@@ -50,6 +53,6 @@ export function errorHandler(
   }
 
   // Unexpected errors — log and return generic
-  console.error('[API Error]', err)
+  log.error({ err }, 'Unhandled error')
   res.status(500).json({ error_code: 'INTERNAL_ERROR', message: 'An unexpected error occurred.' })
 }
