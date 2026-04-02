@@ -183,8 +183,9 @@ export const rolloverWorker = new Worker<RolloverJobData>(
                 }
 
                 const currentBalance = balanceRow.balance_cents
-                // rolloverCents: positive = debit (charge), negative = credit (income)
-                // For ledger: negative amount = debit, positive amount = credit
+                // rolloverCents: positive = charge (money taken from user), negative = credit (money given to user)
+                // ledgerAmount = -rolloverCents: convert to ledger convention where negative = debit, positive = credit
+                // newBalance = currentBalance + ledgerAmount: apply the converted ledger amount to the balance
                 const ledgerAmount = -rolloverCents
                 const newBalance = currentBalance + ledgerAmount
 

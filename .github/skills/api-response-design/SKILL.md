@@ -232,6 +232,30 @@ import type { Request, Response, NextFunction } from 'express'
 import type { ApiError } from '@protrader/types'
 import { ZodError } from 'zod'
 import { Prisma } from '@prisma/client'
+import winston from 'winston'
+
+// Configure structured logger
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json(),
+  ),
+  defaultMeta: { service: 'api' },
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
+    }),
+    // Add file transport for production
+    ...(process.env.NODE_ENV === 'production'
+      ? [
+          new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+          new winston.transports.File({ filename: 'logs/combined.log' }),
+        ]
+      : []),
+  ],
+})
 
 export function errorHandler(error: Error, req: Request, res: Response, _next: NextFunction) {
   // Zod validation errors
@@ -239,7 +263,9 @@ export function errorHandler(error: Error, req: Request, res: Response, _next: N
     const apiError: ApiError = {
       error_code: 'VALIDATION_ERROR',
       message: 'Request validation failed',
-      details: error.flatten().fieldErrors as Record<string, string[]>,
+      details: Object.fromEntries(
+        Object.entries(error.flatten().fieldErrors).map(([key, value]) => [key, value ?? []]),
+      ) as Record<string, string[]>,
     }
     return res.status(422).json(apiError)
   }
@@ -273,7 +299,12 @@ export function errorHandler(error: Error, req: Request, res: Response, _next: N
   }
 
   // Fallback: Internal server error
-  console.error('Unhandled error:', error)
+  logger.error('Unhandled error occurred', {
+    error,
+    stack: error?.stack,
+    url: req.url,
+    method: req.method,
+  })
   const apiError: ApiError = {
     error_code: 'INTERNAL_ERROR',
     message: 'An unexpected error occurred',
@@ -421,7 +452,6 @@ Open a new trading position.
   "leverage": "number (1-500)"
 }
 ```
-````
 
 **Success Response (201)**:
 
@@ -431,8 +461,8 @@ Open a new trading position.
     "id": "string",
     "direction": "BUY",
     "units": 100000,
-    "openRate": "108500",
-    "marginUsed": "5000"
+    "open_rate_scaled": "108500",
+    "margin_used": "5000"
   }
 }
 ```
@@ -443,7 +473,4 @@ Open a new trading position.
 - 422 `VALIDATION_ERROR` — Invalid request body
 - 422 `INSUFFICIENT_MARGIN` — Not enough margin available
 - 409 `POSITION_LIMIT_EXCEEDED` — Maximum open positions reached
-
-```
-
-```
+````

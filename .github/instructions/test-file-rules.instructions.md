@@ -18,7 +18,7 @@ applyTo: '**/*.test.{ts,tsx}'
 - NEVER use floating-point assertions for money values
 - Use exact BigInt comparisons (`expect(value).toBe(10050n)`)
 - Test edge cases: zero, negative, maximum values
-- Test JPY pairs separately (2 decimal places vs 4)
+- Test JPY pairs separately (they use 2 decimal places while most other pairs use 4)
 
 ## Naming
 

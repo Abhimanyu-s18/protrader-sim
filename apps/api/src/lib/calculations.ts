@@ -47,7 +47,7 @@ export function calcBidAsk(
  * @param contractSize - instrument contract size (e.g. 100000 for forex, 1 for stocks)
  * @param openRateScaled - entry price × 100000
  * @param leverage - leverage ratio (e.g. 500)
- * @throws Error if units is negative
+ * @throws Error if units is negative or leverage is not a positive number
  */
 export function calcMarginCents(
   units: bigint,
@@ -58,6 +58,10 @@ export function calcMarginCents(
   if (units < 0n) {
     throw new Error('units must be non-negative')
   }
+  if (leverage <= 0) {
+    throw new Error('leverage must be a positive number')
+  }
+
   const numerator = units * BigInt(contractSize) * openRateScaled * CENTS
   const denominator = BigInt(leverage) * PRICE_SCALE
   return numerator / denominator
@@ -206,8 +210,8 @@ export function validateEntryRate(
 
   const valid =
     direction === 'BUY'
-      ? entryRateScaled < belowBuffer || entryRateScaled > aboveBuffer
-      : entryRateScaled > aboveBuffer || entryRateScaled < belowBuffer
+      ? entryRateScaled <= belowBuffer || entryRateScaled >= aboveBuffer
+      : entryRateScaled >= aboveBuffer || entryRateScaled <= belowBuffer
 
   const hint = `Rate should be above ${formatScaledPrice(aboveBuffer, pipDecimalPlaces)} or below ${formatScaledPrice(belowBuffer, pipDecimalPlaces)}`
 

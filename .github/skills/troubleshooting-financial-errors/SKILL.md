@@ -55,15 +55,12 @@ Follow this order for every financial error:
 margin = (units × contractSize × openRateScaled × CENTS) / (leverage × PRICE_SCALE)
 
 // Example: EUR/USD BUY 1 lot at 1.08500 with 1:100 leverage
-// contractSize = 100000 (Forex)
-// openRateScaled = 108500n
-// CENTS = 100n
-// leverage = 100n
-// PRICE_SCALE = 100000n
+// units = 1n, contractSize = 100000n, openRateScaled = 108500n
+// CENTS = 100n, leverage = 100n, PRICE_SCALE = 100000n
 
-margin = (100000n × 100000n × 108500n × 100n) / (100n × 100000n)
-margin = 108500000000000000n / 10000000n
-margin = 10850000n  // = $108,500.00
+margin = (1n × 100000n × 108500n × 100n) / (100n × 100000n)
+margin = 1085000000000n / 10000000n
+margin = 108500n  // = $1,085.00
 
 // WRONG: Division too early
 margin = (units × contractSize × openRateScaled) / leverage × CENTS / PRICE_SCALE
@@ -186,11 +183,11 @@ await prisma.ledgerTransaction.create({
 // Applied per night for positions held overnight
 
 // Example: EUR/USD BUY 1 lot, swapBuyBps = -50 (negative = charge)
-// units = 100000n, contractSize = 100000n, swapRateBps = -50n
+// units = 1n, contractSize = 100000n, swapRateBps = -50n
 
-swap = 100000n × 100000n × (-50n) × 100n / (10000n × 100000n)
-swap = -50000000000000000n / 1000000000n
-swap = -50000n  // = -$5.00 per night
+swap = 1n × 100000n × (-50n) × 100n / (10000n × 100000n)
+swap = -500000000n / 1000000000n
+swap = -50n  // = -$0.50 per night
 ```
 
 **Common causes**:
@@ -273,14 +270,14 @@ When troubleshooting financial errors:
 describe('Margin Calculation', () => {
   it('should calculate correct margin for EUR/USD BUY', () => {
     const result = calculateMargin({
-      units: 100000n,
+      units: 1n,
       contractSize: 100000n,
       openRateScaled: 108500n,
       leverage: 100n,
     })
 
-    // Manual: (100000 × 100000 × 108500 × 100) / (100 × 100000) = 10850000n
-    expect(result).toBe(10850000n) // $108,500.00
+    // Manual: (1 × 100000 × 108500 × 100) / (100 × 100000) = 108500n
+    expect(result).toBe(108500n) // $1,085.00
   })
 
   it('should handle zero units', () => {
@@ -305,13 +302,16 @@ describe('P&L Symmetry', () => {
     fc.assert(
       fc.property(
         fc.bigInt({ min: 100000n, max: 200000n }), // openRate
-        fc.bigInt({ min: 100000n, max: 200000n }), // currentRate
+        fc.bigInt({ min: 100000n, max: 200000n }), // currentBid
+        fc.bigInt({ min: 1n, max: 100n }), // spread (positive)
         fc.bigInt({ min: 1n, max: 100n }), // units
-        (openRate, currentRate, units) => {
-          const buyPnl = calculatePnl('BUY', openRate, currentRate, units)
-          const sellPnl = calculatePnl('SELL', openRate, currentRate, units)
+        (openRate, currentBid, spread, units) => {
+          const currentAsk = currentBid + spread
+          const buyPnl = calculatePnl('BUY', openRate, currentBid, units)
+          const sellPnl = calculatePnl('SELL', openRate, currentAsk, units)
 
-          expect(buyPnl).toBe(-sellPnl)
+          // With bid/ask spread, simultaneous BUY and SELL cannot both be profitable
+          expect(buyPnl + sellPnl).toBeLessThanOrEqual(0n)
         },
       ),
     )

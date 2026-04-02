@@ -175,7 +175,7 @@ router.post('/auth/login', async (req, res, next) => {
     const token = jwt.sign(
       {
         sub: user.id,
-        role: 'TRADER',
+        role: user.role || 'TRADER',
         iat: Math.floor(Date.now() / 1000),
       },
       privateKey,
@@ -314,8 +314,8 @@ import { createApiClient } from '@protrader/utils'
 const apiClient = createApiClient({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
   getToken: () => localStorage.getItem('auth_token'),
+  credentials: 'include',
   onUnauthorized: () => {
-    // Redirect to login
     window.location.href = '/login'
   },
 })
@@ -421,7 +421,8 @@ rm temp-public.pem
 ### Token Expired
 
 ```typescript
-// Check token expiration
+// Check token expiration (decode only - doesn't verify signature)
+// Use jwt.verify() for production verification
 const decoded = jwt.decode(token, { complete: true })
 console.log('Expires at:', new Date(decoded.payload.exp * 1000))
 ```

@@ -263,15 +263,8 @@ setInterval(() => {
 ```typescript
 // Server: Clean up on disconnect
 socket.on('disconnect', (reason) => {
+  // Socket.IO automatically removes socket from all rooms on disconnect
   console.log(`[DISCONNECT] ${socket.id}, reason: ${reason}`)
-
-  // Leave all rooms except default
-  const rooms = Array.from(socket.rooms)
-  rooms.forEach((room) => {
-    if (room !== socket.id) {
-      socket.leave(room)
-    }
-  })
 })
 ```
 
@@ -317,6 +310,16 @@ import { Server as SocketServer } from 'socket.io'
 import { io as ioc, Socket as ClientSocket } from 'socket.io-client'
 import jwt from 'jsonwebtoken'
 
+// NOTE: This is a NON-FUNCTIONAL placeholder key for documentation examples only.
+// Replace with a real RSA private key generated using: openssl genrsa -out private.pem 2048
+// Then convert to PKCS#8 format: openssl pkcs8 -topk8 -inform PEM -outform PEM -in private.pem -out private_pkcs8.pem -nocrypt
+const JWT_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7W8pnLfU8CZw2
+m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2
+m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2m2
+AgMBAAECggEAZW50cmFjdGlvbkNvZGVGb3JUM1RQSwpFeHBvcnQgUHJpUGtleTogVVNFX1RFUFQ=
+-----END PRIVATE KEY-----`
+
 describe('Socket.io', () => {
   let httpServer: ReturnType<typeof createServer>
   let io: SocketServer
@@ -325,6 +328,23 @@ describe('Socket.io', () => {
   beforeEach((done) => {
     httpServer = createServer()
     io = new SocketServer(httpServer)
+
+    // Add JWT authentication middleware
+    io.use((socket, next) => {
+      try {
+        const token = socket.handshake.auth.token
+        if (!token) return next(new Error('Missing authentication token'))
+
+        const payload = jwt.verify(token, JWT_PUBLIC_KEY, {
+          algorithms: ['RS256'],
+        }) as { sub: string }
+
+        socket.data.userId = payload.sub
+        next()
+      } catch (err) {
+        next(new Error('Invalid token'))
+      }
+    })
 
     httpServer.listen(() => {
       const port = (httpServer.address() as any).port

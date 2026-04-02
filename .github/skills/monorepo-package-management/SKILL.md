@@ -81,20 +81,20 @@ cat > packages/new-package/package.json << 'EOF'
   "name": "@protrader/new-package",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "exports": {
     ".": {
-      "import": "./src/index.ts",
-      "require": "./src/index.ts"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsup src/index.ts --format esm,cjs --dts",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@protrader/config": "workspace:*",
+    "tsup": "^8.0.0",
     "typescript": "^5.4.0"
   }
 }
@@ -304,6 +304,8 @@ pnpm turbo build --filter=@protrader/api...
 npx madge --circular --extensions ts packages/
 ```
 
+> **Note**: `madge` is an external analysis tool invoked via `npx`. It is not a project dependency and will be installed on-demand when run with npx.
+
 **Fix**:
 
 - Extract shared types to `@protrader/types`
@@ -388,8 +390,8 @@ Each package should have a single responsibility:
 ```json
 {
   "exports": {
-    ".": "./src/index.ts",
-    "./components/*": "./src/components/*.ts"
+    ".": "./dist/index.js",
+    "./components/*": "./dist/components/*.js"
   }
 }
 ```

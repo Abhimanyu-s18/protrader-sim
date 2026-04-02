@@ -10,7 +10,7 @@ applyTo: '**/*.prisma'
 
 - All money fields MUST use `BigInt` (not `Decimal` or `Float`)
 - All price fields MUST use `BigInt` (scaled ×100000)
-- Never use `@default(now())` on fields that need audit trails — use explicit timestamps
+- For timestamps: Use `@updatedAt` on `updatedAt` fields for automatic DB-side timestamp updates (recommended for most cases). Remove `@updatedAt` and require application code to set `updatedAt` explicitly when you need exact control over update timing or to set timestamps from application logic. Use `@default(now())` on `createdAt` if DB-assigned creation time is acceptable.
 
 ## Naming Conventions
 
@@ -54,8 +54,8 @@ model Trade {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user        User     @relation(fields: [userId], references: [id])
-  instrument  Instrument @relation(fields: [instrumentId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instrument  Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
 
   @@index([userId, status])
   @@index([instrumentId])

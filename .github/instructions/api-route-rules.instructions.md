@@ -49,19 +49,43 @@ const router = Router()
 const openPositionSchema = z.object({
   instrumentId: z.string(),
   direction: z.enum(['BUY', 'SELL']),
-  units: z.number().int().positive(),
-  leverage: z.number().int().min(1).max(500),
+  // Accept string or number for safe BigInt conversion at parse time.
+  units: z
+    .union([z.string(), z.number()])
+    .refine(
+      (val) => {
+        const parsed = typeof val === 'string' ? Number(val) : val
+        return Number.isSafeInteger(parsed) && parsed > 0
+      },
+  leverage: z.union([z.string(), z.number()])
+    .refine((val) => {
+      const parsed = typeof val === 'string' ? Number(val) : val
+      return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 500
+    }, { message: 'leverage must be a safe integer between 1 and 500' })
+    .transform((val) => BigInt(typeof val === 'string' ? Number(val) : val)),
+    }
+    return BigInt(parsed)
+  }),
 })
 
 router.post('/trades/open', authMiddleware, async (req: AuthRequest, res, next) => {
   try {
-    const input = openPositionSchema.parse(req.body)
+    const parseResult = openPositionSchema.safeParse(req.body)
+    if (!parseResult.success) {
+      return res.status(422).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid request body",
+          details: parseResult.error.flatten().fieldErrors,
+        },
+      })
+    }
+    const input = parseResult.data
 
+    // input.units and input.leverage are already BigInt after zod transformation
     const trade = await tradingService.openPosition({
       userId: req.user.id,
       ...input,
-      units: BigInt(input.units),
-      leverage: BigInt(input.leverage),
     })
 
     res.status(201).json({ data: trade })

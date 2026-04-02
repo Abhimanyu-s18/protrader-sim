@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
 import { serializeBigInt } from '../lib/calculations.js'
 import { getRedis } from '../lib/redis.js'
+import { AlertType } from '@prisma/client'
 
 export const alertsRouter: ExpressRouter = Router()
 alertsRouter.use(requireAuth)
@@ -40,6 +41,22 @@ const CreateAlertSchema = z.object({
   expires_at: z.string().datetime().optional(),
 })
 
+function getAlertIndexKey(alertType: AlertType, symbol: string): string {
+  if (alertType === 'PRICE_BELOW') {
+    return `alert_index:price_below:${symbol}`
+  }
+  if (alertType === 'PRICE_ABOVE' || alertType === 'PRICE_REACHES') {
+    return `alert_index:price_above:${symbol}`
+  }
+  if (alertType === 'PCT_CHANGE_ABOVE') {
+    return `alert_index:pct_above:${symbol}`
+  }
+  if (alertType === 'PCT_CHANGE_BELOW') {
+    return `alert_index:pct_below:${symbol}`
+  }
+  throw new Error(`Unsupported alert type: ${alertType}`)
+}
+
 // GET /v1/alerts
 alertsRouter.get('/', async (req, res, next) => {
   try {
@@ -48,7 +65,7 @@ alertsRouter.get('/', async (req, res, next) => {
     const status = typeof rawStatus === 'string' ? rawStatus : 'ACTIVE'
     const asset_class = typeof rawAssetClass === 'string' ? rawAssetClass : undefined
     const validatedStatus = validateAlertStatus(status)
-    const validatedAssetClass = asset_class ? validateAssetClass(asset_class as string) : undefined
+    const validatedAssetClass = asset_class ? validateAssetClass(asset_class) : undefined
 
     const alerts = await prisma.alert.findMany({
       where: {
@@ -98,12 +115,15 @@ alertsRouter.post('/', async (req, res, next) => {
       },
     })
 
-    // Add to Redis sorted set for O(log n) price monitoring
-    await getRedis().zadd(
-      `alert_index:${instrument.symbol}`,
-      Number(triggerScaled),
-      alert.id.toString(),
-    )
+    // Add to per-type Redis sorted set for O(log n) price monitoring.
+    const indexKey = getAlertIndexKey(alert_type, instrument.symbol)
+    try {
+      await getRedis().zadd(indexKey, Number(triggerScaled), alert.id.toString())
+    } catch (redisErr) {
+      // Rollback DB insert to maintain consistency
+      await prisma.alert.delete({ where: { id: alert.id } })
+      throw redisErr
+    }
 
     res.status(201).json(serializeBigInt(alert))
   } catch (err) {
@@ -123,7 +143,8 @@ alertsRouter.delete('/:id', async (req, res, next) => {
       return
     }
     await prisma.alert.update({ where: { id: alert.id }, data: { status: 'CANCELLED' } })
-    await getRedis().zrem(`alert_index:${alert.instrument.symbol}`, alert.id.toString())
+    const indexKey = getAlertIndexKey(alert.alertType, alert.instrument.symbol)
+    await getRedis().zrem(indexKey, alert.id.toString())
     res.json({ success: true })
   } catch (err) {
     next(err)

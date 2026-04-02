@@ -2,6 +2,120 @@
 
 This file provides guidance to agents when working with code in this repository.
 
+## Build / Lint / Test Commands
+
+```bash
+# Install dependencies
+pnpm install
+
+# Development
+pnpm dev                    # Start all apps
+pnpm --filter @protrader/api dev    # Single app
+
+# Quality checks
+pnpm build                  # Build all apps
+pnpm lint                  # Lint all apps
+pnpm typecheck             # TypeScript check all apps
+pnpm test                  # Run all tests
+
+# Single test file (Jest)
+cd apps/api && pnpm jest src/lib/calculations.test.ts
+cd apps/api && pnpm jest src/services/trading.test.ts --testNamePattern="test name"
+
+# Formatting
+pnpm format                # Format with Prettier
+pnpm format:check          # Check formatting
+
+# Database
+pnpm db:generate           # Generate Prisma client
+pnpm db:migrate            # Run migrations
+pnpm db:seed               # Seed instruments and staff
+pnpm db:studio             # Open Prisma Studio
+```
+
+## Code Style Guidelines
+
+### TypeScript Config
+
+- Strict mode enabled with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`
+- Use explicit return types on exported functions
+- Never use `any` — use `unknown` or proper types
+- Prefer `type` over `interface` for object shapes
+
+### ESLint Rules (error level)
+
+- `@typescript-eslint/no-explicit-any` — ERROR
+- `@typescript-eslint/consistent-type-imports` — ERROR (use inline type imports)
+- `@typescript-eslint/no-non-null-assertion` — ERROR
+- `@typescript-eslint/no-unused-vars` — ERROR (prefix with `_` for unused)
+- `no-console` — WARN (allow `warn`, `error`)
+- `prefer-const` — ERROR
+- `no-var` — ERROR
+- `object-shorthand` — ERROR
+
+### Prettier Rules
+
+- No semicolons
+- Single quotes
+- 2 spaces indentation
+- Trailing commas
+- 100 character line width
+- Single quotes for strings
+
+### Imports
+
+```typescript
+// Prefer inline type imports
+import type { User, Trade } from '@protrader/types'
+import { prisma } from '../lib/prisma'
+import { requireAuth } from '../middleware/auth'
+
+// Order: external → internal → types
+import { z } from 'zod'
+import { Router } from 'express'
+import { prisma } from '../lib/prisma.js'
+import { serializeBigInt } from '../lib/calculations.js'
+import type { ApiResponse } from '@protrader/types'
+```
+
+### Naming Conventions
+
+- Use PascalCase for types, interfaces, classes
+- Use camelCase for variables, functions, file names
+- Use UPPER_SNAKE_CASE for constants
+- File names: kebab-case (`user-service.ts`) for utils, PascalCase for components
+
+### Error Handling
+
+- Use standardized error responses: `{ error: string }`
+- Implement errorHandler middleware in routes
+- Use Zod for input validation
+- Return proper HTTP status codes (400, 401, 403, 404, 500)
+
+```typescript
+// Standard route error handling
+XRouter.get('/endpoint', async (req, res, next) => {
+  try {
+    const parsed = schema.safeParse(req.query)
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed' })
+    }
+    res.json({ data: serializeBigInt(result) })
+  } catch (error) {
+    next(error)
+  }
+})
+```
+
+### Code Structure
+
+- Prefer early returns over nested conditionals
+- Add JSDoc comments on all exported functions
+- Keep functions under 50 lines when possible
+- Handle loading and error states in UI components
+
+---
+
 ## Critical Financial Rules (NON-NEGOTIABLE)
 
 - **ALL money**: BIGINT cents (e.g., `$100.50` = `10050n`)
@@ -10,34 +124,12 @@ This file provides guidance to agents when working with code in this repository.
 - **Division is ALWAYS LAST** — multiply first, divide last (precision rule)
 - **Balance is NOT stored** — computed from `ledger_transactions` table
 
-## Key Type Conventions
-
-- `MoneyString` — String representation of cents in API responses (`"10050"`)
-- `PriceString` — String representation of scaled price (`"108500"`)
-- All API responses use `ApiResponse<T>` wrapper with `data` field
-- Paginated responses use `PaginatedResponse<T>` with `next_cursor` and `has_more`
-
-## Architecture (Non-Obvious)
-
-- **5 Next.js apps** + **1 Express API** (port 4000)
-- **Layered architecture**: Routes (HTTP only) → Services (business logic) → Database
-- **Socket.io rooms**: `user:{userId}` (private), `prices:{symbol}` (max 20 subscriptions), `admin:panel`
-- **JWT**: RS256 (asymmetric), not HS256 — requires `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`
-- **Rate limiting**: 100 req/min global; 10 req/15min per IP on auth endpoints
-
-## Database (Non-Obvious)
-
-- **Prisma schema** uses `pgcrypto` extension
-- **Instrument fields**: `contractSize` (100000 for Forex, 1 for stocks), `pipDecimalPlaces` (4 for most Forex, 2 for JPY pairs)
-- **Margin thresholds**: `marginCallBps` (10000 = 100%), `stopOutBps` (5000 = 50%)
-- **Trade close reasons** (`closedBy`): USER, STOP_LOSS, TAKE_PROFIT, TRAILING_STOP, MARGIN_CALL, STOP_OUT, ADMIN, EXPIRED
-
-## Calculation Engine (`apps/api/src/lib/calculations.ts`)
+### Financial Calculations
 
 ```typescript
-PRICE_SCALE = 100000n   // price storage multiplier
-BPS_SCALE   = 10000n    // 10000 bps = 100%
-CENTS       = 100n
+const PRICE_SCALE = 100000n // price storage multiplier
+const BPS_SCALE = 10000n // 10000 bps = 100%
+const CENTS = 100n
 
 // Margin = (units × contractSize × openRateScaled × CENTS) / (leverage × PRICE_SCALE)
 // P&L BUY = (currentBidScaled - openRateScaled) × units × contractSize × CENTS / PRICE_SCALE
@@ -45,18 +137,44 @@ CENTS       = 100n
 // Margin level = (equityCents × BPS_SCALE) / usedMarginCents (null if no open positions)
 ```
 
-## Code Style (Non-Obvious)
+---
 
-- TypeScript strict mode with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`
-- ESLint: `@typescript-eslint/no-explicit-any` = error, `@typescript-eslint/consistent-type-imports` = error
-- Prettier: no semicolons, single quotes, 2 spaces, trailing commas, 100 char width
-- Prefer early returns over nested conditionals
-- Add JSDoc comments on all exported functions
+## Type Conventions
 
-## Testing
+- `MoneyString` — `"10050"` (cents as string)
+- `PriceString` — `"108500"` (scaled ×100000 as string)
+- All API responses: `ApiResponse<T>` wrapper with `data` field
+- Paginated responses: `PaginatedResponse<T>` with `next_cursor` and `has_more`
 
-- Jest for API tests (`apps/api`)
-- Run single test: `cd apps/api && pnpm jest src/services/trading.test.ts`
+---
+
+## Architecture
+
+- **5 Next.js apps** + **1 Express API** (port 4000)
+- **Layered architecture**: Routes (HTTP) → Services → Database
+- **Socket.io rooms**: `user:{userId}`, `prices:{symbol}`, `admin:panel`
+- **JWT**: RS256 (asymmetric) — requires `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`
+- **Rate limiting**: 100 req/min global; 10 req/15min per IP on auth endpoints
+
+### Database (Prisma)
+
+- Balance computed via `get_user_balance(userId)` SQL function
+- `ledger_transactions` stores audit snapshots only
+- Trade close reasons: `USER`, `STOP_LOSS`, `TAKE_PROFIT`, `TRAILING_STOP`, `MARGIN_CALL`, `STOP_OUT`, `ADMIN`, `EXPIRED`
+- Instrument fields: `contractSize` (100000 Forex, 1 stocks), `pipDecimalPlaces` (4 most Forex, 2 JPY)
+
+---
+
+## Shared Packages
+
+- `@protrader/config` — ESLint, TypeScript, Tailwind configs
+- `@protrader/db` — Prisma schema and client
+- `@protrader/types` — Shared TypeScript types
+- `@protrader/utils` — `formatMoney`, `formatPrice`, `createApiClient`
+- `@protrader/ui` — Shared UI components (CVA + Tailwind)
+- `@protrader/email` — React Email templates
+
+---
 
 ## Environment Setup
 
@@ -64,18 +182,39 @@ CENTS       = 100n
 2. Start infrastructure: `docker compose up -d`
 3. Push schema: `pnpm db:migrate && pnpm db:seed`
 
-## Shared Packages
+---
 
-- `packages/config` — ESLint, TypeScript, Tailwind configs
-- `packages/db` — Prisma schema and client
-- `packages/types` — Shared TypeScript types (`MoneyString`, `PriceString`, API responses)
-- `packages/utils` — Utility functions (`formatMoney`, `formatPrice`, `createApiClient`)
-- `packages/ui` — Shared UI components (CVA + Tailwind)
-- `packages/email` — React Email templates via Resend
+## Testing
 
-## Kilocode Mode System
+- Jest for API tests (`apps/api`)
+- Test files in same directory as source (not separate test folder)
+- Run single test: `cd apps/api && pnpm jest src/lib/calculations.test.ts`
 
-- **Mode definitions**: `.kilocodemodes` file defines available modes with `slug`, `name`, `roleDefinition`, `groups`, `customInstructions`, and `whenToUse` fields.
-- **Mode-specific rules**: Each mode has a dedicated rules file in `.kilocode/rules-{mode}/AGENTS.md` containing non-obvious rules for that mode.
-- **Mode groups**: Define permissions for each mode (read, edit, browser, command, mcp). Edit groups can be restricted to specific file patterns via `fileRegex`.
-- **When to use**: Each mode includes a `whenToUse` field describing the appropriate scenarios for activating that mode.
+---
+
+## Common Patterns
+
+### BigInt Serialization
+
+Every response with BigInt fields MUST use `serializeBigInt()`:
+
+```typescript
+res.json({ data: serializeBigInt({ items: data, has_more: hasMore }) })
+```
+
+### Cursor-based Pagination
+
+```typescript
+const take = Math.min(parseInt(parsed.data.limit ?? '50', 10), 200)
+const items = await prisma.model.findMany({ take: take + 1 })
+const hasMore = items.length > take
+const data = hasMore ? items.slice(0, take) : items
+```
+
+### Zod Validation with req.query
+
+```typescript
+const schema = z.object({ limit: z.string().optional() })
+const parsed = schema.safeParse(req.query)
+if (!parsed.success) return res.status(400).json({ error: 'Validation failed' })
+```

@@ -195,10 +195,10 @@ async function getCachedPendingOrders(instrumentId: string): Promise<
     let cacheTtl = PENDING_ORDERS_CACHE_TTL_SECONDS
     const expiringOrders = orders.filter((o) => o.expiryAt !== null)
     if (expiringOrders.length > 0) {
-      const nearestExpiry = expiringOrders.reduce((earliest, o) => {
-        if (!o.expiryAt) return earliest
-        return o.expiryAt < earliest ? o.expiryAt : earliest
-      }, expiringOrders[0]!.expiryAt!)
+      const nearestExpiry = expiringOrders.reduce(
+        (earliest: Date, o) => (o.expiryAt! < earliest ? o.expiryAt! : earliest),
+        expiringOrders[0]!.expiryAt!,
+      )
 
       const secondsUntilExpiry = Math.max(
         1,
@@ -882,25 +882,64 @@ async function executeEntryOrder(
     // Otherwise a race with removeMarginWatch (from closeTradeWithReason) could cause
     // the user's position to never be monitored. Doing this before cache invalidation
     // ensures trade state and margin watch state stay synchronized.
-    await addMarginWatch(inst.id, order.userId.toString())
+    try {
+      await addMarginWatch(inst.id, order.userId.toString())
+    } catch (err) {
+      log.error(
+        { err, orderId: order.id.toString(), instrumentId: inst.id, symbol: inst.symbol },
+        'Failed to add margin watch after entry order execution - reverting trade to PENDING',
+      )
+      // Compensating action: revert trade status back to PENDING since margin watch failed
+      // This ensures the position won't be left unmonitored
+      try {
+        await prisma.trade.updateMany({
+          where: { id: order.id, status: 'OPEN' },
+          data: { status: 'PENDING' },
+        })
+        log.info(
+          { orderId: order.id.toString() },
+          'Trade reverted to PENDING due to margin watch failure',
+        )
+      } catch (revertErr) {
+        log.error(
+          { err: revertErr, orderId: order.id.toString() },
+          'Failed to revert trade status after margin watch failure',
+        )
+      }
+      return // Exit early since trade is no longer open
+    }
 
     // Invalidate pending orders cache for this instrument after successful transaction
-    await invalidatePendingOrdersCache(inst.id)
+    try {
+      await invalidatePendingOrdersCache(inst.id)
+    } catch (err) {
+      log.warn(
+        { err, orderId: order.id.toString(), instrumentId: inst.id },
+        'Failed to invalidate pending orders cache after entry order execution',
+      )
+    }
 
     // Notify user
     if (ioRef) {
-      emitToUser(
-        ioRef,
-        order.userId.toString(),
-        'trade:opened',
-        serializeBigInt({
-          trade_id: order.id,
-          symbol: inst.symbol,
-          direction: order.direction,
-          units: order.units.toString(),
-          open_rate_scaled: openRateScaled.toString(),
-        }),
-      )
+      try {
+        emitToUser(
+          ioRef,
+          order.userId.toString(),
+          'trade:opened',
+          serializeBigInt({
+            trade_id: order.id,
+            symbol: inst.symbol,
+            direction: order.direction,
+            units: order.units.toString(),
+            open_rate_scaled: openRateScaled.toString(),
+          }),
+        )
+      } catch (err) {
+        log.error(
+          { err, orderId: order.id.toString(), userId: order.userId.toString() },
+          'Failed to emit trade:opened event',
+        )
+      }
     }
 
     log.info({ orderId: order.id.toString(), symbol: inst.symbol }, 'Entry order executed')
@@ -917,19 +956,19 @@ async function executeEntryOrder(
  */
 async function checkAlerts(inst: InstrumentInfo, midScaled: bigint): Promise<void> {
   const redis = getRedis()
-  const alertIndexKey = `alert_index:${inst.symbol}`
+  const aboveKey = `alert_index:above:${inst.symbol}`
+  const belowKey = `alert_index:below:${inst.symbol}`
 
   // Convert midScaled (BigInt) to string for Redis sorted set comparison.
   // Redis zrangebyscore accepts string scores and compares them numerically.
   // This preserves precision for large prices that exceed Number.MAX_SAFE_INTEGER.
   const midScaledStr = midScaled.toString()
 
-  // Get all alerts that should trigger based on price
-  // PRICE_ABOVE / PRICE_REACHES: trigger when mid >= trigger (use score <= midScaledStr)
-  // PRICE_BELOW: trigger when mid <= trigger (use score >= midScaledStr)
-  const triggeredAbove = await redis.zrangebyscore(alertIndexKey, '-inf', midScaledStr)
-  const triggeredBelow = await redis.zrangebyscore(alertIndexKey, midScaledStr, '+inf')
-  const allAlertIds = [...new Set([...triggeredAbove, ...triggeredBelow])]
+  // Get all alerts that should trigger based on price from per-type sorted sets.
+  // Each set only contains alerts of one type, so no cross-type duplicates are possible.
+  const triggeredAbove = await redis.zrangebyscore(aboveKey, '-inf', midScaledStr)
+  const triggeredBelow = await redis.zrangebyscore(belowKey, midScaledStr, '+inf')
+  const allAlertIds = [...triggeredAbove, ...triggeredBelow]
 
   if (allAlertIds.length === 0) return
 
@@ -939,7 +978,7 @@ async function checkAlerts(inst: InstrumentInfo, midScaled: bigint): Promise<voi
       include: { instrument: { select: { symbol: true, pipDecimalPlaces: true } } },
     })
     if (!alert) {
-      await redis.zrem(alertIndexKey, alertIdStr)
+      await Promise.all([redis.zrem(aboveKey, alertIdStr), redis.zrem(belowKey, alertIdStr)])
       continue
     }
 
@@ -960,7 +999,8 @@ async function checkAlerts(inst: InstrumentInfo, midScaled: bigint): Promise<voi
       // Already triggered by concurrent operation
       continue
     }
-    await redis.zrem(alertIndexKey, alertIdStr)
+    const indexKey = alert.alertType === 'PRICE_BELOW' ? belowKey : aboveKey
+    await redis.zrem(indexKey, alertIdStr)
 
     // Create notification
     await prisma.notification.create({

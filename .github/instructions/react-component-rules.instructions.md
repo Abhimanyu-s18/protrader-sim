@@ -26,7 +26,7 @@ applyTo: '**/*.{tsx,jsx}'
 - Use `useReducer` for complex state logic
 - Use React Query for server state (API data)
 - Use Zustand for global client state
-- Never use `useContext` for server state
+- Avoid using `useContext` as a cache for server state; prefer React Query for server-state management
 
 ## Data Fetching
 
@@ -60,7 +60,7 @@ applyTo: '**/*.{tsx,jsx}'
 ```tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 
@@ -81,29 +81,67 @@ export function TradeForm({ instrumentId, onSuccess }: TradeFormProps) {
       queryClient.invalidateQueries({ queryKey: ['positions'] })
       onSuccess?.()
     },
+    onError: (error) => {
+      // Report to monitoring service
+      errorReporting.captureException(error, {
+        tags: { component: 'TradeForm', action: 'openTrade' },
+        extra: { direction, units, instrumentId },
+      })
+
+      // Show user-friendly notification
+      showNotification({
+        type: 'error',
+        title: 'Trade Failed',
+        message: 'Unable to open trade. Please check your connection and try again.',
+      })
+
+      // Optional: Implement retry logic for transient failures
+      if (isRetryableError(error)) {
+        setTimeout(() => openTrade.mutate({ direction, units }), 2000)
+      }
+    },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    openTrade.mutate({ direction, units })
-  }
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      openTrade.mutate({ direction, units })
+    },
+    [direction, units, openTrade.mutate],
+  )
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <TradeForm
+      onSubmit={handleSubmit}
+      isLoading={openTrade.isPending}
+      error={openTrade.error}
+      direction={direction}
+    />
+  )
+}
+
+// Child component that receives the memoized handler
+function TradeForm({
+  onSubmit,
+  isLoading,
+  error,
+  direction,
+}: {
+  onSubmit: (e: React.FormEvent) => void
+  isLoading: boolean
+  error: Error | null
+  direction: string
+}) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
       {/* Form fields */}
-      <button
-        type="submit"
-        disabled={openTrade.isPending}
-        className="btn-primary"
-       <button
-         type="submit"
-         disabled={openTrade.isPending}
-         className="btn-primary"
-       >
-         {openTrade.isPending ? 'Opening...' : `Open ${direction}`}
-       </button>
-      >
-        {openTrade.isPending ? 'Opening...' : `Open ${direction}`}
+      {error && (
+        <div role="alert" className="text-red-500">
+          Failed to open trade. Please try again.
+        </div>
+      )}
+      <button type="submit" disabled={isLoading} className="btn-primary">
+        {isLoading ? 'Opening...' : `Open ${direction}`}
       </button>
     </form>
   )

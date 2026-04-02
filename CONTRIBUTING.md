@@ -8,6 +8,22 @@ Thank you for contributing to **ProTraderSim** — a regulated, multi-asset offs
 
 ## Quick Start
 
+### Prerequisites
+
+Before starting the Quick Start steps, install these required tools:
+
+- [Node.js](https://nodejs.org/) (version 20.0.0 or higher required)
+- [pnpm](https://pnpm.io/installation) (install globally): `npm install -g pnpm`
+- [Docker & Docker Compose](https://www.docker.com/get-started)
+- [Git](https://git-scm.com/downloads)
+
+Optional but helpful:
+
+- IDE: VS Code
+- Prisma CLI (available via `npx prisma` after `pnpm install`)
+
+Once prerequisites are installed, continue with the Quick Start steps below.
+
 ```bash
 # 1. Fork and clone
 git clone https://github.com/YOUR_USERNAME/protrader-sim.git

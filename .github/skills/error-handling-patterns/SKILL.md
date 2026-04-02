@@ -493,7 +493,11 @@ async function executeWithRetry<T>(
   operation: () => Promise<T>,
   maxRetries: number = 3,
 ): Promise<T> {
-  let lastError: Error
+  if (maxRetries <= 0) {
+    maxRetries = 1
+  }
+
+  let lastError: Error | undefined
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -513,7 +517,10 @@ async function executeWithRetry<T>(
     }
   }
 
-  throw lastError!
+  throw (
+    lastError ??
+    new Error(`Operation failed after ${maxRetries} ${maxRetries === 1 ? 'attempt' : 'attempts'}`)
+  )
 }
 ```
 

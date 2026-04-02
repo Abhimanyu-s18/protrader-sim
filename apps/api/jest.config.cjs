@@ -11,4 +11,5 @@ module.exports = {
   transform: {
     '^.+\\.ts$': ['ts-jest', { useESM: true }],
   },
+  snapshotSerializers: ['<rootDir>/jest-bigint-serializer.js'],
 }

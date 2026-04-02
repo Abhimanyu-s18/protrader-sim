@@ -48,10 +48,10 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: false, // Tests share state, run sequentially
+  fullyParallel: true, // Each test manages its own state/cleanup
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  workers: 4, // Enable parallel workers
   reporter: [['html', { outputFolder: 'playwright-report' }]],
   use: {
     baseURL: 'http://localhost:3002',
@@ -86,7 +86,7 @@ export default defineConfig({
 
 ```typescript
 // apps/platform/e2e/fixtures.ts
-import { test as base } from '@playwright/test'
+import { test as base, Page } from '@playwright/test'
 import { prisma } from '@protrader/db'
 
 type TestFixtures = {
@@ -95,8 +95,10 @@ type TestFixtures = {
     email: string
     password: string
   }
-  authenticatedPage: any
+  authenticatedPage: Page
 }
+
+import bcrypt from 'bcrypt'
 
 export const test = base.extend<TestFixtures>({
   testUser: async ({}, use) => {
@@ -106,12 +108,15 @@ export const test = base.extend<TestFixtures>({
       password: 'Test1234!',
     }
 
+    // Hash password using bcrypt (matches actual plaintext password)
+    const hashedPassword = await bcrypt.hash(user.password, 10)
+
     // Create user in database
-    await prisma.user.create({
+    const createdUser = await prisma.user.create({
       data: {
         id: user.id,
         email: user.email,
-        passwordHash: '$2b$10$hashed...',
+        passwordHash: hashedPassword,
         kycStatus: 'APPROVED',
         accountType: 'TRADER',
       },
@@ -148,77 +153,86 @@ import { test, expect } from './fixtures'
 
 test.describe('Complete Trading Lifecycle', () => {
   test('user can register, deposit, trade, and withdraw', async ({ page }) => {
-    // Step 1: Registration
-    await page.goto('http://localhost:3001/register')
-    await page.fill('[name="email"]', 'newtrader@example.com')
-    await page.fill('[name="password"]', 'SecurePass123!')
-    await page.fill('[name="confirmPassword"]', 'SecurePass123!')
-    await page.click('button[type="submit"]')
-    await page.waitForURL('http://localhost:3002/dashboard')
+    // Use unique email for each test run to avoid conflicts
+    const testEmail = `trader-${Date.now()}@example.com`
+    const password = 'SecurePass123!'
 
-    // Step 2: Verify dashboard loads with zero balance
-    await expect(page.locator('[data-testid="balance"]')).toContainText('$0.00')
+    try {
+      // Step 1: Registration
+      await page.goto('http://localhost:3001/register')
+      await page.fill('[name="email"]', testEmail)
+      await page.fill('[name="password"]', password)
+      await page.fill('[name="confirmPassword"]', password)
+      await page.click('button[type="submit"]')
+      await page.waitForURL('http://localhost:3002/dashboard')
 
-    // Step 3: Navigate to deposit page
-    await page.click('[data-testid="deposit-button"]')
-    await page.waitForURL('http://localhost:3002/deposit')
+      // Step 2: Verify dashboard loads with zero balance
+      await expect(page.locator('[data-testid="balance"]')).toContainText('$0.00')
 
-    // Step 4: Initiate deposit
-    await page.fill('[name="amount"]', '10000') // $10,000
-    await page.selectOption('[name="cryptoCurrency"]', 'USDT_TRC20')
-    await page.click('button[type="submit"]')
+      // Step 3: Navigate to deposit page
+      await page.click('[data-testid="deposit-button"]')
+      await page.waitForURL('http://localhost:3002/deposit')
 
-    // Wait for payment URL
-    await expect(page.locator('[data-testid="payment-url"]')).toBeVisible()
+      // Step 4: Initiate deposit
+      await page.fill('[name="amount"]', '10000') // $10,000
+      await page.selectOption('[name="cryptoCurrency"]', 'USDT_TRC20')
+      await page.click('button[type="submit"]')
 
-    // Step 5: Simulate payment completion (via API)
-    // In real E2E, you'd complete the actual payment
-    // For testing, trigger webhook directly
-    await page.evaluate(async () => {
-      const response = await fetch('http://localhost:4000/api/test/simulate-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'newtrader@example.com', amount: 10000 }),
-      })
-      if (!response.ok) {
-        throw new Error(`Payment simulation failed: ${response.statusText}`)
-      }
-    })
+      // Wait for payment URL
+      await expect(page.locator('[data-testid="payment-url"]')).toBeVisible()
 
-    // Step 6: Verify balance updated
-    await page.goto('http://localhost:3002/dashboard')
-    await expect(page.locator('[data-testid="balance"]')).toContainText('$10,000.00')
+      // Step 5: Simulate payment completion (via API)
+      await page.evaluate((email) => {
+        return fetch('http://localhost:4000/api/test/simulate-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, amount: 10000 }),
+          credentials: 'include',
+        })
+      }, testEmail)
 
-    // Step 7: Open a trade
-    await page.click('[data-testid="new-trade-button"]')
-    await page.waitForURL('http://localhost:3002/trade/EURUSD')
+      // Step 6: Verify balance updated
+      await page.goto('http://localhost:3002/dashboard')
+      await expect(page.locator('[data-testid="balance"]')).toContainText('$10,000.00')
 
-    // Select instrument
-    await page.selectOption('[data-testid="instrument-select"]', 'EURUSD')
+      // Step 7: Open a trade
+      await page.click('[data-testid="new-trade-button"]')
+      await page.waitForURL('http://localhost:3002/trade/EURUSD')
 
-    // Set trade parameters
-    await page.click('[data-testid="direction-buy"]')
-    await page.fill('[data-testid="lot-size"]', '0.1')
-    await page.selectOption('[data-testid="leverage-select"]', '100')
+      // Select instrument
+      await page.selectOption('[data-testid="instrument-select"]', 'EURUSD')
 
-    // Submit trade
-    await page.click('[data-testid="submit-trade"]')
+      // Set trade parameters
+      await page.click('[data-testid="direction-buy"]')
+      await page.fill('[data-testid="lot-size"]', '0.1')
+      await page.selectOption('[data-testid="leverage-select"]', '100')
 
-    // Verify trade appears in open positions
-    await expect(page.locator('[data-testid="open-positions"]')).toBeVisible()
-    await expect(page.locator('[data-testid="position-0"]')).toContainText('EURUSD')
-    await expect(page.locator('[data-testid="position-0"]')).toContainText('BUY')
+      // Submit trade
+      await page.click('[data-testid="submit-trade"]')
 
-    // Step 8: Close the trade
-    await page.click('[data-testid="close-position-0"]')
-    await page.click('[data-testid="confirm-close"]')
+      // Verify trade appears in open positions
+      await expect(page.locator('[data-testid="open-positions"]')).toBeVisible()
+      await expect(page.locator('[data-testid="position-0"]')).toContainText('EURUSD')
+      await expect(page.locator('[data-testid="position-0"]')).toContainText('BUY')
 
-    // Verify position moved to closed
-    await expect(page.locator('[data-testid="closed-positions"]')).toBeVisible()
+      // Step 8: Close the trade
+      await page.click('[data-testid="close-position-0"]')
+      await page.click('[data-testid="confirm-close"]')
 
-    // Step 9: Verify balance reflects P&L
-    const balanceText = await page.locator('[data-testid="balance"]').textContent()
-    expect(balanceText).toMatch(/\$[\d,]+\.\d{2}/)
+      // Step 9: Verify balance reflects P&L
+      const balanceText = await page.locator('[data-testid="balance"]').textContent()
+      expect(balanceText).toMatch(/\$[\d,]+\.\d{2}/)
+    } finally {
+      // Cleanup: Delete test user
+      await page.evaluate((email) => {
+        return fetch('http://localhost:4000/api/test/delete-user', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+          credentials: 'include',
+        })
+      }, testEmail)
+    }
   })
 })
 ```
@@ -299,76 +313,156 @@ test.describe('Real-Time Price Updates', () => {
 // apps/platform/e2e/margin-management.spec.ts
 import { test, expect } from './fixtures'
 import { prisma } from '@protrader/db'
+import bcrypt from 'bcrypt'
 
 test.describe('Margin Management', () => {
   test('margin call warning appears when margin level drops below 100%', async ({
     authenticatedPage,
   }) => {
+    // Hash password for test user
+    const password = 'Test1234!'
+    const hashedPassword = await bcrypt.hash(password, 10)
+
     // Create user with low balance
     const user = await prisma.user.create({
       data: {
         email: `margin-test-${Date.now()}@protrader.test`,
-        passwordHash: '$2b$10$hashed...',
+        passwordHash: hashedPassword,
         kycStatus: 'APPROVED',
         accountType: 'TRADER',
       },
     })
 
-    // Add small deposit
-    await prisma.ledgerTransaction.create({
+    // Create test instrument
+    const instrument = await prisma.instrument.create({
       data: {
-        userId: user.id,
-        type: 'DEPOSIT',
-        amountCents: 100000, // $1,000
-        description: 'Test deposit',
+        symbol: 'EURUSD',
+        displayName: 'Euro/USD',
+        contractSize: 100000n,
+        leverage: 500n,
+        spreadPips: 15n,
+        pipDecimalPlaces: 4,
+        swapBuyBps: 100n,
+        swapSellBps: -100n,
+        marginCallBps: 10000n,
+        stopOutBps: 5000n,
+        twelveDataSymbol: 'EURUSD',
       },
     })
 
-    // Open large position (high leverage)
-    await prisma.trade.create({
-      data: {
-        userId: user.id,
-        instrumentId: 'EURUSD',
-        direction: 'BUY',
-        units: 10,
-        leverage: 500,
-        openRate: 108500,
-        status: 'OPEN',
-        marginCents: 90000, // $900 margin (90% of balance)
-      },
-    })
+    try {
+      // Add small deposit
+      const ledgerTx = await prisma.ledgerTransaction.create({
+        data: {
+          userId: user.id,
+          transactionType: 'DEPOSIT',
+          amountCents: 100000n, // $1,000
+          balanceAfterCents: 100000n,
+          description: 'Test deposit',
+        },
+      })
 
-    // Login and check for margin warning
-    await authenticatedPage.goto('http://localhost:3002/dashboard')
+      // Open large position (high leverage)
+      const trade = await prisma.trade.create({
+        data: {
+          userId: user.id,
+          instrumentId: instrument.id,
+          direction: 'BUY',
+          units: 10n,
+          leverage: 500n,
+          openRateScaled: 108500n,
+          status: 'OPEN',
+          marginRequiredCents: 90000n, // $900 margin (90% of balance)
+        },
+      })
 
-    // Margin call warning should appear
-    await expect(authenticatedPage.locator('[data-testid="margin-warning"]')).toBeVisible()
-    await expect(authenticatedPage.locator('[data-testid="margin-level"]')).toContainText('%')
+      // Login and check for margin warning
+      await authenticatedPage.goto('http://localhost:3002/dashboard')
+
+      // Margin call warning should appear
+      await expect(authenticatedPage.locator('[data-testid="margin-warning"]')).toBeVisible()
+      await expect(authenticatedPage.locator('[data-testid="margin-level"]')).toContainText('%')
+
+      // Cleanup: delete test records
+      await prisma.trade.delete({ where: { id: trade.id } })
+      await prisma.ledgerTransaction.delete({ where: { id: ledgerTx.id } })
+    } finally {
+      // Cleanup: delete test user and instrument
+      await prisma.user.delete({ where: { id: user.id } })
+      await prisma.instrument.delete({ where: { id: instrument.id } })
+    }
   })
 
   test('positions auto-closed on stop-out (margin level < 50%)', async ({ authenticatedPage }) => {
-    // This test simulates stop-out by manipulating prices
-    // In production, this would be triggered by the margin call worker
-
-    // Setup: Create user with position near stop-out
-    const user = await setupNearStopOutUser()
-
-    // Trigger stop-out via test endpoint
-    await authenticatedPage.evaluate(async () => {
-      await fetch('http://localhost:4000/api/test/trigger-stop-out', {
-        method: 'POST',
-        body: JSON.stringify({ userId: 'test-user-id' }),
-      })
+    const password = 'Test1234!'
+    const hashedPassword = await bcrypt.hash(password, 10)
+    const user = await prisma.user.create({
+      data: {
+        email: `stopout-test-${Date.now()}@protrader.test`,
+        passwordHash: hashedPassword,
+        kycStatus: 'APPROVED',
+        accountType: 'TRADER',
+      },
     })
 
-    // Verify positions closed
-    await authenticatedPage.goto('http://localhost:3002/positions')
-    await expect(authenticatedPage.locator('[data-testid="open-positions"]')).toHaveCount(0)
+    const instrument = await prisma.instrument.create({
+      data: {
+        symbol: 'EURUSD',
+        displayName: 'Euro/USD',
+        contractSize: 100000n,
+        leverage: 500n,
+        spreadPips: 15n,
+        pipDecimalPlaces: 4,
+        swapBuyBps: 100n,
+        swapSellBps: -100n,
+        marginCallBps: 10000n,
+        stopOutBps: 5000n,
+        twelveDataSymbol: 'EURUSD',
+      },
+    })
 
-    // Verify stop-out notification
-    await expect(authenticatedPage.locator('[data-testid="notification"]')).toContainText(
-      'stop-out',
-    )
+    try {
+      // Create deposit and position
+      await prisma.ledgerTransaction.create({
+        data: {
+          userId: user.id,
+          transactionType: 'DEPOSIT',
+          amountCents: 100000n,
+          balanceAfterCents: 100000n,
+          description: 'Test deposit',
+        },
+      })
+
+      const trade = await prisma.trade.create({
+        data: {
+          userId: user.id,
+          instrumentId: instrument.id,
+          direction: 'BUY',
+          units: 10n,
+          leverage: 500n,
+          openRateScaled: 108500n,
+          status: 'OPEN',
+          marginRequiredCents: 95000n,
+        },
+      })
+
+      // Trigger stop-out via test endpoint (pass actual userId)
+      await authenticatedPage.evaluate((userId) => {
+        return fetch('http://localhost:4000/api/test/trigger-stop-out', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+          credentials: 'include',
+        })
+      }, user.id.toString())
+
+      // Verify positions closed
+      await authenticatedPage.goto('http://localhost:3002/positions')
+      await expect(authenticatedPage.locator('[data-testid="open-positions"]')).not.toBeVisible()
+    } finally {
+      await prisma.user.delete({ where: { id: user.id } })
+      await prisma.instrument.delete({ where: { id: instrument.id } })
+    }
   })
 })
 ```
@@ -420,14 +514,35 @@ test.describe('KYC Document Upload', () => {
 // apps/platform/e2e/ib-commissions.spec.ts
 import { test, expect } from './fixtures'
 import { prisma } from '@protrader/db'
+import bcrypt from 'bcrypt'
 
 test.describe('IB Commission Tracking', () => {
   test('IB agent sees commissions from referred traders', async ({ page }) => {
+    const password = 'Test1234!'
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // Create instrument first (required for trade)
+    const instrument = await prisma.instrument.create({
+      data: {
+        symbol: `EURUSD-${Date.now()}`,
+        name: 'Euro / US Dollar',
+        contractSize: 100000,
+        leverage: 100,
+        spreadPips: 2,
+        pipDecimalPlaces: 4,
+        swapBuyBps: 50,
+        swapSellBps: -50,
+        marginCallBps: 10000,
+        stopOutBps: 5000,
+        twelveDataSymbol: 'EURUSD',
+      },
+    })
+
     // Setup: Create IB agent and referred trader
     const ibAgent = await prisma.staff.create({
       data: {
         email: `ib-agent-${Date.now()}@protrader.test`,
-        passwordHash: '$2b$10$hashed...',
+        passwordHash: hashedPassword,
         role: 'AGENT',
       },
     })
@@ -435,45 +550,64 @@ test.describe('IB Commission Tracking', () => {
     const trader = await prisma.user.create({
       data: {
         email: `referred-trader-${Date.now()}@protrader.test`,
-        passwordHash: '$2b$10$hashed...',
+        passwordHash: hashedPassword,
         kycStatus: 'APPROVED',
         referredBy: ibAgent.id,
       },
     })
 
-    // Create a trade with commission
-    const trade = await prisma.trade.create({
-      data: {
-        userId: trader.id,
-        instrumentId: 'EURUSD',
-        direction: 'BUY',
-        units: 1,
-        leverage: 100,
-        openRate: 108500,
-        status: 'CLOSED',
-        pnlCents: 500000, // $5,000 profit
-      },
-    })
+    try {
+      // Create a trade with commission
+      const trade = await prisma.trade.create({
+        data: {
+          userId: trader.id,
+          instrumentId: instrument.id,
+          direction: 'BUY',
+          units: 1,
+          leverage: 100,
+          openRate: 108500n,
+          status: 'CLOSED',
+          pnlCents: 500000n, // $5,000 profit
+        },
+      })
 
-    await prisma.ibCommission.create({
-      data: {
-        tradeId: trade.id,
-        agentId: ibAgent.id,
-        rateBps: 500, // 5% commission
-        amountCents: 25000, // $250 commission
-      },
-    })
+      await prisma.ibCommission.create({
+        data: {
+          tradeId: trade.id,
+          agentId: ibAgent.id,
+          rateBps: 500, // 5% commission
+          amountCents: 25000n, // $250 commission
+        },
+      })
 
-    // Login as IB agent
-    await page.goto('http://localhost:3001/login')
-    await page.fill('[name="email"]', ibAgent.email)
-    await page.fill('[name="password"]', 'Test1234!')
-    await page.click('button[type="submit"]')
-    await page.waitForURL('http://localhost:3004/dashboard')
+      // Login as IB agent
+      await page.goto('http://localhost:3001/login')
+      await page.fill('[name="email"]', ibAgent.email)
+      await page.fill('[name="password"]', password)
+      await page.click('button[type="submit"]')
+      await page.waitForURL('http://localhost:3004/dashboard')
 
-    // Verify commission appears
-    await expect(page.locator('[data-testid="total-commissions"]')).toContainText('$250.00')
-    await expect(page.locator('[data-testid="commission-0"]')).toContainText('EURUSD')
+      // Verify commission appears
+      await expect(page.locator('[data-testid="total-commissions"]')).toContainText('$250.00')
+      await expect(page.locator('[data-testid="commission-0"]')).toContainText(instrument.symbol)
+    } finally {
+      // Cleanup
+      await prisma.ibCommission.deleteMany({
+        where: { agentId: ibAgent.id },
+      })
+      await prisma.trade.deleteMany({
+        where: { userId: trader.id },
+      })
+      await prisma.user.delete({
+        where: { id: trader.id },
+      })
+      await prisma.staff.delete({
+        where: { id: ibAgent.id },
+      })
+      await prisma.instrument.delete({
+        where: { id: instrument.id },
+      })
+    }
   })
 })
 ```

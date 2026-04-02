@@ -1,20 +1,24 @@
 # ProTraderSim
+
 ## PTS-ENV-001 — Environment Setup Guide
+
 **Version 1.0 | March 2026 | CONFIDENTIAL**
-*Local development, Railway staging, and AWS production setup*
+_Local development, Railway staging, and AWS production setup_
 
 ---
 
 ## ⚠️ SECURITY NOTICE
 
-**CRITICAL**: Environment files (`.env`, `.env.supabase`, `.env.*.bak`) contain secrets and must NEVER be committed to Git.
+**CRITICAL**: Environment files (`.env`, `packages/db/.env`, `.env.*.bak`) contain secrets and must NEVER be committed to Git.
 
 **Committed Environment Files Are IMMEDIATE Security Incidents:**
+
 1. Any `.env*` files found committed in repository history must be removed immediately using `git filter-repo` or `BFG`
 2. Exposed credentials must be rotated immediately (database passwords, API keys, AWS credentials, etc.)
 3. Add environment files to `.gitignore` before they can be committed
 
 **Proper Practice:**
+
 - Use `.env.example` as a template with placeholder values
 - Copy `.env.example` to `.env` locally and populate with real credentials
 - `.env` files are already in `.gitignore` — respect this
@@ -26,14 +30,15 @@
 
 Before starting, confirm you have the following installed:
 
-| Tool | Required Version | Install |
-|---|---|---|
-| Node.js | 20.x LTS or higher | https://nodejs.org |
-| pnpm | 9.x or higher | `npm install -g pnpm` |
-| Docker Desktop | Latest stable | https://docker.com |
-| Git | Any recent version | https://git-scm.com |
+| Tool           | Required Version   | Install               |
+| -------------- | ------------------ | --------------------- |
+| Node.js        | 20.x LTS or higher | https://nodejs.org    |
+| pnpm           | 9.x or higher      | `npm install -g pnpm` |
+| Docker Desktop | Latest stable      | https://docker.com    |
+| Git            | Any recent version | https://git-scm.com   |
 
 Verify your installation:
+
 ```bash
 node --version     # Should print v20.x.x or higher
 pnpm --version     # Should print 9.x.x or higher
@@ -85,7 +90,7 @@ cp packages/db/.env.example packages/db/.env
 For local development, use the PostgreSQL instance started by Docker Compose:
 
 ```bash
-# Connection pooler URL (for Prisma queries)  
+# Connection pooler URL (for Prisma queries)
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/protrader_dev"
 
 # Direct connection URL (for migrations only)
@@ -93,6 +98,7 @@ DIRECT_URL="postgresql://postgres:postgres@localhost:5432/protrader_dev"
 ```
 
 For staging/production, use Supabase URLs:
+
 - `DATABASE_URL` = Supabase Connection Pooler (eu-west-1)
 - `DIRECT_URL` = Supabase Direct Connection
 
@@ -246,11 +252,11 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: protrader_dev
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -259,9 +265,9 @@ services:
     image: redis:7-alpine
     container_name: protrader-redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -400,20 +406,21 @@ Railway is used for the staging environment. Each app runs as a separate Railway
 
 Create one service for each app, plus the add-ons:
 
-| Service Name | Source | Start Command |
-|---|---|---|
-| protrader-api | apps/api | `node dist/index.js` |
-| protrader-web | apps/web | `node .next/standalone/server.js` |
-| protrader-auth | apps/auth | `node .next/standalone/server.js` |
-| protrader-platform | apps/platform | `node .next/standalone/server.js` |
-| protrader-admin | apps/admin | `node .next/standalone/server.js` |
+| Service Name        | Source         | Start Command                     |
+| ------------------- | -------------- | --------------------------------- |
+| protrader-api       | apps/api       | `node dist/index.js`              |
+| protrader-web       | apps/web       | `node .next/standalone/server.js` |
+| protrader-auth      | apps/auth      | `node .next/standalone/server.js` |
+| protrader-platform  | apps/platform  | `node .next/standalone/server.js` |
+| protrader-admin     | apps/admin     | `node .next/standalone/server.js` |
 | protrader-ib-portal | apps/ib-portal | `node .next/standalone/server.js` |
-| PostgreSQL | Railway add-on | — |
-| Redis | Railway add-on | — |
+| PostgreSQL          | Railway add-on | —                                 |
+| Redis               | Railway add-on | —                                 |
 
 ### Railway environment variables
 
 In Railway, set the same variables as your root `.env` but use production-appropriate values:
+
 - `NODE_ENV=staging`
 - `DATABASE_URL` — from Railway PostgreSQL add-on (auto-injected)
 - `REDIS_URL` — from Railway Redis add-on (auto-injected)
@@ -480,16 +487,32 @@ In ECS task definitions, environment variables are sourced from AWS Secrets Mana
 ```json
 {
   "secrets": [
-    { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:eu-west-1:{account}:secret:protrader/database_url" },
-    { "name": "JWT_PRIVATE_KEY", "valueFrom": "arn:aws:secretsmanager:eu-west-1:{account}:secret:protrader/jwt_private_key" },
-    { "name": "TWELVE_DATA_API_KEY", "valueFrom": "arn:aws:secretsmanager:eu-west-1:{account}:secret:protrader/twelve_data_key" },
-    { "name": "NOWPAYMENTS_API_KEY", "valueFrom": "arn:aws:secretsmanager:eu-west-1:{account}:secret:protrader/nowpayments_key" },
-    { "name": "RESEND_API_KEY", "valueFrom": "arn:aws:secretsmanager:eu-west-1:{account}:secret:protrader/resend_key" }
+    {
+      "name": "DATABASE_URL",
+      "valueFrom": "arn:aws:secretsmanager:eu-west-1:{account}:secret:protrader/database_url"
+    },
+    {
+      "name": "JWT_PRIVATE_KEY",
+      "valueFrom": "arn:aws:secretsmanager:eu-west-1:{account}:secret:protrader/jwt_private_key"
+    },
+    {
+      "name": "TWELVE_DATA_API_KEY",
+      "valueFrom": "arn:aws:secretsmanager:eu-west-1:{account}:secret:protrader/twelve_data_key"
+    },
+    {
+      "name": "NOWPAYMENTS_API_KEY",
+      "valueFrom": "arn:aws:secretsmanager:eu-west-1:{account}:secret:protrader/nowpayments_key"
+    },
+    {
+      "name": "RESEND_API_KEY",
+      "valueFrom": "arn:aws:secretsmanager:eu-west-1:{account}:secret:protrader/resend_key"
+    }
   ]
 }
 ```
 
 Non-sensitive environment variables are set directly in the task definition:
+
 ```json
 {
   "environment": [
@@ -544,6 +567,7 @@ KYC documents are stored in a private Cloudflare R2 bucket.
 KYC documents require long-term retention and protection from accidental deletion.
 
 **Lifecycle policy recommendations:**
+
 - Lifecycle policies are designed for automatic expiration of non-critical objects and cannot prevent user-initiated deletion
 - **Do NOT** add deletion rules for the `kyc/` prefix — instead, protect KYC objects using:
   1. **Bucket policies and IAM permissions** — restrict deletion to admin roles only
@@ -555,18 +579,18 @@ KYC documents require long-term retention and protection from accidental deletio
 
 ## 12. Troubleshooting Common Issues
 
-| Issue | Cause | Fix |
-|---|---|---|
-| `Cannot connect to database` | Docker not running or wrong DATABASE_URL | Run `docker compose up -d` and verify DATABASE_URL matches |
-| `Prisma Client is not generated` | Skipped `prisma generate` | Run `cd packages/db && pnpm prisma generate` |
-| `pnpm: command not found` | pnpm not installed globally | Run `npm install -g pnpm` |
-| `Port 5432 already in use` | Another PostgreSQL instance running | Stop it with `sudo lsof -i :5432` then `kill {PID}` |
-| `JWT error: invalid signature` | JWT_PRIVATE_KEY and JWT_PUBLIC_KEY mismatch | Regenerate both from the same key pair (Section 3) |
-| `TWELVE_DATA: rate limit` | Too many API calls during development | Use Redis price cache — avoid calling Twelve Data directly in tests |
-| `R2: Access Denied` | Wrong R2 credentials or wrong bucket name | Verify CLOUDFLARE_R2_BUCKET_NAME and credentials match the bucket you created |
-| `pnpm turbo: cache miss every time` | Remote caching not configured | Set TURBO_TOKEN and TURBO_TEAM in environment, or skip cache with `--no-cache` |
-| `Next.js: Module not found: @protrader/ui` | Shared packages not built | Run `pnpm build --filter=@protrader/ui` first |
+| Issue                                      | Cause                                       | Fix                                                                            |
+| ------------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `Cannot connect to database`               | Docker not running or wrong DATABASE_URL    | Run `docker compose up -d` and verify DATABASE_URL matches                     |
+| `Prisma Client is not generated`           | Skipped `prisma generate`                   | Run `cd packages/db && pnpm prisma generate`                                   |
+| `pnpm: command not found`                  | pnpm not installed globally                 | Run `npm install -g pnpm`                                                      |
+| `Port 5432 already in use`                 | Another PostgreSQL instance running         | Stop it with `sudo lsof -i :5432` then `kill {PID}`                            |
+| `JWT error: invalid signature`             | JWT_PRIVATE_KEY and JWT_PUBLIC_KEY mismatch | Regenerate both from the same key pair (Section 3)                             |
+| `TWELVE_DATA: rate limit`                  | Too many API calls during development       | Use Redis price cache — avoid calling Twelve Data directly in tests            |
+| `R2: Access Denied`                        | Wrong R2 credentials or wrong bucket name   | Verify CLOUDFLARE_R2_BUCKET_NAME and credentials match the bucket you created  |
+| `pnpm turbo: cache miss every time`        | Remote caching not configured               | Set TURBO_TOKEN and TURBO_TEAM in environment, or skip cache with `--no-cache` |
+| `Next.js: Module not found: @protrader/ui` | Shared packages not built                   | Run `pnpm build --filter=@protrader/ui` first                                  |
 
 ---
 
-*ProTraderSim — PTS-ENV-001 — Environment Setup Guide — v1.0 — March 2026*
+_ProTraderSim — PTS-ENV-001 — Environment Setup Guide — v1.0 — March 2026_

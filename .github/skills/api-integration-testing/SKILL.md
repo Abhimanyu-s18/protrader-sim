@@ -406,12 +406,29 @@ describe('GET /api/trades', () => {
   it('should paginate results correctly', async () => {
     const user = await createTestUser()
 
+    // Create test instrument
+    const instrument = await prisma.instrument.create({
+      data: {
+        symbol: 'EURUSD',
+        displayName: 'Euro/USD',
+        contractSize: 100000n,
+        leverage: 500n,
+        spreadPips: 15n,
+        pipDecimalPlaces: 4,
+        swapBuyBps: 100n,
+        swapSellBps: -100n,
+        marginCallBps: 10000n,
+        stopOutBps: 5000n,
+        twelveDataSymbol: 'EURUSD',
+      },
+    })
+
     // Create 25 trades
     for (let i = 0; i < 25; i++) {
       await prisma.trade.create({
         data: {
           userId: user.id,
-          instrumentId: 'EURUSD',
+          instrumentId: instrument.id,
           direction: 'BUY',
           units: 1,
           leverage: 100,

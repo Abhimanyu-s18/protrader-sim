@@ -196,7 +196,7 @@ Current implementation uses Prisma with multiple sequential queries.
 
 ### Using financial-calculations Skill
 
-```
+````
 Implement the margin calculation for opening a position.
 
 Use the financial-calculations skill formula:
@@ -212,11 +212,49 @@ Where:
 
 The function should return margin in cents (BigInt).
 Include input validation and edge case handling.
+
+Example implementation:
+
+```ts
+const CENTS = 100n
+const PRICE_SCALE = 100000n
+
+function calcMarginCents(
+  units: bigint,
+  contractSize: bigint,
+  openRateScaled: bigint,
+  leverage: bigint,
+): bigint {
+  if (typeof units !== 'bigint' || typeof contractSize !== 'bigint' || typeof openRateScaled !== 'bigint' || typeof leverage !== 'bigint') {
+    throw new Error('All inputs must be BigInt')
+  }
+  if (units < 0n) {
+    throw new Error('units must be non-negative')
+  }
+  if (contractSize <= 0n) {
+    throw new Error('contractSize must be positive')
+  }
+  if (openRateScaled < 0n) {
+    throw new Error('openRateScaled must be non-negative')
+  }
+  if (leverage < 1n || leverage > 500n) {
+    throw new Error('leverage must be between 1 and 500')
+  }
+  if (units === 0n) {
+    return 0n
+  }
+
+  const numerator = units * contractSize * openRateScaled * CENTS
+  const denominator = leverage * PRICE_SCALE
+
+  return numerator / denominator
+}
 ```
 
 ### Using bigint-money-handling Skill
 
 ```
+
 Implement the deposit amount conversion flow.
 
 User enters: "100.50" (dollars as string)
@@ -224,20 +262,24 @@ System stores: 10050n (cents as BigInt)
 API returns: "10050" (MoneyString)
 
 Use the bigint-money-handling skill patterns:
+
 - dollarsToCents() for input conversion
 - Zod validation for input format
 - MoneyString type for API responses
 - Ledger transaction creation with correct amount
 
 Include error handling for invalid input formats.
+
 ```
 
 ### Using socket-io-real-time Skill
 
 ```
+
 Implement real-time account metrics updates.
 
 When a trade is opened/closed, the trader's dashboard should update:
+
 - Balance
 - Unrealized P&L
 - Equity
@@ -246,10 +288,12 @@ When a trade is opened/closed, the trader's dashboard should update:
 - Margin level percentage
 
 Use the socket-io-real-time skill patterns:
+
 - emitToUser(io, userId, 'account:metrics', data)
 - Room: user:{userId}
 - Payload: all values as strings (MoneyString format)
 - Frontend subscribes on dashboard mount, unsubscribes on unmount
+
 ```
 
 ---
@@ -259,9 +303,11 @@ Use the socket-io-real-time skill patterns:
 ### Add a New API Endpoint
 
 ```
+
 Add POST /api/alerts/create endpoint.
 
 Steps:
+
 1. Define Zod validation schema for request body
 2. Create route handler with auth middleware
 3. Delegate to alertService.createAlert()
@@ -271,18 +317,22 @@ Steps:
 7. Update API documentation
 
 The alert should support:
+
 - instrumentId (required)
 - price (required, as PriceString)
 - direction (required: 'ABOVE' | 'BELOW')
 - notificationType (optional: 'EMAIL' | 'PUSH', default: 'EMAIL')
+
 ```
 
 ### Create a New Database Table
 
 ```
+
 Create a new table for tracking user login sessions.
 
 Fields needed:
+
 - id (cuid)
 - userId (FK to users)
 - deviceInfo (string, optional)
@@ -292,30 +342,36 @@ Fields needed:
 - revokedAt (timestamp, nullable)
 
 Requirements:
+
 - Index on userId for efficient lookup
 - Index on lastActiveAt for cleanup queries
 - Cascade delete when user is deleted
 - Add Prisma migration
 - Update types package if needed
+
 ```
 
 ### Optimize a Slow Query
 
 ```
+
 Optimize the dashboard query that fetches user positions with P&L.
 
 Current issues:
+
 - Takes 500ms for users with 50+ positions
 - N+1 query problem fetching instrument data
 - Balance computation scans entire ledger table
 
 Optimize to <100ms by:
+
 1. Eliminating N+1 queries with Prisma include
 2. Caching balance computation in Redis (TTL 30s)
 3. Adding appropriate database indexes
 4. Limiting position history returned
 
 Provide the optimized code and explain each change.
+
 ```
 
 ---
@@ -328,3 +384,5 @@ Provide the optimized code and explain each change.
 4. **Mention relevant skills**: "Use the api-route-creation skill for this endpoint"
 5. **Provide context**: Link to related files or existing implementations
 6. **Specify the layer**: "This is a service-level change" vs "This is a route-level change"
+```
+````

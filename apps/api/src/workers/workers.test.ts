@@ -432,7 +432,7 @@ describe('calcBidAsk — Edge Cases & Invalid Inputs', () => {
   it('should handle extremely large mid price without overflow', () => {
     const hugeMid = 999_999_999_999n
     const { bidScaled, askScaled } = calcBidAsk(hugeMid, 1, 4)
-    expect(askScaled - bidScaled).toBe(20n) // 1 pip = 10n (for 4 decimals)
+    expect(askScaled - bidScaled).toBe(10n) // 1 pip = 10n (for 4 decimals)
     expect(askScaled).toBeGreaterThan(bidScaled)
   })
 

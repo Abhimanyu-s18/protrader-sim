@@ -43,14 +43,16 @@ ProTraderSim uses the strictest TypeScript configuration possible:
 ### 2. Never Use `any`
 
 ```typescript
-// WRONG: Loses all type safety
+// WRONG: Loses all type safety AND missing JSON parsing (fetch returns a Response, you must call response.json()).
 const data: any = await fetch('/api/users')
 
-// CORRECT: Explicit type
-const data: ApiResponse<User[]> = await fetch('/api/users')
+// CORRECT: Explicit type with proper parsing
+const response = await fetch('/api/users')
+const data: ApiResponse<User[]> = await response.json()
 
 // CORRECT: Use unknown if type is truly uncertain
-const data: unknown = await fetch('/api/users')
+const response = await fetch('/api/users')
+const data: unknown = await response.json()
 if (isUserResponse(data)) {
   // data is now ApiResponse<User[]>
 }

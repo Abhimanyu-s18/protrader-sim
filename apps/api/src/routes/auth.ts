@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { prisma } from '../lib/prisma.js'
 import { getRedis } from '../lib/redis.js'
+import { logger } from '../lib/logger.js'
 import { AppError, Errors } from '../middleware/errorHandler.js'
 import { requireAuth } from '../middleware/auth.js'
 import { serializeBigInt } from '../lib/calculations.js'
@@ -16,16 +17,14 @@ const ACCESS_TOKEN_EXPIRY = '15m'
 const REFRESH_TOKEN_EXPIRY_DEFAULT = 7 * 24 * 60 * 60 // 7 days in seconds
 const REFRESH_TOKEN_EXPIRY_REMEMBER = 30 * 24 * 60 * 60 // 30 days
 
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/
+const PASSWORD_ERROR_MSG =
+  'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+
 // ── Schemas ───────────────────────────────────────────────────────
 const RegisterSchema = z.object({
   email: z.string().email().max(255),
-  password: z
-    .string()
-    .min(12)
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
-      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-    ),
+  password: z.string().min(12).regex(PASSWORD_REGEX, PASSWORD_ERROR_MSG),
   full_name: z.string().min(2).max(255),
   phone: z.string().min(6).max(30),
   country: z.string().min(2).max(100),
@@ -42,13 +41,7 @@ const LoginSchema = z.object({
 })
 
 const PasswordSchema = z.object({
-  password: z
-    .string()
-    .min(12)
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
-      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-    ),
+  password: z.string().min(12).regex(PASSWORD_REGEX, PASSWORD_ERROR_MSG),
 })
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -271,8 +264,13 @@ authRouter.post('/refresh', async (req, res, next) => {
         // Invalidate ALL sessions for the suspended user, not just the current one
         await prisma.session.deleteMany({ where: { userId: session.user.id } })
       } catch (deleteErr) {
-        // Log but proceed with suspension response
-        console.error('Failed to delete suspended user sessions:', deleteErr)
+        logger.error(
+          {
+            userId: session?.user?.id ? String(session.user.id) : undefined,
+            err: deleteErr,
+          },
+          'Failed to delete suspended user sessions',
+        )
       }
       next(
         new AppError(

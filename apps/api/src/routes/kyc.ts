@@ -72,15 +72,15 @@ kycRouter.post('/documents', upload.single('file'), async (req, res, next) => {
       document_type,
       is_primary = 'true',
     } = req.body as Record<string, string>
-    const validCategories = ['IDENTITY', 'ADDRESS', 'MISCELLANEOUS']
-    if (!validCategories.includes(document_category ?? '')) {
+    const validCategories = Object.values(KycDocumentCategory)
+    if (!validCategories.includes(document_category as KycDocumentCategory)) {
       next(
         Errors.validation({ document_category: ['Must be IDENTITY, ADDRESS, or MISCELLANEOUS.'] }),
       )
       return
     }
 
-    const category = document_category as 'IDENTITY' | 'ADDRESS' | 'MISCELLANEOUS'
+    const category = document_category as KycDocumentCategory
     const userId = BigInt(req.user!.user_id)
     const ext = path.extname(req.file.originalname).toLowerCase()
     const r2Key = `kyc/${userId}/${category.toLowerCase()}/${crypto.randomUUID()}${ext}`

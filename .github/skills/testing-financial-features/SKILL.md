@@ -27,15 +27,13 @@ Wrong financial calculations = regulatory violations. Tests must validate:
 Always test against manually verified calculations:
 
 ```typescript
-// Example: Verify margin for 1 lot EUR/USD at 1.08500 with 1:100 leverage
-// Expected: (100000 × 108500 × 100) / (100 × 100000) = 10850000 cents = $108,500
-const margin = calculateMargin({
-  units: 1n,
-  contractSize: 100000n,
-  openRateScaled: 108500n,
-  leverage: 100n,
-})
-expect(margin).toBe(10850000n) // $108,500.00
+// Example: Verify margin for 1 unit EUR/USD at 1.08500 with 1:100 leverage
+// Calculation: (units × contractSize × openRateScaled × CENTS) / (leverage × PRICE_SCALE)
+// = (1 × 100000 × 108500 × 100) / (100 × 100000)
+// = 10850000000 / 10000000 = 1085 cents = $10.85
+// If ×1000 extra scaling is intended (e.g., for cent-based display): 1085 × 1000 = 1085000 cents = $10,850.00
+const margin = calcMarginCents(1n, 100000, 108500n, 100)
+expect(margin).toBe(1085n) // $10.85 (in cents)
 ```
 
 ### 3. Test All Edge Cases
@@ -318,7 +316,8 @@ describe('Financial Invariants (Property-Based)', () => {
     )
   })
 
-  it('calculations should never produce fractional cents', () => {
+  it('calculations should always produce whole cents (divisible by 100)', () => {
+    const CENTS = 100n // Smallest monetary unit in cents
     fc.assert(
       fc.property(
         fc.bigInt({ min: 1n, max: 100n }),
@@ -331,8 +330,9 @@ describe('Financial Invariants (Property-Based)', () => {
             openRateScaled: price,
             leverage,
           })
-          // Result should be integer (no fractional cents)
-          expect(margin % 1n).toBe(0n)
+          // Margin result should always be divisible by cents
+          // (never have fractional cent components)
+          expect(margin % CENTS).toBe(0n)
         },
       ),
     )

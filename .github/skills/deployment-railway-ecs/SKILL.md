@@ -239,6 +239,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Install curl for health checks (required for ECS health-check command)
+RUN apk add --no-cache curl
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nodeuser
@@ -380,6 +383,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-1
 
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Download task definition
         run: |
           aws ecs describe-task-definition \
@@ -487,20 +494,26 @@ router.get('/health', async (_req, res) => {
     redis: false,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
+    databaseError: undefined as string | undefined,
+    redisError: undefined as string | undefined,
   }
 
   try {
     await prisma.$queryRaw`SELECT 1`
     checks.database = true
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
     console.error('Database health check failed', error)
+    checks.databaseError = message.slice(0, 100)
   }
 
   try {
     await redis.ping()
     checks.redis = true
   } catch (error) {
-    console.error('Redis health check failed', error)
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('Redis health check failed', message)
+    checks.redisError = message.slice(0, 100)
   }
 
   const isHealthy = checks.database && checks.redis
@@ -508,7 +521,14 @@ router.get('/health', async (_req, res) => {
 
   res.status(statusCode).json({
     status: isHealthy ? 'healthy' : 'unhealthy',
-    checks,
+    checks: {
+      database: checks.database,
+      redis: checks.redis,
+      uptime: checks.uptime,
+      timestamp: checks.timestamp,
+      ...(checks.databaseError && { databaseError: checks.databaseError }),
+      ...(checks.redisError && { redisError: checks.redisError }),
+    },
   })
 })
 
@@ -531,6 +551,18 @@ Matcher:
 ---
 
 ## Rollback Strategy
+
+To find the previous task definition revision before rolling back, run:
+
+```bash
+# List recent task definition revisions for api-task family
+aws ecs list-task-definitions \
+  --family-prefix api-task \
+  --sort DESC \
+  --max-items 10
+```
+
+Pick the previous revision identifier (either the full ARN like `arn:aws:ecs:us-east-1:123456789012:task-definition/api-task:5` or the shorthand `api-task:5`) and substitute it for `PREVIOUS_REVISION` in the `aws ecs update-service` command below.
 
 ### Immediate Rollback
 
@@ -678,6 +710,7 @@ curl -v https://api.protrader.com/health
 
 - [ ] All tests passing
 - [ ] Lint and type-check passing
+- [ ] Container image security scan (e.g., Trivy or AWS ECR image scanning) and remediate critical findings
 - [ ] Database migrations tested on staging
 - [ ] Environment variables updated
 - [ ] Rollback plan documented

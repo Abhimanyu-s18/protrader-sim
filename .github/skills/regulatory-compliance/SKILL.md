@@ -38,6 +38,46 @@ Every feature must consider:
 
 ---
 
+## PII Handling Guidelines
+
+### Email Privacy in Admin Reports
+
+**Critical**: User email addresses are classified as PII and must be handled according to these guidelines:
+
+#### 1. API Responses vs Logging
+
+- **API responses** returning email may be appropriate for authorized admin operations where the admin has a legitimate need to contact users (e.g., KYC review, deposit processing)
+- **Logging** of email addresses is generally prohibited - never log emails in server logs, audit trails, or console output
+- **Risk**: Even when emails are returned in API responses, downstream systems may log them inadvertently - ensure proper sanitization at the API boundary
+
+#### 2. Code Implementation Safeguards
+
+- **Remove email from SELECT queries** unless explicitly required for a specific admin function
+- **Use config flags** to enable/disable email exposure per endpoint
+- **Implement audit logging** for any endpoint that returns PII - record who accessed it, when, and the purpose
+- **RBAC checks**: Ensure only SUPER_ADMIN and ADMIN roles have access to user PII (enforced via `requireRole` middleware at line 13 in `apps/api/src/routes/admin/index.ts`)
+
+#### 3. Example: Updated Admin Query
+
+```typescript
+// BEFORE (includes email - review if truly needed)
+include: { user: { select: { id: true, fullName: true, email: true, accountNumber: true } } }
+
+// AFTER (email removed unless specifically required)
+include: { user: { select: { id: true, fullName: true, accountNumber: true } } }
+```
+
+#### 4. If Email is Required
+
+If a legitimate business need exists for returning emails (e.g., KYC review requires contacting the applicant):
+
+- Document the legal basis for FSC Mauritius / FSA Seychelles compliance
+- Add a config flag to enable/disable this feature
+- Implement audit logging for each access
+- Consider masking (e.g., `j***@example.com`) as an intermediate step
+
+---
+
 ## Regulatory Requirements
 
 ### FSC Mauritius Requirements
@@ -193,12 +233,13 @@ Protect user data according to FSA requirements:
 // - Bank account details
 // - Full address information
 // - Phone numbers
+// - Email addresses
 
 // CORRECT: Masked logging
 console.log(`User KYC submitted: ${user.id}, document type: ${docType}`)
 
 // WRONG: Exposes PII
-console.log(`User KYC: ${user.passportNumber}, address: ${user.address}`)
+console.log(`User KYC: ${user.passportNumber}, email: ${user.email}, address: ${user.address}`)
 ```
 
 #### 3. IB (Introducing Broker) Transparency
@@ -281,33 +322,79 @@ router.get(
   authenticate,
   requireRole('SUPER_ADMIN'),
   async (req, res) => {
-    const { date } = req.query
-    const startOfDay = new Date(date)
-    const endOfDay = new Date(date)
-    endOfDay.setHours(23, 59, 59, 999)
+    const dateParam = typeof req.query.date === 'string' ? req.query.date : ''
+    if (!dateParam) {
+      return res.status(400).json({
+        error_code: 'VALIDATION_ERROR',
+        message: 'Query parameter date is required (ISO date string)',
+      })
+    }
 
-    const transactions = await prisma.ledgerTransaction.findMany({
-      where: {
-        createdAt: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
+    const parsedDate = new Date(dateParam)
+    if (Number.isNaN(parsedDate.getTime())) {
+      return res.status(400).json({
+        error_code: 'VALIDATION_ERROR',
+        message: 'date must be a valid ISO date string',
+      })
+    }
+
+    const year = parsedDate.getUTCFullYear()
+    const month = parsedDate.getUTCMonth()
+    const day = parsedDate.getUTCDate()
+
+    const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0))
+    const endOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999))
+
+    const pageNum = Number(req.query.page ?? 1)
+    const pageSizeNum = Number(req.query.pageSize ?? 50)
+
+    if (Number.isNaN(pageNum) || Number.isNaN(pageSizeNum)) {
+      return res.status(400).json({
+        error_code: 'VALIDATION_ERROR',
+        message: 'page and pageSize must be valid numbers',
+      })
+    }
+
+    const page = Math.max(1, pageNum)
+    const pageSize = Math.min(100, Math.max(1, pageSizeNum))
+    const skip = (page - 1) * pageSize
+
+    // Default to descending (newest first) for better UX, but allow ascending for compliance audit needs
+    const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc'
+
+    const where = {
+      createdAt: {
+        gte: startOfDay,
+        lte: endOfDay,
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            kyc_status: true,
+    }
+
+    const [total, transactions] = await Promise.all([
+      prisma.ledgerTransaction.count({ where }),
+      prisma.ledgerTransaction.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              kyc_status: true,
+            },
           },
         },
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    })
+        orderBy: {
+          createdAt: sortOrder,
+        },
+        skip,
+        take: pageSize,
+      }),
+    ])
 
-    res.json({ data: transactions })
+    res.json({
+      data: transactions,
+      page,
+      pageSize,
+      total,
+    })
   },
 )
 ```

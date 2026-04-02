@@ -144,7 +144,7 @@ ls -la packages/db/.env*
 
 ### Pre-Commit Hooks
 
-The repository includes `hooks/pre-commit-validation.json` that runs linting and type checks on staged files. Consider adding secret scanning:
+The repository includes `hooks/post-tool-validation.json` that runs linting and type checks after tool execution. Consider adding secret scanning:
 
 ```bash
 # Option 1: git-secrets (prevent commit of secrets)

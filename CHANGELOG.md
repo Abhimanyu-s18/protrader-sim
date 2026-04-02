@@ -13,26 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial project setup with Turborepo monorepo structure
-- 6 applications: web, auth, platform, admin, ib-portal, api
-- PostgreSQL 17 database with Prisma ORM
-- Redis 7 caching layer
-- Socket.io real-time price feeds
-- BullMQ job queue system
-- 14 specialized AI agents for development assistance
-- 12 domain-specific skills for AI agents
-- NowPayments crypto payment integration
-- Cloudflare R2 KYC document storage
-- Resend email notification system
-- Twelve Data market data integration
-- JWT RS256 authentication
-- 4-role staff RBAC system (SUPER_ADMIN → ADMIN → IB_TEAM_LEADER → AGENT)
-- IB commission tracking per trade
-- BIGINT-based financial calculations (cents for money, scaled for prices)
-- Ledger-based balance computation (balance never stored directly)
-- Trading engine with margin, P&L, and leverage calculations
-- Admin back-office panel
-- IB portal for agent and team leader management
+<!-- Unreleased features will be added here -->
 
 ### Changed
 
@@ -52,12 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- JWT RS256 asymmetric key authentication
-- Rate limiting (100 req/min global, 10 req/15min on auth)
-- Input validation with Zod
-- Cloudflare R2 secure KYC storage
-- NowPayments webhook signature verification
-- RBAC enforcement on all admin endpoints
+<!-- Unreleased security improvements will be added here -->
 
 ---
 
@@ -66,6 +42,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Version 0.1.0 — 2026-04-02
 
 **Initial Release**
+
+#### Added
+
+- Initial project setup with Turborepo monorepo structure
+- 6 applications: web, auth, platform, admin, ib-portal, api
+- PostgreSQL 17 database with Prisma ORM
+- Redis 7 caching layer
+- Socket.io real-time price feeds
+- BullMQ job queue system
+- 14 specialized AI agents for development assistance
+- 12 domain-specific skills for AI agents
+- NowPayments crypto payment integration
+- Cloudflare R2 KYC document storage
+- Resend email notification system
+- Twelve Data market data integration
+- 4-role staff RBAC system (SUPER_ADMIN → ADMIN → IB_TEAM_LEADER → AGENT)
+- IB commission tracking per trade
+- BIGINT-based financial calculations (cents for money, scaled for prices)
+- Ledger-based balance computation (balance never stored directly)
+- Trading engine with margin, P&L, and leverage calculations
+- Admin back-office panel
+- IB portal for agent and team leader management
 
 #### Core Platform
 
@@ -101,6 +99,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Domain skills library (12 skills)
 - Developer onboarding guides
 - Common workflows and troubleshooting guides
+
+#### Security
+
+- JWT RS256 asymmetric key authentication
+- Rate limiting (100 req/min global, 10 req/15min on auth)
+- Input validation with Zod
+- Cloudflare R2 secure KYC storage
+- NowPayments webhook signature verification
+- RBAC enforcement on all admin endpoints
 
 ---
 

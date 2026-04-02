@@ -24,7 +24,7 @@ docker-compose.yml
 ├── redis (Redis 7)
 │   ├── Port: 6379
 │   └── No persistence (dev only)
-├── mailhog (SMTP testing)
+├── mailpit (SMTP testing)
 │   ├── SMTP Port: 1025
 │   └── Web UI: 8025
 └── redis-commander (Redis UI)
@@ -37,8 +37,6 @@ docker-compose.yml
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
-
 services:
   postgres:
     image: postgres:17-alpine
@@ -76,9 +74,9 @@ services:
     networks:
       - protrader-network
 
-  mailhog:
-    image: mailhog/mailhog
-    container_name: protrader-mailhog
+  mailpit:
+    image: mailpit/mailpit
+    container_name: protrader-mailpit
     restart: unless-stopped
     ports:
       - '1025:1025' # SMTP
@@ -87,7 +85,7 @@ services:
       - protrader-network
 
   redis-commander:
-    image: rediscommander/redis-commander:latest
+    image: rediscommander/redis-commander:0.8.1
     container_name: protrader-redis-commander
     restart: unless-stopped
     ports:
@@ -302,10 +300,11 @@ pnpm test
 
 ### 1. Volume Mount Performance (macOS)
 
+Modern Docker Desktop (4.x+) automatically optimizes mount performance via VirtioFS (macOS) and gRPC-FUSE, providing near-native performance without needing the `:delegated` flag.
+
 ```yaml
-# Use delegated volume mount for better performance
 volumes:
-  - ./packages/db/prisma:/app/packages/db/prisma:delegated
+  - ./packages/db/prisma:/app/packages/db/prisma
 ```
 
 ### 2. Resource Limits
@@ -341,3 +340,12 @@ services:
 - [PTS-ENV-001](../../../docs/Development%20&%20Operations/PTS-ENV-001_Environment_Setup.md)
 - [Deployment Railway ECS Skill](../deployment-railway-ecs/SKILL.md)
 - [Database Schema Design Skill](../database-schema-design/SKILL.md)
+
+---
+
+## Actively Maintained SMTP Testing Alternatives (2026)
+
+- **Mailpit** (`mailpit/mailpit`) - Modern SMTP catcher with web UI, most actively maintained
+- **smtp4dev** (`rnwood/smtp4dev`) - Simple SMTP server for development
+- **GreenMail** (`greenmail/greenmail`) - Open source email test server, supports multiple protocols
+- **Mailhog** (deprecated, use Mailpit instead) - Was popular but no longer actively maintained

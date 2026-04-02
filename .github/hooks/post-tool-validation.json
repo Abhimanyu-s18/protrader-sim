@@ -1,0 +1,21 @@
+{
+  "name": "post-tool-validation",
+  "description": "Run linting and type-checking after tool execution to validate code quality; blocks changes on failure",
+  "event": "PostToolUse",
+  "condition": {
+    "type": "tool_use",
+    "tools": ["replace_string_in_file", "multi_replace_string_in_file", "create_file"]
+  },
+  "action": {
+    "type": "command",
+    "command": "pnpm lint && pnpm typecheck",
+    "cwd": ".",
+    "timeout": 300,
+    "onFailure": {
+      "type": "block",
+      "message": "Code changes failed validation: lint or type errors detected. Commit blocked until issues are resolved. No automatic revert performed."
+    }
+  },
+  "priority": "medium",
+  "enabled": true
+}

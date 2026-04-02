@@ -26,7 +26,9 @@ Create or update the route file following these rules:
 - HTTP handling only — delegate ALL business logic to services
 - Use Zod for request validation (path, query, body)
 - Apply authentication middleware (`authenticate`)
-- Apply rate limiting (100 req/min default, 10 req/15min for auth)
+- Apply rate limiting per-endpoint using options like `max` and `window`:
+  - Authentication endpoints (login, register): `router.post('/auth/login', authenticate, rateLimit({ max: 10, window: '15min' }), handler)`
+  - Standard endpoints: `router.post('/example', authenticate, rateLimit({ max: 100, window: '1min' }), handler)`
 - Return `ApiResponse<T>` on success, `ApiError` on failure
 - Use `try/catch` with `next(error)` pattern
 
@@ -40,6 +42,9 @@ Implement business logic following these rules:
 - Use Prisma for database operations
 - Throw `AppError` with specific error codes on failures
 - Add JSDoc comments on all exported functions
+- Serialize `BigInt` cents to `MoneyString` by dividing by 100 and returning a string fixed to two decimals.
+- Serialize `BigInt` price (scaled×100000) to `PriceString` by dividing by 100000 and returning a decimal string.
+- Parse incoming `MoneyString`/`PriceString` back to `BigInt` by multiplying by the appropriate scale factor and converting with `BigInt`.
 
 ### 3. Type Definitions (`packages/types/src/`)
 
@@ -67,6 +72,7 @@ Write tests covering:
 import { Router } from 'express'
 import { z } from 'zod'
 import { authenticate } from '@/middleware/auth'
+import { rateLimit } from '@/middleware/rate-limit'
 import { exampleService } from '@/services/example.service'
 import type { ApiResponse } from '@protrader/types'
 
@@ -76,7 +82,7 @@ const schema = z.object({
   // validation schema
 })
 
-router.post('/example', authenticate, async (req, res, next) => {
+router.post('/example', authenticate, rateLimit, async (req, res, next) => {
   try {
     const input = schema.parse(req.body)
     const result = await exampleService.doSomething(req.user.id, input)

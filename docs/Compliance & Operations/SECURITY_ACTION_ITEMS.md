@@ -2,7 +2,7 @@
 
 **Status**: IN PROGRESS  
 **Date**: April 2, 2026  
-**Owner**: @team-lead  
+**Owner**: @team-lead
 
 ---
 
@@ -18,13 +18,13 @@ A database configuration file containing local development credentials was accid
 
 ## What We Did ✅
 
-| Action | Status | Owner |
-|--------|--------|-------|
-| Remove secrets from working directory | ✅ Done | @copilot |
+| Action                                      | Status  | Owner    |
+| ------------------------------------------- | ------- | -------- |
+| Remove secrets from working directory       | ✅ Done | @copilot |
 | Update .gitignore to prevent future commits | ✅ Done | @copilot |
-| Create safe .env.example template | ✅ Done | @copilot |
-| Document security incident fully | ✅ Done | @copilot |
-| Create developer best practices guide | ✅ Done | @copilot |
+| Create safe .env.example template           | ✅ Done | @copilot |
+| Document security incident fully            | ✅ Done | @copilot |
+| Create developer best practices guide       | ✅ Done | @copilot |
 
 ---
 
@@ -34,7 +34,7 @@ A database configuration file containing local development credentials was accid
 
 - [ ] **Team Lead**: Review `SECURITY_INCIDENT_REMEDIATION.md`
 - [ ] **All Developers**: Read `SECURITY_BEST_PRACTICES_ENV_VARS.md`
-- [ ] **Each Developer**: 
+- [ ] **Each Developer**:
   ```bash
   git fetch origin
   git pull main
@@ -45,6 +45,7 @@ A database configuration file containing local development credentials was accid
 ### HIGH (Next 48 hours)
 
 - [ ] **DB Admin**: Rotate `protrader` password in local PostgreSQL:
+
   ```bash
   psql -h localhost -U postgres
   ALTER USER protrader WITH PASSWORD 'NEW_STRONG_PASSWORD_HERE';
@@ -57,6 +58,7 @@ A database configuration file containing local development credentials was accid
   - New password: `[updated in process above]`
 
 - [ ] **Each Developer**: Update local .env file:
+
   ```bash
   cp packages/db/.env.example packages/db/.env
   # Edit with YOUR new database password from credentials manager
@@ -73,11 +75,12 @@ A database configuration file containing local development credentials was accid
 ### MEDIUM (Next week)
 
 - [ ] **DevOps**: Implement git secrets scanning:
+
   ```bash
   # Option 1: git-secrets
   brew install git-secrets
   git secrets --install -f
-  
+
   # Option 2: Gitleaks
   brew install gitleaks
   gitleaks protect --verbose
@@ -96,7 +99,7 @@ A database configuration file containing local development credentials was accid
 
 ## Documentation to Review
 
-1. **For Developers**: 
+1. **For Developers**:
    - `docs/Compliance & Operations/SECURITY_BEST_PRACTICES_ENV_VARS.md`
    - `docs/Development & Operations/PTS-ENV-001_Environment_Setup.md`
 

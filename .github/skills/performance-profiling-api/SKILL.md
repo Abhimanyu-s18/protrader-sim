@@ -54,20 +54,21 @@ export function performanceLogger(req: Request, res: Response, next: NextFunctio
   const start = process.hrtime.bigint()
   const startMs = Date.now()
 
-  // Track DB query count
+  // Track DB query count using Prisma event listener
   let queryCount = 0
-  const originalQuery = (req as any).prisma?.$queryRaw
-  if ((req as any).prisma) {
-    const original = (req as any).prisma
-    const handler = {
-      get(target: any, prop: string) {
-        if (prop === '$queryRaw' || prop === '$executeRaw') {
-          queryCount++
-        }
-        return target[prop]
-      },
+  const prisma = (req as any).prisma
+
+  if (prisma) {
+    // Use Prisma event listener to count queries (more reliable than Proxy)
+    const queryListener = () => {
+      queryCount++
     }
-    ;(req as any).prisma = new Proxy(original, handler)
+    prisma.$on('query', queryListener)
+
+    // Cleanup listener on response end
+    res.on('finish', () => {
+      prisma.$off('query', queryListener)
+    })
   }
 
   res.on('finish', () => {
@@ -154,6 +155,17 @@ export const options = {
   },
 }
 
+/**
+ * getToken helper - retrieves JWT from environment or credentials
+ */
+function getToken(): string {
+  const token = __ENV.AUTH_TOKEN
+  if (!token) {
+    throw new Error('AUTH_TOKEN environment variable is required')
+  }
+  return token
+}
+
 export default function () {
   const token = getToken()
 
@@ -228,14 +240,14 @@ const trades = await prisma.trade.findMany({
 
 **Symptom**: Full table scans on large tables
 
-```typescript
-// Check for missing indexes
+```sql
+-- Check for missing indexes
 EXPLAIN ANALYZE SELECT * FROM trades WHERE user_id = 'xxx' AND status = 'OPEN';
 
-// Add composite index
+-- Add composite index
 CREATE INDEX idx_trades_user_status ON trades(user_id, status);
 
-// Add index for sorting
+-- Add index for sorting
 CREATE INDEX idx_trades_created_desc ON trades(created_at DESC);
 ```
 
@@ -374,7 +386,10 @@ const balance = BigInt(result._sum.amountCents ?? 0)
 ### 4. Connection Pool Optimization
 
 ```typescript
-// Prisma connection pool settings
+// Prisma connection pool settings (env-based)
+// Example env: DATABASE_URL=postgresql://user:pass@localhost:5432/protraderdb?schema=public&connection_limit=20&pool_timeout=30
+// connection_limit: max simultaneous connections
+// pool_timeout: seconds to wait for connection from pool before throwing
 const prisma = new PrismaClient({
   datasources: {
     db: {
@@ -383,8 +398,21 @@ const prisma = new PrismaClient({
   },
 })
 
-// Environment variables for pool sizing
-// DATABASE_URL=postgresql://...?connection_limit=20&pool_timeout=30
+// Programmatic approach (build URL with params explicitly)
+const connectionUrl = new URL(process.env.DATABASE_URL!)
+connectionUrl.searchParams.set('connection_limit', '20')
+connectionUrl.searchParams.set('pool_timeout', '30')
+
+const prismaProgrammatic = new PrismaClient({
+  datasources: {
+    db: {
+      url: connectionUrl.toString(),
+    },
+  },
+})
+
+// Use one client instance per process and avoid creating per-request to prevent pool exhaustion
+// NOTE: in serverless environments you may need additional pooling strategies (pgBouncer/Neon/PlanetScale)
 ```
 
 ---
@@ -423,6 +451,10 @@ prisma.$on('query', (e) => {
     })
 
     // Send alert to monitoring system
+    // NOTE: sendAlert is pseudocode/placeholder. Replace with your own alerting/instrumentation function (e.g., Sentry, Datadog, PagerDuty, etc.)
+    // Example:
+    // import { sendAlert } from '@/lib/alerting'
+    // function sendAlert(payload) { /* implement hook to monitoring system */ }
     sendAlert({
       type: 'SLOW_QUERY',
       query: e.query,

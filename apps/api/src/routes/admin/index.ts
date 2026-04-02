@@ -51,7 +51,6 @@ adminRouter.get('/users', async (req, res, next) => {
         id: true,
         accountNumber: true,
         leadId: true,
-        email: true,
         fullName: true,
         phone: true,
         country: true,
@@ -150,7 +149,7 @@ adminRouter.get('/kyc', async (req, res, next) => {
     const take = Math.min(parseInt(limit, 10), 200)
     const docs = await prisma.kycDocument.findMany({
       where: { status: status as never, ...(cursor ? { id: { lt: BigInt(cursor) } } : {}) },
-      include: { user: { select: { id: true, fullName: true, email: true, accountNumber: true } } },
+      include: { user: { select: { id: true, fullName: true, accountNumber: true } } },
       orderBy: { createdAt: 'asc' },
       take: take + 1,
     })
@@ -228,7 +227,7 @@ adminRouter.get('/deposits', async (req, res, next) => {
         ...(status ? { status: status as never } : {}),
         ...(cursor ? { id: { lt: BigInt(cursor) } } : {}),
       },
-      include: { user: { select: { fullName: true, email: true, accountNumber: true } } },
+      include: { user: { select: { fullName: true, accountNumber: true } } },
       orderBy: { createdAt: 'desc' },
       take: take + 1,
     })
@@ -322,7 +321,7 @@ adminRouter.get('/withdrawals', async (req, res, next) => {
         ...(status ? { status: status as never } : {}),
         ...(cursor ? { id: { lt: BigInt(cursor) } } : {}),
       },
-      include: { user: { select: { fullName: true, email: true, accountNumber: true } } },
+      include: { user: { select: { fullName: true, accountNumber: true } } },
       orderBy: { createdAt: 'desc' },
       take: take + 1,
     })
@@ -352,27 +351,32 @@ adminRouter.put('/withdrawals/:id', async (req, res, next) => {
     // Process withdrawal within a transaction with proper isolation
     await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        if (!w) {
+        // Re-fetch withdrawal inside transaction with locking read
+        const withdrawal = await tx.withdrawal.findUnique({
+          where: { id: withdrawalId },
+          select: { id: true, userId: true, amountCents: true, status: true },
+        })
+        if (!withdrawal) {
           throw Errors.notFound('Withdrawal')
         }
-        
+
         // Validate allowed state transitions
         const allowedTransitions: Record<string, string[]> = {
           PENDING: ['PROCESSING', 'COMPLETED', 'REJECTED'],
           PROCESSING: ['COMPLETED', 'REJECTED'],
         }
-        const allowed = allowedTransitions[w.status] ?? []
+        const allowed = allowedTransitions[withdrawal.status] ?? []
         if (!allowed.includes(status)) {
           throw new AppError(
             'INVALID_STATE',
-            `Cannot transition withdrawal from ${w.status} to ${status}.`,
+            `Cannot transition withdrawal from ${withdrawal.status} to ${status}.`,
             409,
           )
         }
 
-        // Update withdrawal atomically with status check for idempotency
+        // Update withdrawal atomically
         await tx.withdrawal.update({
-          where: { id: w.id },
+          where: { id: withdrawal.id },
           data: {
             status: status as never,
             rejectionReason: rejection_reason ?? null,
@@ -380,26 +384,21 @@ adminRouter.put('/withdrawals/:id', async (req, res, next) => {
             processedAt: new Date(),
           },
         })
-            rejectionReason: rejection_reason ?? null,
-            processedBy: BigInt(req.user!.user_id),
-            processedAt: new Date(),
-          },
-        })
 
         // Only create reversal if transitioning to REJECTED (not already rejected)
-        if (status === 'REJECTED' && w.status !== 'REJECTED') {
+        if (status === 'REJECTED' && withdrawal.status !== 'REJECTED') {
           // Reverse the balance deduction - lock balance calculation within transaction
           const [bal] = await tx.$queryRaw<
             [{ balance_cents: bigint }]
-          >`SELECT get_user_balance(${w.userId}) AS balance_cents`
-          const newBalance = (bal?.balance_cents ?? 0n) + w.amountCents
+          >`SELECT get_user_balance(${withdrawal.userId}) AS balance_cents`
+          const newBalance = (bal?.balance_cents ?? 0n) + withdrawal.amountCents
           await tx.ledgerTransaction.create({
             data: {
-              userId: w.userId,
+              userId: withdrawal.userId,
               transactionType: 'WITHDRAWAL_REVERSAL',
-              amountCents: w.amountCents,
+              amountCents: withdrawal.amountCents,
               balanceAfterCents: newBalance,
-              referenceId: w.id,
+              referenceId: withdrawal.id,
               referenceType: 'WITHDRAWAL',
               description: 'Withdrawal rejected — funds returned',
               createdBy: BigInt(req.user!.user_id),
