@@ -1,7 +1,9 @@
 # ProTraderSim
+
 ## PTS-IB-001 — IB Onboarding & Operations Guide
+
 **Version 1.0 | March 2026 | CONFIDENTIAL**
-*For Victor (Operations), IB Team Leaders, and IB Agents*
+_For Victor (Operations), IB Team Leaders, and IB Agents_
 
 ---
 
@@ -135,6 +137,7 @@ tl_commission_cents    = trade_notional_cents × tl.override_rate_bps / 10000
 ```
 
 **Example:**
+
 - Agent commission rate: 20 bps (0.20%)
 - Team Leader override rate: 5 bps (0.05%)
 - Trade: BUY 10,000 units EURUSD at 1.08500
@@ -147,19 +150,20 @@ tl_commission_cents    = trade_notional_cents × tl.override_rate_bps / 10000
 
 The commission in the formula above is the IB commission (paid from the spread). In addition, the platform charges a separate transaction commission for non-forex asset classes:
 
-| Asset Class | Platform Commission | IB Commission |
-|---|---|---|
-| Forex | None (spread only) | Percentage of notional per trade open |
-| Indices | $1.00 per lot per side | Percentage of notional per trade open |
-| Commodities | $1.50 per lot per side | Percentage of notional per trade open |
-| Stocks | $0.02 per share per side | Percentage of notional per trade open |
-| Crypto | 0.10% of notional per side | Percentage of notional per trade open |
+| Asset Class | Platform Commission        | IB Commission                         |
+| ----------- | -------------------------- | ------------------------------------- |
+| Forex       | None (spread only)         | Percentage of notional per trade open |
+| Indices     | $1.00 per lot per side     | Percentage of notional per trade open |
+| Commodities | $1.50 per lot per side     | Percentage of notional per trade open |
+| Stocks      | $0.02 per share per side   | Percentage of notional per trade open |
+| Crypto      | 0.10% of notional per side | Percentage of notional per trade open |
 
 Both commissions are applied at trade open. IB commissions are tracked in the `ib_commissions` table.
 
 ### Commission status
 
 Commission records have two statuses:
+
 - `PENDING` — earned but not yet paid out to the IB
 - `PAID` — payout processed by Super Admin
 
@@ -180,6 +184,7 @@ Paginated table of all commission records. Columns: Date, Trader, Symbol, Direct
 Filter by: date range, status (pending / paid), trader.
 
 **Commission Summary:**
+
 - Total lifetime commissions earned
 - Total paid out
 - Pending payout balance (amount awaiting disbursement)
@@ -194,6 +199,7 @@ Bar chart showing daily/weekly/monthly commission earned. Toggle between periods
 Table showing all Agents under this Team Leader. Columns: Agent Name, Number of Traders, Total Volume (month), Commissions Generated (month), Active Traders.
 
 **Network Overview:**
+
 - Total traders in entire network
 - Total trading volume (all-time and MTD)
 - Total commissions earned by the entire network
@@ -241,6 +247,7 @@ Traders can be reassigned between Agents only by Super Admin. This should be don
 6. Historical commissions already recorded remain with the original Agent
 
 **Impact of reassignment:**
+
 - New trades: commission goes to new Agent
 - Open positions: commission already captured at open, not affected
 - Historical records: unchanged
@@ -252,6 +259,7 @@ Traders can be reassigned between Agents only by Super Admin. This should be don
 ### From the IB Portal (Agent view)
 
 For each trader, the Agent can see:
+
 - Current balance and equity
 - Open positions (instrument, direction, P&L)
 - Last active date
@@ -259,6 +267,7 @@ For each trader, the Agent can see:
 - KYC status (whether verified or pending)
 
 **The Agent cannot:**
+
 - Open or close trades on behalf of a trader
 - Modify account settings or balances
 - View trader's personal documents or KYC files
@@ -278,16 +287,16 @@ Do not attempt to contact the trader directly about compliance concerns.
 
 ## 10. Common IB Operations Scenarios
 
-| Scenario | Action |
-|---|---|
-| Trader forgot their Pool Code | Agent provides their Pool Code again. Trader re-registers if they haven't completed registration, or contacts support if already registered. |
-| Trader registered without a Pool Code | Super Admin edits the user record to set the correct agent_id. |
-| Agent wants their Pool Code changed | Super Admin updates staff.pool_code. Old code immediately becomes invalid. New code must be shared with traders going forward. |
-| Team Leader wants to see a specific Agent's performance | Accessible via IB Portal → My Agents → click the Agent name. |
-| Agent asks why commission is lower than expected | Check the trade notional and the commission_rate_bps set on their staff record. Verify the calculation using the formula in Section 5. |
-| Commission payout dispute | Super Admin can export commission records as CSV from admin panel → Reports for full audit trail. |
-| Agent no longer active | Super Admin sets staff.is_active = false. The Agent can no longer log in. Their traders remain assigned to them; reassign traders to active agents as needed. |
-| Two agents claim the same trader | Check users.agent_id in the admin panel — one agent is recorded. Review registration Pool Code in the audit log to confirm. |
+| Scenario                                                | Action                                                                                                                                                        |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trader forgot their Pool Code                           | Agent provides their Pool Code again. Trader re-registers if they haven't completed registration, or contacts support if already registered.                  |
+| Trader registered without a Pool Code                   | Super Admin edits the user record to set the correct agent_id.                                                                                                |
+| Agent wants their Pool Code changed                     | Super Admin updates staff.pool_code. Old code immediately becomes invalid. New code must be shared with traders going forward.                                |
+| Team Leader wants to see a specific Agent's performance | Accessible via IB Portal → My Agents → click the Agent name.                                                                                                  |
+| Agent asks why commission is lower than expected        | Check the trade notional and the commission_rate_bps set on their staff record. Verify the calculation using the formula in Section 5.                        |
+| Commission payout dispute                               | Super Admin can export commission records as CSV from admin panel → Reports for full audit trail.                                                             |
+| Agent no longer active                                  | Super Admin sets staff.is_active = false. The Agent can no longer log in. Their traders remain assigned to them; reassign traders to active agents as needed. |
+| Two agents claim the same trader                        | Check users.agent_id in the admin panel — one agent is recorded. Review registration Pool Code in the audit log to confirm.                                   |
 
 ---
 
@@ -305,4 +314,4 @@ If a Team Leader or Agent is locked out or needs a password reset, Super Admin c
 
 ---
 
-*ProTraderSim — PTS-IB-001 — IB Onboarding & Operations Guide — v1.0 — March 2026*
+_ProTraderSim — PTS-IB-001 — IB Onboarding & Operations Guide — v1.0 — March 2026_

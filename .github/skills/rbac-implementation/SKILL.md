@@ -1,6 +1,6 @@
 ---
 name: rbac-implementation
-description: "Use when: implementing role-based access control, configuring staff hierarchies, enforcing authorization in routes, or managing user permissions. Ensures proper role cascades, permission checks, and regulatory compliance with FSC/FSA staff structures. Primary agents: Security, Coding, Architecture."
+description: 'Use when: implementing role-based access control, configuring staff hierarchies, enforcing authorization in routes, or managing user permissions. Ensures proper role cascades, permission checks, and regulatory compliance with FSC/FSA staff structures. Primary agents: Security, Coding, Architecture.'
 ---
 
 # RBAC Implementation — ProTraderSim
@@ -26,6 +26,7 @@ ProTraderSim uses a **4-tier staff pyramid**:
 ```
 
 **Key Rules**:
+
 - Higher tiers can manage lower tiers
 - SUPER_ADMIN can do anything
 - ADMIN manages day-to-day operations
@@ -38,6 +39,7 @@ ProTraderSim uses a **4-tier staff pyramid**:
 ## 👥 Role Definitions
 
 ### TRADER
+
 ```typescript
 // apps/db/prisma/schema.prisma
 model User {
@@ -47,7 +49,7 @@ model User {
   roles             String[]  @default(["TRADER"])  // Array
   kyc_status        String    @default("PENDING")
   created_at        DateTime  @default(now())
-  
+
   // TRADER can:
   // - View own positions
   // - Open/close trades
@@ -58,13 +60,14 @@ model User {
 ```
 
 **TRADER Permissions**:
+
 ```typescript
 // Route: GET /api/positions
 // Trader can only view own positions
 const positions = await prisma.trade.findMany({
   where: {
-    user_id: req.user.id  // Only self
-  }
+    user_id: req.user.id, // Only self
+  },
 })
 
 // Route: POST /api/withdrawals
@@ -73,6 +76,7 @@ const positions = await prisma.trade.findMany({
 ```
 
 ### IB_AGENT
+
 ```typescript
 model Staff {
   id              String   @id @default(cuid())
@@ -82,7 +86,7 @@ model Staff {
   status          String   @default("ACTIVE")
   commission_rate Int      // Basis points (e.g., 50 = 0.5%)
   created_at      DateTime @default(now())
-  
+
   // Relations (from StaffManagedUser pivot table)
   users_managed   StaffManagedUser[]
   auditLogs       AuditLog[]
@@ -97,12 +101,13 @@ model Staff {
 ```
 
 **AGENT Permissions**:
+
 ```typescript
 // Route: GET /api/agents/my-traders
 // Agent can view stats of traders they recruited
 const agent = await prisma.staff.findUnique({
   where: { id: req.user.id },
-  select: { id: true, role: true }
+  select: { id: true, role: true },
 })
 
 if (agent?.role !== 'AGENT') {
@@ -112,18 +117,19 @@ if (agent?.role !== 'AGENT') {
 // Fetch related users through the pivot table
 const managedUsers = await prisma.staffManagedUser.findMany({
   where: { staff_id: agent.id },
-  select: { user_id: true }
+  select: { user_id: true },
 })
 
-const userIds = managedUsers.map(m => m.user_id)
+const userIds = managedUsers.map((m) => m.user_id)
 
 // Only view own traders
 const trades = await prisma.trade.findMany({
-  where: { user_id: { in: userIds } }
+  where: { user_id: { in: userIds } },
 })
 ```
 
 ### IB_TEAM_LEADER
+
 ```typescript
 // Staff with role: "IB_TEAM_LEADER"
 // Manages multiple agents
@@ -137,6 +143,7 @@ const trades = await prisma.trade.findMany({
 ```
 
 ### ADMIN
+
 ```typescript
 // Staff with role: "ADMIN"
 
@@ -151,6 +158,7 @@ const trades = await prisma.trade.findMany({
 ```
 
 ### SUPER_ADMIN
+
 ```typescript
 // Staff with role: "SUPER_ADMIN"
 
@@ -172,7 +180,7 @@ const trades = await prisma.trade.findMany({
 // middleware/role.ts
 import { Request, Response, NextFunction } from 'express'
 import { ApiError } from '../lib/errors'
-import { prisma } from '../lib/prisma'  // Add this import
+import { prisma } from '../lib/prisma' // Add this import
 
 /**
  * Check if user has required role
@@ -187,32 +195,28 @@ export function authorize(allowedRoles: string[], isUserRole = true) {
     }
 
     let userRoles: string[] = []
-    
+
     if (isUserRole) {
       // Check User.roles (TRADER)
       userRoles = req.user.roles || []
     } else {
       // Check Staff.role
       const staff = await prisma.staff.findUnique({
-        where: { id: req.user.id }
+        where: { id: req.user.id },
       })
-      
+
       if (!staff) {
         throw new ApiError('FORBIDDEN', 403, 'Not a staff member')
       }
-      
+
       userRoles = [staff.role]
     }
 
     // Check if any user role matches allowed roles
-    const hasRole = allowedRoles.some(role => userRoles.includes(role))
-    
+    const hasRole = allowedRoles.some((role) => userRoles.includes(role))
+
     if (!hasRole) {
-      throw new ApiError(
-        'FORBIDDEN',
-        403,
-        `Requires role: ${allowedRoles.join(' or ')}`
-      )
+      throw new ApiError('FORBIDDEN', 403, `Requires role: ${allowedRoles.join(' or ')}`)
     }
 
     next()
@@ -227,41 +231,41 @@ export function authorize(allowedRoles: string[], isUserRole = true) {
 router.get(
   '/me',
   authenticate(),
-  authorize(['TRADER']),  // TRADER only
+  authorize(['TRADER']), // TRADER only
   async (req, res) => {
     const trader = await prisma.user.findUnique({
-      where: { id: req.user.id }
+      where: { id: req.user.id },
     })
     res.json(apiResponse.success(trader))
-  }
+  },
 )
 
 // Admin routes
 router.post(
   '/approval/withdrawal/:id',
   authenticate(),
-  authorize(['ADMIN', 'SUPER_ADMIN'], false),  // Staff roles
+  authorize(['ADMIN', 'SUPER_ADMIN'], false), // Staff roles
   async (req, res) => {
     const withdrawal = await prisma.withdrawal_request.update({
       where: { id: req.params.id },
-      data: { status: 'APPROVED', approved_by: req.user.id }
+      data: { status: 'APPROVED', approved_by: req.user.id },
     })
     res.json(apiResponse.success(withdrawal))
-  }
+  },
 )
 
 // IB Agent routes
 router.get(
   '/agents/my-traders',
   authenticate(),
-  authorize(['AGENT'], false),  // Agent role
+  authorize(['AGENT'], false), // Agent role
   async (req, res) => {
     const agent = await prisma.staff.findUnique({
       where: { id: req.user.id },
-      include: { users_managed: true }
+      include: { users_managed: true },
     })
     res.json(apiResponse.success(agent.users_managed))
-  }
+  },
 )
 ```
 
@@ -281,7 +285,7 @@ router.get('/balance', authenticate(), async (req, res) => {
 // Agent can view own stats
 router.get('/my-stats', authenticate(), async (req, res) => {
   const agent = await prisma.staff.findUnique({
-    where: { id: req.user.id }
+    where: { id: req.user.id },
   })
   res.json(agent)
 })
@@ -298,25 +302,25 @@ router.get(
   async (req, res) => {
     // Get agents managed by this team leader
     const agents = await prisma.staff.findMany({
-      where: { team_leader_id: req.user.id }
+      where: { team_leader_id: req.user.id },
     })
-    
-    const agentIds = agents.map(a => a.id)
-    
+
+    const agentIds = agents.map((a) => a.id)
+
     // Get trades from these agents' traders via StaffManagedUser pivot
     const managedUsers = await prisma.staffManagedUser.findMany({
       where: { staff_id: { in: agentIds } },
-      select: { user_id: true }
+      select: { user_id: true },
     })
-    
-    const traderIds = managedUsers.map(m => m.user_id)
-    
+
+    const traderIds = managedUsers.map((m) => m.user_id)
+
     const trades = await prisma.trade.findMany({
-      where: { user_id: { in: traderIds } }
+      where: { user_id: { in: traderIds } },
     })
-    
+
     res.json(apiResponse.success(trades))
-  }
+  },
 )
 ```
 
@@ -331,7 +335,7 @@ router.get(
   async (req, res) => {
     const withdrawals = await prisma.withdrawal_request.findMany()
     res.json(apiResponse.success(withdrawals))
-  }
+  },
 )
 ```
 
@@ -343,15 +347,12 @@ router.get(
 
 ```typescript
 // services/withdrawal.service.ts
-export async function approveWithdrawal(
-  approverStaffId: string,
-  withdrawalId: string
-) {
+export async function approveWithdrawal(approverStaffId: string, withdrawalId: string) {
   // 1. Verify approver is ADMIN or SUPER_ADMIN
   const approver = await prisma.staff.findUnique({
-    where: { id: approverStaffId }
+    where: { id: approverStaffId },
   })
-  
+
   if (!['ADMIN', 'SUPER_ADMIN'].includes(approver?.role)) {
     throw new ApiError('FORBIDDEN', 403, 'Only admins can approve')
   }
@@ -359,7 +360,7 @@ export async function approveWithdrawal(
   // 2. Update withdrawal
   const withdrawal = await prisma.withdrawal_request.update({
     where: { id: withdrawalId },
-    data: { status: 'APPROVED', approved_by: approverStaffId }
+    data: { status: 'APPROVED', approved_by: approverStaffId },
   })
 
   // 3. Log audit trail
@@ -368,8 +369,8 @@ export async function approveWithdrawal(
       action: 'WITHDRAWAL_APPROVED',
       actor_id: approverStaffId,
       target_id: withdrawalId,
-      timestamp: new Date()
-    }
+      timestamp: new Date(),
+    },
   })
 
   return withdrawal
@@ -386,9 +387,9 @@ model AuditLog {
   target_id String   // FK to affected resource (user_id, withdrawal_id, etc.)
   metadata  Json?    // Optional: additional context
   timestamp DateTime @default(now())
-  
+
   actor     Staff    @relation(fields: [actor_id], references: [id], onDelete: Cascade)
-  
+
   @@index([actor_id])
   @@index([action])
   @@index([timestamp])
@@ -404,9 +405,9 @@ model AuditLog {
 ```typescript
 // GET /api/trades/:id
 // User can view trade detail only if it's theirs
-async (req, res) => {
+;async (req, res) => {
   const trade = await prisma.trade.findUnique({
-    where: { id: req.params.id }
+    where: { id: req.params.id },
   })
 
   // Check ownership
@@ -423,10 +424,10 @@ async (req, res) => {
 ```typescript
 // POST /api/admin/users/:id/kyc-approve
 // Admin approves KYC for user
-async (req, res) => {
+;async (req, res) => {
   const user = await prisma.user.update({
     where: { id: req.params.id },
-    data: { kyc_status: 'APPROVED' }
+    data: { kyc_status: 'APPROVED' },
   })
 
   // Audit log
@@ -441,9 +442,9 @@ async (req, res) => {
 ```typescript
 // GET /api/agents/traders
 // Agent only sees traders they recruited
-async (req, res) => {
+;async (req, res) => {
   const agent = await prisma.staff.findUnique({
-    where: { id: req.user.id }
+    where: { id: req.user.id },
   })
 
   if (agent.role !== 'AGENT') {
@@ -451,7 +452,7 @@ async (req, res) => {
   }
 
   const traders = await prisma.user.findMany({
-    where: { id: { in: agent.users_managed } }
+    where: { id: { in: agent.users_managed } },
   })
 
   res.json(apiResponse.success(traders))
@@ -475,13 +476,13 @@ async (req, res) => {
 
 ## 🚨 Common RBAC Mistakes
 
-| ❌ Wrong | ✅ Correct |
-|---------|-----------|
-| Only check in route | Re-check in service |
-| Generic error: "Access denied" | Log specific role needed |
-| Trust user.roles from token | Fetch from database each time |
-| No audit for permission checks | Log failed attempts |
-| Hard-code roles in route | Pass to authorize() middleware |
+| ❌ Wrong                        | ✅ Correct                        |
+| ------------------------------- | --------------------------------- |
+| Only check in route             | Re-check in service               |
+| Generic error: "Access denied"  | Log specific role needed          |
+| Trust user.roles from token     | Fetch from database each time     |
+| No audit for permission checks  | Log failed attempts               |
+| Hard-code roles in route        | Pass to authorize() middleware    |
 | Allow self-privilege escalation | Never allow user to set own roles |
 
 ---

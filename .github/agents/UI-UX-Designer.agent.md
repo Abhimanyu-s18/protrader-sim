@@ -15,7 +15,30 @@ argument-hint: >
   (mobile support, accessibility requirements, technical limitations). Example: "Design the
   order placement flow for traders — instrument selection, direction (buy/sell), lot size input,
   leverage selector, stop loss/take profit optional fields, margin preview, and confirm button."
-tools: [vscode/memory, vscode/runCommand, vscode/vscodeAPI, vscode/extensions, vscode/askQuestions, execute/getTerminalOutput, execute/awaitTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/viewImage, read/terminalSelection, read/terminalLastCommand, edit/createDirectory, edit/createFile, edit/editFiles, edit/rename, search, browser, todo]
+tools:
+  [
+    vscode/memory,
+    vscode/runCommand,
+    vscode/vscodeAPI,
+    vscode/extensions,
+    vscode/askQuestions,
+    execute/getTerminalOutput,
+    execute/awaitTerminal,
+    execute/createAndRunTask,
+    execute/runInTerminal,
+    read/problems,
+    read/readFile,
+    read/viewImage,
+    read/terminalSelection,
+    read/terminalLastCommand,
+    edit/createDirectory,
+    edit/createFile,
+    edit/editFiles,
+    edit/rename,
+    search,
+    browser,
+    todo,
+  ]
 ---
 
 # UI/UX Designer Agent — ProTraderSim
@@ -113,6 +136,7 @@ Layout Breakpoints:
 ## Component Specifications
 
 ### Data Table Pattern
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ OPEN POSITIONS                                     [2 positions] │
@@ -133,6 +157,7 @@ Design rules:
 ```
 
 ### Order Form Component
+
 ```
 ┌─────────────────────────────┐
 │ PLACE ORDER                 │
@@ -174,9 +199,14 @@ Interaction states:
 States (using CSS/SVG status indicators instead of emoji):
 
 **PENDING** (never submitted):
+
 ```html
 <div class="kyc-banner kyc-status-pending">
-  <span class="status-indicator status-pending" role="img" aria-label="Status: Identity verification required"></span>
+  <span
+    class="status-indicator status-pending"
+    role="img"
+    aria-label="Status: Identity verification required"
+  ></span>
   <div>
     <h3>Identity Verification Required</h3>
     <p>Complete your KYC to start trading</p>
@@ -186,9 +216,14 @@ States (using CSS/SVG status indicators instead of emoji):
 ```
 
 **SUBMITTED** (under review):
+
 ```html
 <div class="kyc-banner kyc-status-submitted">
-  <span class="status-indicator status-submitted" role="img" aria-label="Status: Verification in progress"></span>
+  <span
+    class="status-indicator status-submitted"
+    role="img"
+    aria-label="Status: Verification in progress"
+  ></span>
   <div>
     <h3>Verification in Progress</h3>
     <p>Your documents are being reviewed. Usually 24–48h.</p>
@@ -197,9 +232,14 @@ States (using CSS/SVG status indicators instead of emoji):
 ```
 
 **APPROVED**:
+
 ```html
 <div class="kyc-banner kyc-status-approved">
-  <span class="status-indicator status-approved" role="img" aria-label="Status: Identity verified"></span>
+  <span
+    class="status-indicator status-approved"
+    role="img"
+    aria-label="Status: Identity verified"
+  ></span>
   <div>
     <h3>Identity Verified</h3>
     <p>You have full trading access</p>
@@ -208,9 +248,14 @@ States (using CSS/SVG status indicators instead of emoji):
 ```
 
 **REJECTED** (with attempt count):
+
 ```html
 <div class="kyc-banner kyc-status-rejected">
-  <span class="status-indicator status-rejected" role="img" aria-label="Status: Verification failed"></span>
+  <span
+    class="status-indicator status-rejected"
+    role="img"
+    aria-label="Status: Verification failed"
+  ></span>
   <div>
     <h3>Verification Failed <span class="attempt-counter">(Attempt 2 of 3)</span></h3>
     <p><strong>Reason:</strong> Document was blurry. Please resubmit.</p>
@@ -220,6 +265,7 @@ States (using CSS/SVG status indicators instead of emoji):
 ```
 
 **CSS Styling**:
+
 ```css
 .status-indicator {
   display: inline-block;
@@ -228,27 +274,28 @@ States (using CSS/SVG status indicators instead of emoji):
   border-radius: 50%;
   margin-right: 12px;
   flex-shrink: 0;
-  border: 2px solid #1F2937;
+  border: 2px solid #1f2937;
 }
 
 .status-pending {
-  background-color: #6B7280;  /* Gray – no action taken */
+  background-color: #6b7280; /* Gray – no action taken */
 }
 
 .status-submitted {
-  background-color: #F59E0B;  /* Amber – under review */
+  background-color: #f59e0b; /* Amber – under review */
 }
 
 .status-approved {
-  background-color: #10B981;  /* Green – verified */
+  background-color: #10b981; /* Green – verified */
 }
 
 .status-rejected {
-  background-color: #EF4444;  /* Red – failed */
+  background-color: #ef4444; /* Red – failed */
 }
 ```
 
 **Accessibility Features:**
+
 - Uses CSS circles instead of emoji (no rendering inconsistencies across platforms)
 - Each indicator includes `role="img"` + `aria-label` for screen reader users
 - All status colors meet WCAG AA contrast on dark background
@@ -259,6 +306,7 @@ States (using CSS/SVG status indicators instead of emoji):
 ## UX Flows
 
 ### Trader Onboarding Flow
+
 ```
 Register → Verify Email → Pool Code Check → Dashboard (KYC Banner) → KYC Upload → Wait → Approved → Trade
            ↑                              ↓
@@ -266,6 +314,7 @@ Register → Verify Email → Pool Code Check → Dashboard (KYC Banner) → KYC
 ```
 
 ### Position Lifecycle UX
+
 ```
 Instrument Panel → Select Instrument → Order Form Populates
                                            ↓
@@ -285,6 +334,7 @@ Instrument Panel → Select Instrument → Order Form Populates
 ## Accessibility Standards
 
 All components must meet WCAG 2.1 AA:
+
 - Color contrast ratio ≥ 4.5:1 for normal text
   - #FFFFFF on #111318 = 14.7:1 ✓ (verified and compliant)
   - Profit green (#00C896) on #111318 = 2.8:1 × (insufficient — use #00D9A3 for 4.5:1, or add +/− text prefix to reduce reliance on color alone)
@@ -300,6 +350,7 @@ All components must meet WCAG 2.1 AA:
 ## Component States Specification
 
 Every component must handle all states:
+
 ```
 1. Default      — Normal display
 2. Hover        — Subtle bg-elevated background
@@ -317,6 +368,7 @@ Every component must handle all states:
 ## Mobile Responsiveness
 
 Trading features on mobile use a simplified layout:
+
 ```
 Mobile (< 640px):
 - Single column layout

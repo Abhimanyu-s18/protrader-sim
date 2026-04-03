@@ -14,12 +14,14 @@
 ### Completed Skills
 
 ✅ **1. financial-calculations** (8.8 KB)
+
 - Core formulas: Margin, P&L (BUY/SELL), Equity, Margin Level, Swap
 - Constants and scaling rules
 - Edge case handling and testing checklist
 - Primary agents: Coding, Test, Architecture
 
 ✅ **2. bigint-money-handling** (10.3 KB)
+
 - String ↔ Cents conversions
 - Price scaling (PRICE_SCALE × 100000)
 - Input validation with Zod patterns
@@ -28,6 +30,7 @@
 - Primary agents: Coding, Security, Test
 
 ✅ **3. api-route-creation** (12.4 KB)
+
 - Layering rule (Routes → Services → Database)
 - Authentication (JWT RS256) & Authorization (RBAC)
 - Validation with Zod schemas
@@ -37,6 +40,7 @@
 - Primary agents: Coding, Security, Architecture
 
 ✅ **4. database-schema-design** (11.9 KB)
+
 - Core principles (BIGINT, no balance storage)
 - Complete schema: 11 tables (User, Trade, Instrument, Ledger, etc.)
 - Index strategy and relationship patterns
@@ -50,22 +54,22 @@
 
 **All 14 agents enhanced by Phase 1:**
 
-| Agent | Skills Loaded | Primary Use |
-|-------|---------------|------------|
-| Orchestrator | All 4 | Route tasks to specialists with knowledge |
-| Research | database-schema-design | Understand data model context |
-| Architect | All 4 | Design decisions on solid foundation |
-| UI/UX Designer | All 4 | Understand backend constraints |
-| Frontend | financial-calculations, bigint-money-handling, api-route-creation | Build trading UI correctly |
-| Coding | **All 4** | Core foundation for ALL implementations |
-| Security | bigint-money-handling, api-route-creation | Secure payment/API code |
-| Test | financial-calculations, bigint-money-handling | Comprehensive edge case tests |
-| Schema | database-schema-design | Design ALL tables and migrations |
-| Debug | **All 4** | Root cause analysis |
-| Code-Review | **All 4** | PR review standards |
-| Documentation | **All 4** | Document proper patterns |
-| Performance | database-schema-design, api-route-creation | Query/endpoint optimization |
-| DevOps | database-schema-design | Migration strategies |
+| Agent          | Skills Loaded                                                     | Primary Use                               |
+| -------------- | ----------------------------------------------------------------- | ----------------------------------------- |
+| Orchestrator   | All 4                                                             | Route tasks to specialists with knowledge |
+| Research       | database-schema-design                                            | Understand data model context             |
+| Architect      | All 4                                                             | Design decisions on solid foundation      |
+| UI/UX Designer | All 4                                                             | Understand backend constraints            |
+| Frontend       | financial-calculations, bigint-money-handling, api-route-creation | Build trading UI correctly                |
+| Coding         | **All 4**                                                         | Core foundation for ALL implementations   |
+| Security       | bigint-money-handling, api-route-creation                         | Secure payment/API code                   |
+| Test           | financial-calculations, bigint-money-handling                     | Comprehensive edge case tests             |
+| Schema         | database-schema-design                                            | Design ALL tables and migrations          |
+| Debug          | **All 4**                                                         | Root cause analysis                       |
+| Code-Review    | **All 4**                                                         | PR review standards                       |
+| Documentation  | **All 4**                                                         | Document proper patterns                  |
+| Performance    | database-schema-design, api-route-creation                        | Query/endpoint optimization               |
+| DevOps         | database-schema-design                                            | Migration strategies                      |
 
 ---
 
@@ -85,6 +89,7 @@
 ## 🚀 Next: Phase 2 Skills (Ready to Build)
 
 8 skills for core functionality:
+
 1. rbac-implementation
 2. trading-calculations
 3. socket-io-real-time

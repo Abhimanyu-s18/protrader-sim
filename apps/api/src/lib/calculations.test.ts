@@ -570,9 +570,9 @@ describe('formatScaledPrice', () => {
     expect(formatScaledPrice(0n)).toBe('0.00000')
   })
 
-  it('should handle negative prices', () => {
+  it('should handle negative prices and normalize negative zero display', () => {
     expect(formatScaledPrice(-108500n, 4)).toBe('-1.0850')
-    expect(formatScaledPrice(-1n, 4)).toBe('-0.0000')
+    expect(formatScaledPrice(-1n, 4)).toBe('0.0000')
   })
 })
 

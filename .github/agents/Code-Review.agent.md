@@ -65,24 +65,27 @@ CHECK: kyc_rejection_count never reset — only incremented?
 ```
 
 **Common Financial Bugs to Catch:**
+
 ```typescript
 // ❌ BUG: BigInt + number causes TypeError at runtime
-const margin = wallet.free_margin / 100  // BigInt / number = TypeError
+const margin = wallet.free_margin / 100 // BigInt / number = TypeError
 // ✅ FIX
 const margin = wallet.free_margin / 100n
 
 // ❌ BUG: Balance updated without margin sync
 await prisma.traderWallet.update({ data: { balance: { increment: pnl } } })
 // ✅ FIX: Update ALL wallet fields in single transaction
-await tx.traderWallet.update({ data: {
-  balance: { increment: pnl },
-  equity: { increment: pnl },
-  margin_used: { decrement: margin },
-  free_margin: { increment: margin + pnl },
-}})
+await tx.traderWallet.update({
+  data: {
+    balance: { increment: pnl },
+    equity: { increment: pnl },
+    margin_used: { decrement: margin },
+    free_margin: { increment: margin + pnl },
+  },
+})
 
 // ❌ BUG: BigInt in JSON (crashes at response)
-res.json({ balance: wallet.balance })  // Throws: Do not know how to serialize BigInt
+res.json({ balance: wallet.balance }) // Throws: Do not know how to serialize BigInt
 // ✅ FIX
 res.json({ balance: Number(wallet.balance) })
 ```
@@ -105,6 +108,7 @@ CHECK: No sensitive data in JWT payload or URL params?
 ```
 
 **Security Findings Template:**
+
 ```
 SECURITY [CRITICAL/HIGH/MEDIUM/LOW]: [Finding]
 File: [path:line]
@@ -129,6 +133,7 @@ CHECK: Cross-package imports use @protrader/* workspace references?
 ```
 
 **Finding format for architecture violations:**
+
 ```
 ARCHITECTURE [VIOLATION]: Business logic found in route handler
 File: apps/server/src/routes/positions.routes.ts:42
@@ -193,7 +198,7 @@ CHECK: No hardcoded values that should be constants or env vars?
 
 ## Review Report Format
 
-```markdown
+````markdown
 ## Code Review: [Feature / PR Title]
 
 **Reviewer**: Code Review Agent
@@ -205,11 +210,13 @@ CHECK: No hardcoded values that should be constants or env vars?
 ### 🚫 Blocking Issues (Must Fix Before Merge)
 
 #### [FINANCIAL] Wallet update not in transaction
+
 **File**: `apps/server/src/services/withdrawal.service.ts:67`
 **Problem**: The wallet balance update and the WithdrawalRequest creation are separate
 Prisma operations. If the server crashes between them, the withdrawal record exists but
 the balance wasn't updated — creating phantom money.
 **Fix**:
+
 ```typescript
 // Wrap both operations in a single transaction
 return await prisma.$transaction(async (tx) => {
@@ -218,12 +225,14 @@ return await prisma.$transaction(async (tx) => {
   return withdrawal
 })
 ```
+````
 
 ---
 
 ### ⚠️ High Priority (Fix This Sprint)
 
 #### [PERFORMANCE] N+1 query in position list
+
 **File**: `apps/server/src/services/trading.service.ts:112`
 **Problem**: `findMany()` for positions followed by a loop calling `findUnique()` for
 each instrument. 50 positions = 51 DB queries. Will degrade at scale.
@@ -234,6 +243,7 @@ each instrument. 50 positions = 51 DB queries. Will degrade at scale.
 ### 💬 Normal (Can Be Next Sprint)
 
 #### [STYLE] Inconsistent error handling
+
 **File**: `apps/server/src/services/kyc.service.ts:34`
 **Observation**: Some methods throw `new Error()`, others throw `new AppError()`.
 `AppError` is preferred — it maps to HTTP status codes cleanly.
@@ -250,8 +260,10 @@ each instrument. 50 positions = 51 DB queries. Will degrade at scale.
 ---
 
 ### Summary
+
 **Blocking issues**: 1 | **High priority**: 1 | **Normal**: 1
 **Decision**: 🚫 CHANGES REQUIRED — resolve blocking issue before merge
+
 ```
 
 ---
@@ -267,3 +279,4 @@ These findings are ALWAYS blocking. No exceptions:
 6. No tests for a new service function
 7. BigInt not serialized before JSON response
 8. Webhook endpoint without signature verification
+```

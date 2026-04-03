@@ -1,5 +1,6 @@
 import { Redis } from 'ioredis'
 import { createLogger } from './logger.js'
+import { z } from 'zod'
 
 const log = createLogger('redis')
 
@@ -30,38 +31,34 @@ export function getRedis(): Redis {
 // ── Price cache helpers ───────────────────────────────────────────
 const PRICE_TTL_SECONDS = 60
 
-export async function setCachedPrice(
-  symbol: string,
-  price: {
-    bid_scaled: string
-    ask_scaled: string
-    mid_scaled: string
-    change_bps: string
-    ts: string
-  },
-): Promise<void> {
+export type PriceScaled = z.infer<typeof priceScaledSchema>
+
+const priceScaledSchema = z.object({
+  bid_scaled: z.string(),
+  ask_scaled: z.string(),
+  mid_scaled: z.string(),
+  change_bps: z.string(),
+  ts: z.string(),
+})
+
+export async function setCachedPrice(symbol: string, price: PriceScaled): Promise<void> {
   const redis = getRedis()
   await redis.setex(`prices:${symbol}`, PRICE_TTL_SECONDS, JSON.stringify(price))
 }
 
-export async function getCachedPrice(
-  symbol: string,
-): Promise<{
-  bid_scaled: string
-  ask_scaled: string
-  mid_scaled: string
-  change_bps: string
-  ts: string
-} | null> {
+export async function getCachedPrice(symbol: string): Promise<PriceScaled | null> {
   const redis = getRedis()
   const raw = await redis.get(`prices:${symbol}`)
   if (!raw) return null
-  return JSON.parse(raw) as {
-    bid_scaled: string
-    ask_scaled: string
-    mid_scaled: string
-    change_bps: string
-    ts: string
+
+  try {
+    const parsed = JSON.parse(raw)
+    const validated = priceScaledSchema.parse(parsed)
+    return validated
+  } catch (err) {
+    log.warn({ symbol, raw, err }, 'Invalid cached price JSON - clearing entry')
+    await redis.del(`prices:${symbol}`)
+    return null
   }
 }
 

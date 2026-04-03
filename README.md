@@ -6,30 +6,30 @@ Regulated under FSC Mauritius + FSA Seychelles | IB (Introducing Broker) Model
 
 ## Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Monorepo | Turborepo + pnpm |
-| Frontend | Next.js 15 (App Router) + TypeScript |
-| Backend | Express.js + Socket.io |
-| Database | PostgreSQL 17 (Supabase, eu-west-1) |
-| Cache | Redis 7 (ElastiCache) |
-| Queue | BullMQ |
-| Market Data | Twelve Data |
-| Payments | NowPayments |
-| Storage | Cloudflare R2 |
-| Email | Resend |
-| ORM | Prisma |
+| Layer       | Technology                           |
+| ----------- | ------------------------------------ |
+| Monorepo    | Turborepo + pnpm                     |
+| Frontend    | Next.js 15 (App Router) + TypeScript |
+| Backend     | Express.js + Socket.io               |
+| Database    | PostgreSQL 17 (Supabase, eu-west-1)  |
+| Cache       | Redis 7 (ElastiCache)                |
+| Queue       | BullMQ                               |
+| Market Data | Twelve Data                          |
+| Payments    | NowPayments                          |
+| Storage     | Cloudflare R2                        |
+| Email       | Resend                               |
+| ORM         | Prisma                               |
 
 ## Apps
 
-| App | Port | Description |
-|-----|------|-------------|
-| `web` | 3000 | Public marketing site |
-| `auth` | 3001 | Login / Register / KYC |
-| `platform` | 3002 | Trading dashboard |
-| `admin` | 3003 | Back-office admin panel |
+| App         | Port | Description                   |
+| ----------- | ---- | ----------------------------- |
+| `web`       | 3000 | Public marketing site         |
+| `auth`      | 3001 | Login / Register / KYC        |
+| `platform`  | 3002 | Trading dashboard             |
+| `admin`     | 3003 | Back-office admin panel       |
 | `ib-portal` | 3004 | IB Agent / Team Leader portal |
-| `api` | 4000 | REST API + Socket.io |
+| `api`       | 4000 | REST API + Socket.io          |
 
 ## Quick Start
 

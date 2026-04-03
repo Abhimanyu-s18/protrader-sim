@@ -63,6 +63,7 @@ Maintain an embedded copy of the guidelines in the skill directory as a safety n
 ## Usage
 
 When a user provides a file or pattern argument:
+
 1. Fetch guidelines from the source URL above
 2. Read the specified files
 3. Apply all rules from the fetched guidelines

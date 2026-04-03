@@ -9,14 +9,14 @@ A thorough review of the actual codebase was conducted against all documented re
 
 ### 1. P0 Tasks — 5 of 6 Already Resolved
 
-| Task                                | Audit Status | Actual Code Status | Details                                                                                                                           |
-| ----------------------------------- | ------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| **B-01** Login `.constructor()` bug | UNSTARTED    | ✅ RESOLVED        | Uses `new AppError('INVALID_CREDENTIALS', ...)` at line 192, `new AppError('ACCOUNT_SUSPENDED', ...)` at lines 197-204            |
-| **B-02** Trade close race condition | UNSTARTED    | ✅ RESOLVED        | Uses `withSerializableRetry()` + `prisma.$transaction()` with `FOR UPDATE` locking, SSI isolation, `updateMany` with status check |
-| **B-03** Dockerfile missing         | UNSTARTED    | ✅ RESOLVED        | `apps/api/Dockerfile` exists with 2-stage build (builder + runner), health check, non-root user                                   |
-| **B-04** Tests not in CI            | COMPLETED    | ✅ RESOLVED        | Test script updated with coverage, Jest config has thresholds, trades.test.ts fixed, CI workflow updated                          |
-| **B-05** Withdrawal balance calc    | UNSTARTED    | ✅ RESOLVED        | Uses `withSerializableRetry()` + transaction with `FOR UPDATE`, balance computed before ledger entry                              |
-| **B-06** Auth app CORS              | UNSTARTED    | ✅ RESOLVED        | `http://localhost:3005` included via `AUTH_APP_URL` env var in both Socket.io and HTTP CORS configs                               |
+| Task                                | Audit Status | Actual Code Status | Details                                                                                                                                                        |
+| ----------------------------------- | ------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **B-01** Login `.constructor()` bug | UNSTARTED    | ✅ RESOLVED        | Uses `AppError('INVALID_CREDENTIALS', ...)` and `AppError('ACCOUNT_SUSPENDED', ...)` in login route handler (`routes/auth.ts`)                                 |
+| **B-02** Trade close race condition | UNSTARTED    | ✅ RESOLVED        | Uses `withSerializableRetry()` + `prisma.$transaction()` with `FOR UPDATE` locking, SSI isolation, `updateMany` with status check in `TradeService.closeTrade` |
+| **B-03** Dockerfile missing         | UNSTARTED    | ✅ RESOLVED        | `apps/api/Dockerfile` exists with 2-stage build (builder + runner), health check, non-root user                                                                |
+| **B-04** Tests not in CI            | COMPLETED    | ✅ RESOLVED        | Test script updated with coverage, Jest config has thresholds, trades.test.ts fixed, CI workflow updated                                                       |
+| **B-05** Withdrawal balance calc    | UNSTARTED    | ✅ RESOLVED        | Uses `withSerializableRetry()` + transaction with `FOR UPDATE`, balance computed before ledger entry                                                           |
+| **B-06** Auth app CORS              | UNSTARTED    | ✅ RESOLVED        | `http://localhost:3005` included via `AUTH_APP_URL` env var in both Socket.io and HTTP CORS configs                                                            |
 
 ### 2. Completion Status — Significant Corrections
 
@@ -26,7 +26,7 @@ A thorough review of the actual codebase was conducted against all documented re
 | API Backend          | 41 endpoints, 85%       | 47 endpoints, 95%             | Partial-close, admin, IB routes all implemented                                                       |
 | Financial Engine     | 95%                     | 100%                          | All calculations, precision tests, edge cases covered                                                 |
 | Background Workers   | 8%, 0 active workers    | 45%                           | Rollover worker fully implemented with batch pagination, idempotency guards, SSI transactions         |
-| Market Data Pipeline | 15%, no live feed       | 85%                           | Twelve Data WebSocket → Redis → Socket.io fully implemented (1032 lines in `services/market-data.ts`) |
+| Market Data Pipeline | 15%, no live feed       | 85%                           | Twelve Data WebSocket → Redis → Socket.io fully implemented (1047 lines in `services/market-data.ts`) |
 | Testing              | 5%, 3 test files        | 15%, 4 test files (~1776 LOC) | Added `workers/workers.test.ts` (666 lines)                                                           |
 | Deployment           | 15%, Dockerfile missing | 40%, Dockerfile exists        | Multi-stage build with health check                                                                   |
 | Graceful Shutdown    | Not implemented         | ✅ Implemented                | SIGTERM/SIGINT handlers with 10s timeouts for HTTP and Socket.io                                      |
@@ -34,32 +34,33 @@ A thorough review of the actual codebase was conducted against all documented re
 
 ### 3. New Gaps Identified
 
-| ID   | Gap                                         | Location                                    | Priority | Effort |
-| ---- | ------------------------------------------- | ------------------------------------------- | -------- | ------ |
-| G-11 | Test coverage not enforced in CI            | `apps/api/package.json`, `jest.config.cjs`  | P0       | 2h     |
-| G-12 | Integration test API contract mismatch      | `apps/api/src/routes/trades.test.ts`        | P1       | 2h     |
-| G-13 | NowPayments create-payment API not called   | `apps/api/src/routes/deposits.ts`           | P1       | 4h     |
-| G-14 | Email templates: 0 of 21 implemented        | `packages/email/`                           | P1       | 16h    |
-| G-15 | Frontend apps: 5 apps, 0% complete          | `apps/{web,auth,platform,admin,ib-portal}/` | P0       | 400h+  |
-| G-16 | Forex swap rates: 6 pairs have placeholders | `packages/db/prisma/seed.ts`                | P2       | 1h     |
-| G-17 | Shared packages minimal                     | `packages/{types,utils,ui}/`                | P2       | 8h     |
-| G-18 | MFA not implemented                         | Not started                                 | P1       | 16h    |
-| G-19 | Negative balance protection                 | Not started                                 | P1       | 4h     |
-| G-20 | Push notifications (FCM/OneSignal)          | Not started                                 | P2       | 8h     |
-| G-21 | Economic calendar integration               | Not started                                 | P2       | 8h     |
-| G-22 | News feed integration                       | Not started                                 | P2       | 8h     |
-| G-23 | Signal generation logic                     | Not started                                 | P2       | 12h    |
-| G-24 | Report/PDF generation                       | Not started                                 | P2       | 12h    |
-| G-25 | OAuth (Google + Facebook)                   | Not started                                 | P2       | 12h    |
+| ID   | Gap                                             | Location                                                                  | Priority | Effort |
+| ---- | ----------------------------------------------- | ------------------------------------------------------------------------- | -------- | ------ |
+| G-11 | Test coverage not enforced in CI                | `apps/api/package.json`, `jest.config.cjs`                                | P0       | 2h     |
+| G-12 | Integration test API contract mismatch          | `apps/api/src/routes/trades.test.ts`                                      | P1       | 2h     |
+| G-13 | NowPayments create-payment API not called       | `apps/api/src/routes/deposits.ts`                                         | P1       | 4h     |
+| G-14 | Email templates: 0 of 21 implemented            | `packages/email/`                                                         | P1       | 16h    |
+| G-15 | Frontend apps: 5 apps, 0% complete              | `apps/{web,auth,platform,admin,ib-portal}/`                               | P0       | 400h+  |
+| G-16 | Forex swap rates: 6 pairs have placeholders     | `packages/db/prisma/seed.ts`                                              | P2       | 1h     |
+| G-17 | Shared packages minimal                         | `packages/{types,utils,ui}/`                                              | P2       | 8h     |
+| G-18 | MFA not implemented                             | Not started                                                               | P1       | 16h    |
+| G-19 | Negative balance protection                     | Not started                                                               | P1       | 4h     |
+| G-20 | Push notifications (FCM/OneSignal)              | Not started                                                               | P2       | 8h     |
+| G-21 | Economic calendar integration                   | Not started                                                               | P2       | 8h     |
+| G-22 | News feed integration                           | Not started                                                               | P2       | 8h     |
+| G-23 | Signal generation logic                         | Not started                                                               | P2       | 12h    |
+| G-24 | Report/PDF generation                           | Not started                                                               | P2       | 12h    |
+| G-25 | OAuth (Google + Facebook)                       | Not started                                                               | P2       | 12h    |
+| G-26 | Duplicate market-data WebSocket implementations | `lib/market-data.ts` (dead code) vs `services/market-data.ts` (canonical) | P2       | 4h     |
 
-### 4. API Endpoints — Full Inventory (47 total)
+### 4. API Endpoints — Full Inventory (59 total)
 
 | Category      | Count | Endpoints                                                                                                                    | Status                        |
 | ------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
 | Auth          | 8     | register, login, refresh, logout, verify-email, forgot-password, reset-password, change-password                             | ✅ Complete                   |
 | Users         | 5     | GET/PUT me, account-metrics, financial-summary, ledger                                                                       | ✅ Complete                   |
 | Instruments   | 4     | list, detail, price, ohlcv                                                                                                   | ✅ Complete                   |
-| Trades        | 7     | open (POST), list (GET), detail (GET), close (POST), sl-tp (PUT), trailing-stop (PUT), partial-close (POST), cancel (DELETE) | ✅ Complete                   |
+| Trades        | 8     | open (POST), list (GET), detail (GET), close (POST), sl-tp (PUT), trailing-stop (PUT), partial-close (POST), cancel (DELETE) | ✅ Complete                   |
 | Deposits      | 3     | create, list, detail                                                                                                         | 🟡 Partial (NowPayments TODO) |
 | Withdrawals   | 2     | create, list                                                                                                                 | ✅ Complete                   |
 | KYC           | 4     | status, upload docs, list docs, delete doc                                                                                   | ✅ Complete                   |
@@ -86,8 +87,7 @@ A thorough review of the actual codebase was conducted against all documented re
 
 **Services:**
 
-- `services/market-data.ts` (1032 lines) — Twelve Data WebSocket, price processing, SL/TP/trailing stop checks, entry order execution, alert monitoring, margin monitoring
-- `lib/market-data.ts` (253 lines) — Alternative WebSocket implementation (appears to be a duplicate/alternate version)
+- `services/market-data.ts` (1047 lines) — Twelve Data WebSocket, price processing, SL/TP/trailing stop checks, entry order execution, alert monitoring, margin monitoring, health check (`getMarketDataStatus()`)
 
 **Workers:**
 
@@ -109,31 +109,32 @@ A thorough review of the actual codebase was conducted against all documented re
 - `middleware/errorHandler.ts` — `AppError` class, `Errors` factory, global error handler
 - `middleware/requestLogger.ts` — HTTP request logging with pino
 
-### 7. Remaining P0 Task (B-04) — Detailed Instructions
+### 7. B-04 Implementation Details (Completed)
 
 **Task:** Integrate Tests into CI Pipeline
-**Files to modify:**
+**Files modified:**
 
-1. `apps/api/package.json` — Change `"test": "jest --passWithNoTests"` to `"test": "jest --coverage --collectCoverageFrom='src/**/*.ts' --collectCoverageFrom='!src/**/*.d.ts'"`
-2. `apps/api/jest.config.cjs` — Add `collectCoverageFrom`, `coverageThreshold`, `testTimeout`
+1. `apps/api/package.json` — Updated `"test"` script to include `--coverage` with `--collectCoverageFrom` flags
+2. `apps/api/jest.config.cjs` — Added `collectCoverageFrom`, `coverageThreshold`, `testTimeout`
 
-**Coverage thresholds:**
+**Coverage thresholds applied:**
 
 ```javascript
+collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
 coverageThreshold: {
-  global: { branches: 75, functions: 75, lines: 75, statements: 75 },
+  global: { branches: 80, functions: 80, lines: 80, statements: 80 },
   'src/lib/calculations.ts': { branches: 100, functions: 100, lines: 100, statements: 100 },
 },
-testTimeout: 10000,
+testTimeout: 5000,
 ```
 
-**Note:** The trades test file (`trades.test.ts`) has API contract mismatches that need fixing before coverage thresholds can be met.
+**Note:** The trades test file (`trades.test.ts`) had API contract mismatches that were fixed as part of this task.
 
 ## Key Improvements in v3.0
 
 | Aspect             | Before (v2.0)        | After (v3.0)                               |
 | ------------------ | -------------------- | ------------------------------------------ |
-| P0 task accuracy   | 6 tasks marked TODO  | 5 tasks correctly marked DONE, 1 remaining |
+| P0 task accuracy   | 6 tasks marked TODO  | 6 tasks correctly marked DONE, 0 remaining |
 | Completion status  | Underestimated (40%) | Accurate (~55% — API 95%, Frontend 0%)     |
 | Bug inventory      | 7 bugs listed        | 7 resolved, 2 new (CI test gaps)           |
 | API endpoint count | 41                   | 47                                         |
@@ -197,4 +198,4 @@ AUDIT-001_Comprehensive_Project_Audit.md
 
 ---
 
-**Recommendation:** The API backend is production-ready pending test CI integration (B-04). The critical path to MVP is now: (1) Fix CI tests, (2) Build frontend apps, (3) Configure Twelve Data API key, (4) Create email templates.
+**Recommendation:** The API backend is production-ready. The critical path to MVP is now: (1) Build frontend apps, (2) Configure Twelve Data API key, (3) Create email templates.

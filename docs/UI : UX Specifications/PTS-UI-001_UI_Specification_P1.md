@@ -1,19 +1,22 @@
 # ProTraderSim
+
 ## PTS-UI-001 — UI Functional Specification (Part 1)
+
 ### Global Layout, Auth Zone, Trading Platform Screens 01–15
+
 **Version 1.0 | March 2026 | CONFIDENTIAL**
 
 ---
 
 ## 1. Platform Zones
 
-| Zone | Domain | Contents |
-|---|---|---|
-| Public Marketing | www.protrader.com | Landing page, public pages, Login/Register CTAs |
-| Auth Zone | auth.protrader.com | Login, Register, Forgot Password, KYC Wizard |
-| Trading Platform | app.protrader.com | All authenticated pages: Trading, Symbols, My Trades, Account |
-| Admin Back-Office | admin.protrader.com | KYC review, user management, financial ops |
-| IB Portal | ib.protrader.com | IB Team Leader / Agent dashboards and commissions |
+| Zone              | Domain              | Contents                                                      |
+| ----------------- | ------------------- | ------------------------------------------------------------- |
+| Public Marketing  | www.protrader.com   | Landing page, public pages, Login/Register CTAs               |
+| Auth Zone         | auth.protrader.com  | Login, Register, Forgot Password, KYC Wizard                  |
+| Trading Platform  | app.protrader.com   | All authenticated pages: Trading, Symbols, My Trades, Account |
+| Admin Back-Office | admin.protrader.com | KYC review, user management, financial ops                    |
+| IB Portal         | ib.protrader.com    | IB Team Leader / Agent dashboards and commissions             |
 
 ---
 
@@ -25,15 +28,16 @@ All authenticated trading platform pages share the same shell layout.
 
 Fixed horizontal bar, full viewport width, highest z-index layer. Present on every authenticated page.
 
-| Section | Contents |
-|---|---|
-| Left | Brand logo (icon + name). Notification bell with unread badge count. Grid/menu icon. |
-| Center-Left | "Activate Rebate Plan" CTA (orange text link). "Get Vault" CTA (orange text link). |
+| Section      | Contents                                                                                                                                                                                                 |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Left         | Brand logo (icon + name). Notification bell with unread badge count. Grid/menu icon.                                                                                                                     |
+| Center-Left  | "Activate Rebate Plan" CTA (orange text link). "Get Vault" CTA (orange text link).                                                                                                                       |
 | Center Stats | Five live account metric chips: Unrealized P&L ($), Margin Level (%), Account Equity ($), Balance ($), Available ($). Each chip has a label below the value. Chevron expands to show additional metrics. |
-| Right | Time-of-day greeting: "Good morning/afternoon/evening, [FirstName]". Avatar/profile icon button. |
-| Background | White with subtle bottom border. |
+| Right        | Time-of-day greeting: "Good morning/afternoon/evening, [FirstName]". Avatar/profile icon button.                                                                                                         |
+| Background   | White with subtle bottom border.                                                                                                                                                                         |
 
 **Header Stats Customization:** Users click the chevron to open the "Reorder account details" modal. The modal has two sections:
+
 - Section 1 — "Data shown on the header block": Active metrics with drag handles (reorder) and red minus buttons (remove)
 - Section 2 — "Data shown in the dropdown menu": Available metrics with green plus buttons (promote to header)
 - Default header metrics: Unrealized P&L, Margin Level, Account Equity, Balance, Available
@@ -43,14 +47,14 @@ Fixed horizontal bar, full viewport width, highest z-index layer. Present on eve
 
 Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 
-| Element | Details |
-|---|---|
-| Top Label | "Trade" — active state highlighted in orange rectangle |
-| Deposit CTA | Orange button with upward arrow + "Deposit" text. Primary conversion CTA, always visible. |
+| Element          | Details                                                                                                                                                                                                        |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Top Label        | "Trade" — active state highlighted in orange rectangle                                                                                                                                                         |
+| Deposit CTA      | Orange button with upward arrow + "Deposit" text. Primary conversion CTA, always visible.                                                                                                                      |
 | Navigation Items | Symbols (candlestick icon), My Trades (grid icon), News (newspaper icon), Economic Calendar (calendar icon), Alerts (bell icon), Signals (trend icon), Academy (graduation cap icon), My Account (person icon) |
-| Active State | Orange left border (3–4px) + lighter background fill |
-| Bottom | Telegram icon (teal circle). Chat support icon (dark circle). |
-| Collapsed State | Icon-only with expand arrow at bottom left. |
+| Active State     | Orange left border (3–4px) + lighter background fill                                                                                                                                                           |
+| Bottom           | Telegram icon (teal circle). Chat support icon (dark circle).                                                                                                                                                  |
+| Collapsed State  | Icon-only with expand arrow at bottom left.                                                                                                                                                                    |
 
 ---
 
@@ -63,6 +67,7 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 **Purpose:** Top-of-funnel marketing. Converts anonymous visitors to registered traders.
 
 **Header navigation:**
+
 - Logo top-left
 - Nav links: Company (dropdown), Trading (dropdown), Assets (dropdown), Contact Us
 - Utility: Search icon, WhatsApp icon, Language selector
@@ -71,6 +76,7 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 - Cookie consent banner at top of page
 
 **Hero section:**
+
 - Dark charcoal background with trading imagery
 - Headline: "Take trading to the next level"
 - Primary CTA: "Join Now" — large orange button
@@ -78,6 +84,7 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 - Carousel with left/right arrows and dot indicators
 
 **Content sections (in order):**
+
 1. Live asset ticker table — tabs: Best Popular CFDs, CFDs on Stocks, CFDs on Forex, CFDs on Currencies
 2. "Why ProTraderSim?" — 5 feature icons: Full Transparency, Reliability, Simple Deposits, Tight Spreads, Attractive Leverage
 3. Mobile app promotion — App Store + Google Play download buttons
@@ -97,6 +104,7 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 **Layout:** Split-screen. Dark left panel (branding + trust) + white right panel (form card).
 
 **Left panel:**
+
 - Dark background (#1A2332 approx)
 - Full brand logo with name
 - Three trust badges: "Regulated broker", "Dedicated Customer Support Officer", "Open an account in 5 minutes"
@@ -104,6 +112,7 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 - Copyright line
 
 **Right panel — Registration form:**
+
 - Title: "SIGN UP" (bold, large)
 - "Already have an account? Log in" (orange link)
 - Social auth: "SIGN UP WITH GOOGLE" button, "SIGN UP WITH FACEBOOK" button
@@ -118,8 +127,9 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 - Language selector: top-right dropdown
 
 **Validation:**
+
 - Password minimum 12 characters (or 8+ with complexity: upper, lower, digit, symbol)
-- Character variety required: at least one uppercase, one lowercase, one digit, one symbol (@!#$%^&*)
+- Character variety required: at least one uppercase, one lowercase, one digit, one symbol (@!#$%^&\*)
 - Check against breached-password database (e.g., Have I Been Pwned API) and common-password denylist
 - No restrictive maximum length (recommend up to 128 characters for future-proofing)
 - Rate limiting on repeated failed password attempts: lock account after 5 consecutive failures for 15 minutes
@@ -135,6 +145,7 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 **Layout:** Same split-screen as Registration. Different trust badges on left panel: "Open an account in 5 minutes", "Zero commission", "Dedicated account manager".
 
 **Login form:**
+
 - Title: "Log In" (bold)
 - "Don't have an account? Sign up" (orange link)
 - Social auth: "CONTINUE WITH GOOGLE", "CONTINUE WITH FACEBOOK"
@@ -155,6 +166,7 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 **Purpose:** Used when navigating from password reset email link. Full-page split-screen layout.
 
 **Form:**
+
 - Title: "Change password"
 - Instruction: "In order to change your account password, please fill in the following information:"
 - Username field (pre-filled email, read-only)
@@ -187,12 +199,14 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 **Step 2 — Address:** Address line 1, city, country, postal code.
 
 **Step 3 — Top Up:**
+
 - Title: "TOP UP YOUR ACCOUNT"
 - Trust line: "All payments are 100% secure"
 - For ProTraderSim: shows NowPayments crypto deposit options (BTC, ETH, USDT)
 - Skip/close X button top-right (optional step)
 
 **Step 4 — Financial Details:**
+
 - Employment status (dropdown)
 - Annual income range (dropdown)
 - Source of funds (dropdown: Employment, Self-employment, Savings, Investments, Other)
@@ -213,34 +227,38 @@ Fixed vertical sidebar, ~200px wide (desktop), collapses to icon-only on mobile.
 **Purpose:** Primary trading interface. Symbol watchlist + live prices + chart + trade panel.
 
 **Page header:**
+
 - Title: "Symbols" (h1 bold)
 - Actions: "+ Add symbol" (orange link), "Go to Portfolio" (orange link)
 - Symbol search input (top-right of content area)
 
 **Symbol category tabs:**
+
 - My Watchlist (n) — user's saved symbols
 - Stock (28), Index (15), Commodity (15), Crypto (12), Currency (15)
 - Settings gear icon (right) — column visibility and display preferences
 
 **Symbols table columns:**
 
-| Column | Data | Notes |
-|---|---|---|
-| Symbol | Logo/flag + code + full name | Asset-class icon rules (see attached icon table below for asset class designations) |
-| Change | % + trend direction | Red = down, green = up |
-| 1D Low/High | Price range with visual bar | Shows position in daily range |
-| Sell | Red-bordered button with bid price | Click opens sell order in trade panel |
-| Buy | Green-bordered button with ask price | Click opens buy order in trade panel |
-| Trend | % sell/buy bar | 33% Sell / 67% Buy indicator |
-| Actions | Bell (alert), Eye (watchlist toggle), Chart (chart view) | |
+| Column      | Data                                                     | Notes                                                                               |
+| ----------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Symbol      | Logo/flag + code + full name                             | Asset-class icon rules (see attached icon table below for asset class designations) |
+| Change      | % + trend direction                                      | Red = down, green = up                                                              |
+| 1D Low/High | Price range with visual bar                              | Shows position in daily range                                                       |
+| Sell        | Red-bordered button with bid price                       | Click opens sell order in trade panel                                               |
+| Buy         | Green-bordered button with ask price                     | Click opens buy order in trade panel                                                |
+| Trend       | % sell/buy bar                                           | 33% Sell / 67% Buy indicator                                                        |
+| Actions     | Bell (alert), Eye (watchlist toggle), Chart (chart view) |                                                                                     |
 
 Selected row: light orange background highlight. Clicking a row loads symbol in chart and trade panel.
 
 **Chart toolbar (between table and chart):**
+
 - Search (magnifier), Indicators, Timeframe selector (e.g. "1H"), Drawing tools (pencil, crosshair, arrow)
 - Comparison symbol (+), Reset/refresh, Grid layout toggle, Fullscreen expand
 
 **Candlestick chart:**
+
 - TradingView Charting Library (self-hosted)
 - Symbol header: name + current price + 24h % change
 - Price axis (right), time axis (bottom)
@@ -254,6 +272,7 @@ Selected row: light orange background highlight. Clicking a row loads symbol in 
 **Purpose:** Opens from "+ Create a trade" button on My Trades page.
 
 **Modal structure:**
+
 - Title: "Create a trade" + "Select a symbol" subtitle
 - Symbol search input
 - Symbol grid/list: instrument logo + code + name + current price
@@ -312,18 +331,18 @@ Paginated feed of all account events: trades opened, closed, deposits, withdrawa
 
 **Panel structure:**
 
-| Element | Details |
-|---|---|
-| Symbol header | Asset-class logo/flag + code + name + % change (red/green). Optionally includes "Protected!" badge if account-level trade protection is active (investor protection scheme or capital guarant shield flag set on account). Badge: green pill-shaped background, white text "Protected!", right-aligned in header. Tooltip on hover: "Your account benefits from investor protection insurance." Bell + Eye icons. |
-| Tab bar | Trade \| Positions \| Info \| Chart \| Features \| Signals \| Alerts |
-| SELL direction | Large SELL price (red text). Red underline when selected. |
-| BUY direction | Large BUY price (gray when unselected). Click to activate. |
-| Units field | Label + info icon + "(minimum is {min_units} units)" hint. +/- stepper. Large value display. |
-| Margin calc | "Funds required to open position: ${calculated}" (orange, auto-calculated). "Available: ${available}" |
-| Order type toggle | "Market order" \| "Entry order" — yellow fill for active |
-| Stop Loss | Checkbox → reveals stop loss price input when checked |
-| Take Profit | Checkbox → reveals take profit price input when checked |
-| Submit | Full-width orange: "Sell [SYMBOL] at [PRICE]" or "Buy [SYMBOL] at [PRICE]". Disabled when margin insufficient. |
+| Element           | Details                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Symbol header     | Asset-class logo/flag + code + name + % change (red/green). Optionally includes "Protected!" badge if account-level trade protection is active (investor protection scheme or capital guarant shield flag set on account). Badge: green pill-shaped background, white text "Protected!", right-aligned in header. Tooltip on hover: "Your account benefits from investor protection insurance." Bell + Eye icons. |
+| Tab bar           | Trade \| Positions \| Info \| Chart \| Features \| Signals \| Alerts                                                                                                                                                                                                                                                                                                                                              |
+| SELL direction    | Large SELL price (red text). Red underline when selected.                                                                                                                                                                                                                                                                                                                                                         |
+| BUY direction     | Large BUY price (gray when unselected). Click to activate.                                                                                                                                                                                                                                                                                                                                                        |
+| Units field       | Label + info icon + "(minimum is {min_units} units)" hint. +/- stepper. Large value display.                                                                                                                                                                                                                                                                                                                      |
+| Margin calc       | "Funds required to open position: ${calculated}" (orange, auto-calculated). "Available: ${available}"                                                                                                                                                                                                                                                                                                             |
+| Order type toggle | "Market order" \| "Entry order" — yellow fill for active                                                                                                                                                                                                                                                                                                                                                          |
+| Stop Loss         | Checkbox → reveals stop loss price input when checked                                                                                                                                                                                                                                                                                                                                                             |
+| Take Profit       | Checkbox → reveals take profit price input when checked                                                                                                                                                                                                                                                                                                                                                           |
+| Submit            | Full-width orange: "Sell [SYMBOL] at [PRICE]" or "Buy [SYMBOL] at [PRICE]". Disabled when margin insufficient.                                                                                                                                                                                                                                                                                                    |
 
 ---
 
@@ -331,11 +350,11 @@ Paginated feed of all account events: trades opened, closed, deposits, withdrawa
 
 **Same as Screen 09, with these additions when "Entry order" is toggled:**
 
-| Element | Details |
-|---|---|
-| Order Rate field | Price input with +/- stepper |
-| Validation hint | "Rate should be above {ask+distance} or below {bid-distance}" |
-| Expiration Date | Checkbox → reveals datetime picker (optional, default = no expiry = GTC) |
+| Element          | Details                                                                  |
+| ---------------- | ------------------------------------------------------------------------ |
+| Order Rate field | Price input with +/- stepper                                             |
+| Validation hint  | "Rate should be above {ask+distance} or below {bid-distance}"            |
+| Expiration Date  | Checkbox → reveals datetime picker (optional, default = no expiry = GTC) |
 
 Submit button text changes to: "Sell [SYMBOL] at {order_rate}" (faded until valid rate entered).
 
@@ -346,10 +365,12 @@ Submit button text changes to: "Sell [SYMBOL] at {order_rate}" (faded until vali
 **Trigger:** Click chevron next to stats bar in header.
 
 **Section 1 — "Data shown on the header block":**
+
 - List of currently active metrics (default: Unrealized P&L, Margin Level, Account Equity, Balance, Available)
 - Each row: drag handle (left) + metric name + red minus button (remove from header)
 
 **Section 2 — "Data shown in the dropdown menu":**
+
 - Metrics not in header (default: Exposure, Buying Power, Realized P&L, Used Margin)
 - Each row: green plus button (promote to header) + metric name
 
@@ -362,19 +383,23 @@ Submit button text changes to: "Sell [SYMBOL] at {order_rate}" (faded until vali
 **Zone:** Platform (app.protrader.com/account/funds)
 
 **Left panel — Account summary:**
+
 - Circular ring chart showing Margin Level %
 - Balance: large bold figure
 - Equity, Used Margin, Available — below balance
 
 **Right panel — Actions:**
+
 - "Deposit" — orange button (triggers deposit flow)
 - "Make a withdrawal" — outlined orange button (triggers withdrawal modal)
 - "Annual Statement" — link (downloads PDF from R2)
 
 **Deposits history section:**
+
 - Paginated table: Date, Currency, Amount (crypto), USD Amount, Status, Reference
 
 **Withdrawals history section:**
+
 - Paginated table: Date, Currency, Amount, Wallet Address (masked), Status
 
 ---
@@ -402,6 +427,7 @@ Submit button text changes to: "Sell [SYMBOL] at {order_rate}" (faded until vali
 | User ID | Internal user ID. Copy-to-clipboard icon |
 
 **Right card — Communication Preferences:**
+
 - Title: "Communication preferences"
 - "Pop up sound" toggle (default ON) — audio notifications for price alerts, trade executions, platform events
 
@@ -413,13 +439,15 @@ Submit button text changes to: "Sell [SYMBOL] at {order_rate}" (faded until vali
 **Distinction:** This is a modal overlay. Screen 04 is a full-page in the auth zone.
 
 **Modal:**
+
 - Title: "Change password"
-- Field 1: "Password *" — current password with eye toggle
-- Field 2: "New password (12+ characters) *" — with eye toggle
-- Field 3: "Retype new password *" — must match Field 2
+- Field 1: "Password \*" — current password with eye toggle
+- Field 2: "New password (12+ characters) \*" — with eye toggle
+- Field 3: "Retype new password \*" — must match Field 2
 - Cancel (gray), Change password (orange)
 
 **Validation:**
+
 - Current password verified server-side (wrong = 401, inline error below Field 1)
 - New password: minimum 12 characters (client-side)
 - Confirm: must match new password (client-side, shown on submit attempt)
@@ -433,6 +461,7 @@ Submit button text changes to: "Sell [SYMBOL] at {order_rate}" (faded until vali
 **Entry points:** (1) "Upload documents →" on Profile tab; (2) Step 5 of KYC onboarding wizard.
 
 **Modal:**
+
 - Title: "Documents"
 - Description: "We may contact you if we need additional documentation."
 - Row 1: "Your ID" + "Upload →" orange link → opens ID Verification sub-modal (Screen 16)
@@ -448,6 +477,7 @@ Each "Upload →" click replaces modal content with the specific sub-modal (same
 **Entry:**Triggered by "Your ID" → "Upload →" in Documents Hub (Screen 15).
 
 **Modal:**
+
 - Title: "ID Verification"
 - Instruction: "Upload a scanned copy of your personal ID"
 - Radio options (mutually exclusive): Passport (default), National ID, Driver's License, Residence Permit
@@ -462,6 +492,7 @@ Each "Upload →" click replaces modal content with the specific sub-modal (same
 **Entry:** Triggered by "Your address" → "Upload →" in Documents Hub (Screen 15).
 
 **Modal:** Same structure as Screen 16.
+
 - Title: "Address Verification"
 - Instruction: "Upload a personal document showing your current address"
 - Radio options: Utility Bill (default), Bank Statement, Credit Card Statement, Local Authority Tax Bill, Other
@@ -474,6 +505,7 @@ Each "Upload →" click replaces modal content with the specific sub-modal (same
 **Entry:** Triggered by "Other documents (optional)" → "Upload →" in Documents Hub (Screen 15).
 
 **Modal:** Same structure as Screens 16–17.
+
 - Title: "Miscellaneous"
 - Instruction: "Upload any document requested and not included above"
 - Radio option: "Other" (pre-selected, single choice)
@@ -483,4 +515,4 @@ Each "Upload →" click replaces modal content with the specific sub-modal (same
 
 ---
 
-*ProTraderSim — PTS-UI-001 — UI Functional Specification Part 1 — v1.0 — March 2026*
+_ProTraderSim — PTS-UI-001 — UI Functional Specification Part 1 — v1.0 — March 2026_

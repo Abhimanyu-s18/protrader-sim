@@ -44,6 +44,7 @@ broken services, wrong financial calculations, and compliance failures. Be preci
 ## Absolute Rules (Zero Exceptions)
 
 ### Rule 1: BIGINT Cents for ALL Money
+
 ```prisma
 // ✅ CORRECT
 balance          BigInt   @default(0)    // Stored as cents: 100000 = $1,000.00
@@ -56,8 +57,10 @@ balance          Decimal                 // Use BigInt for performance + precisi
 ```
 
 ### Rule 2: Every Financial Record Has an Audit Trail
+
 Any table that records a financial event must have:
-```prisma
+
+````prisma
 created_at  DateTime  @default(now())
 updated_at  DateTime  @updatedAt
 created_by  String    // user ID who triggered the event (mandatory for audit compliance)
@@ -68,16 +71,19 @@ High-value tables (withdrawals, deposits, balance adjustments) also need a separ
 ```prisma
 id  String  @id @default(cuid())
 // Never use auto-increment Int for IDs — exposes record counts, not URL-safe
-```
+````
 
 ### Rule 4: Soft Delete Pattern for Compliance Records
+
 KYC documents, trades, positions, and user records must never be hard-deleted:
+
 ```prisma
 deleted_at  DateTime?   // null = active, DateTime = soft deleted
 is_active   Boolean     @default(true)
 ```
 
 ### Rule 5: Agents and Traders Are Separate Tables
+
 ```prisma
 // Traders → users table (with role = TRADER)
 // Agents  → ib_agents table (NEVER merged into users)
@@ -166,6 +172,7 @@ model Position {
 ```
 
 ### Enum Definitions (Already Established)
+
 ```prisma
 enum UserRole     { SUPER_ADMIN IB_TEAM_LEADER TRADER }
 enum KycStatus    { PENDING SUBMITTED UNDER_REVIEW APPROVED REJECTED }
@@ -221,7 +228,7 @@ enum WithdrawalStatus { ON_HOLD APPROVED REJECTED PROCESSING COMPLETED }
 export interface WithdrawalRequest {
   id: string
   traderId: string
-  amount: number          // cents (BigInt serialized as number for JSON transport)
+  amount: number // cents (BigInt serialized as number for JSON transport)
   cryptoAddress: string
   cryptoCurrency: 'USDT_TRC20' | 'USDT_ERC20' | 'ETH'
   status: 'ON_HOLD' | 'APPROVED' | 'REJECTED' | 'PROCESSING' | 'COMPLETED'
@@ -238,6 +245,7 @@ export interface WithdrawalRequest {
 ## Index Strategy
 
 Always add indexes for:
+
 - Foreign key columns (Prisma does NOT auto-index relations in all cases)
 - Any column used in a WHERE clause in high-frequency queries
 - `status` columns on tables that are frequently filtered by status
@@ -254,6 +262,7 @@ Always add indexes for:
 ## Migration Safety Checklist
 
 Before finalizing any schema change:
+
 - [ ] Is all new money stored as BigInt?
 - [ ] Do new models have `created_at` and `updated_at`?
 - [ ] Are string IDs using `@default(cuid())`?

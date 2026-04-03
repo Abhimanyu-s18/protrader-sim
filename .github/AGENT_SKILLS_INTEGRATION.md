@@ -14,6 +14,7 @@ This document explains **how the 14 agents interact with the 12 domain skills**,
 ### Agents (Coordinators with Deep Context)
 
 Agents are specialized AI coordinators, each with:
+
 - ✅ Fluent knowledge of ProTraderSim's rules (BIGINT, layering, RBAC, formulas)
 - ✅ Authority to make design decisions in their domain
 - ✅ List of preferred tools they can access
@@ -22,6 +23,7 @@ Agents are specialized AI coordinators, each with:
 **They are NOT code generators**—they're strategic thinkers who delegate implementation work.
 
 **14 Agents**:
+
 1. Orchestrator — Coordinator
 2. Schema — Database design
 3. Architect — System design & contracts
@@ -43,20 +45,20 @@ See [AGENTS.md](./AGENTS.md) for full registry.
 
 Skills are **reusable playbooks** for specific domains, stored in `.github/skills/*/SKILL.md`:
 
-| Skill | Loaded By | Purpose |
-|-------|-----------|---------|
-| `api-route-creation` | Coding Agent | Express.js: validation, error handling, RBAC checks, response shape |
-| `bigint-money-handling` | Security, Coding, Test Agents | Convert dollars↔cents, precision pitfalls, validation |
-| `database-schema-design` | Schema Agent | Table design, BigInt use, relationships, indexes |
-| `financial-calculations` | Debug, Security, Test Agents | P&L, margin, leverage formulas with BigInt proof |
-| `kyc-compliance-flow` | Security Agent | Document upload, review workflow, PII handling |
-| `orm-query-optimization` | Performance Agent | N+1 detection, index strategy, Prisma patterns |
-| `payment-integration` | Security, Coding Agents | Deposits, withdrawals, webhook security, idempotency |
-| `rbac-implementation` | Security, Coding Agents | Role hierarchy, permission checks, cascading access |
-| `socket-io-real-time` | Frontend, Performance Agents | Room management, auth, subscription patterns, broadcasting |
-| `state-management-trading` | Frontend Agent | Zustand stores, React Query, Socket.io sync |
-| `trading-calculations` | Debug, Test Agents | Position sizing, margin calls, stop-out, leverage limits |
-| `trading-ui-components` | Frontend, UI/UX Designer Agents | Charts, tables, order forms, Terminal Precision design |
+| Skill                      | Loaded By                       | Purpose                                                             |
+| -------------------------- | ------------------------------- | ------------------------------------------------------------------- |
+| `api-route-creation`       | Coding Agent                    | Express.js: validation, error handling, RBAC checks, response shape |
+| `bigint-money-handling`    | Security, Coding, Test Agents   | Convert dollars↔cents, precision pitfalls, validation               |
+| `database-schema-design`   | Schema Agent                    | Table design, BigInt use, relationships, indexes                    |
+| `financial-calculations`   | Debug, Security, Test Agents    | P&L, margin, leverage formulas with BigInt proof                    |
+| `kyc-compliance-flow`      | Security Agent                  | Document upload, review workflow, PII handling                      |
+| `orm-query-optimization`   | Performance Agent               | N+1 detection, index strategy, Prisma patterns                      |
+| `payment-integration`      | Security, Coding Agents         | Deposits, withdrawals, webhook security, idempotency                |
+| `rbac-implementation`      | Security, Coding Agents         | Role hierarchy, permission checks, cascading access                 |
+| `socket-io-real-time`      | Frontend, Performance Agents    | Room management, auth, subscription patterns, broadcasting          |
+| `state-management-trading` | Frontend Agent                  | Zustand stores, React Query, Socket.io sync                         |
+| `trading-calculations`     | Debug, Test Agents              | Position sizing, margin calls, stop-out, leverage limits            |
+| `trading-ui-components`    | Frontend, UI/UX Designer Agents | Charts, tables, order forms, Terminal Precision design              |
 
 ---
 
@@ -71,6 +73,7 @@ User: "Implement POST /api/deposits — traders submit USDT deposit via NowPayme
 ```
 
 **Copilot's Hidden Process**:
+
 1. Routing: "This is backend code" → **Coding Agent**
 2. Skill detection: "Mentions payment/deposit" → Load `payment-integration`
 3. Skill detection: "API route" → Load `api-route-creation`
@@ -78,6 +81,7 @@ User: "Implement POST /api/deposits — traders submit USDT deposit via NowPayme
 5. Skill detection: "Business rules" → Load the Coding Agent's full ProTraderSim context
 
 **Coding Agent then**:
+
 - Reads all loaded skills
 - Designs the route/service following each skill's patterns
 - Implements: request validation, money parsing, DB transaction, email notification
@@ -88,15 +92,15 @@ router.post(
   '/',
   authMiddleware,
   roleMiddleware(['TRADER']),
-  validateMiddleware(CreateDepositSchema),  // Validation from api-route-creation
+  validateMiddleware(CreateDepositSchema), // Validation from api-route-creation
   async (req, res) => {
     const result = await depositService.createDeposit(req.user.id, req.body)
-    res.json(successResponseShape)  // Response shape per api-route-creation
-  }
+    res.json(successResponseShape) // Response shape per api-route-creation
+  },
 )
 
 // Service implements per payment-integration & bigint-money-handling skills
-const depositAmountCents = parseMoney(req.body.amount_usd)  // BigInt conversion
+const depositAmountCents = parseMoney(req.body.amount_usd) // BigInt conversion
 const deposit = await createDepositInDbAndNowPayments(depositAmountCents)
 // ... webhook verification, idempotency, etc. per payment-integration skill
 ```
@@ -108,12 +112,14 @@ User: "GET /api/positions takes 1.2s, target <200ms. Traders see 50 open trades 
 ```
 
 **Copilot's Hidden Process**:
+
 1. Routing: "Performance issue" → **Performance Agent**
 2. Skill detection: "Database query" → Load `orm-query-optimization`
 3. Skill detection: "Real-time updates" → Load `socket-io-real-time`
 4. Skill detection: "Financial data" → Load `financial-calculations` context
 
 **Performance Agent then**:
+
 - Uses orm-query-optimization to find N+1 patterns
 - Suggests indexes per database-schema-design principles
 - Reviews Socket.io broadcast pattern per socket-io-real-time
@@ -144,21 +150,27 @@ Each `.github/skills/*/SKILL.md` contains:
 # [Skill Name] Skill
 
 ## Overview
+
 [When to use, what it covers]
 
 ## Anti-Patterns ❌
+
 [Common mistakes & why they're wrong]
+
 - If-else hell instead of early returns
 - Mixing Money and Price scales
 - N+1 queries in Prisma
 
 ## Patterns ✅
+
 [Best practices with code examples]
+
 - Validation → Service → Database layering
 - BigInt.toString() when serializing to JSON
 - Efficient Prisma includes to prevent N+1
 
 ## Checklist
+
 [ ] All money in BIGINT cents
 [ ] All prices in BIGINT scaled ×100000
 [ ] Division is always last
@@ -166,6 +178,7 @@ Each `.github/skills/*/SKILL.md` contains:
 [etc.]
 
 ## Code Examples
+
 [Real ProTraderSim examples showing the pattern]
 ```
 
@@ -176,12 +189,14 @@ Each `.github/skills/*/SKILL.md` contains:
 ### Data & Database Layer
 
 **Schema Agent** reads:
+
 - database-schema-design (table design, BigInt, normalization, indexing)
 - financial-calculations (for computed fields & audit trails)
 
 ### Backend API
 
 **Coding Agent** reads:
+
 - api-route-creation (Express.js patterns, validation, error handling)
 - bigint-money-handling (money parsing, precision, validation)
 - financial-calculations (when implementing FIL formulas)
@@ -194,18 +209,21 @@ Each `.github/skills/*/SKILL.md` contains:
 ### Frontend/UI
 
 **Frontend Agent** reads:
+
 - trading-ui-components (charts, tables, order forms)
 - state-management-trading (Zustand stores, React Query, Socket.io)
 - socket-io-real-time (subscription patterns)
 - api-route-creation (to understand API contracts)
 
 **UI/UX Designer** reads:
+
 - trading-ui-components (design patterns, accessibility)
 - state-management-trading (to understand interaction complexity)
 
 ### Quality & Security
 
 **Security Agent** reads:
+
 - rbac-implementation (permission enforcement)
 - kyc-compliance-flow (document handling, PII)
 - payment-integration (webhooks, idempotency)
@@ -213,24 +231,28 @@ Each `.github/skills/*/SKILL.md` contains:
 - bigint-money-handling (precision validation)
 
 **Test Agent** reads:
+
 - financial-calculations (for test cases)
 - trading-calculations (for edge cases)
 - bigint-money-handling (for precision tests)
 - api-route-creation (for E2E test patterns)
 
 **Performance Agent** reads:
+
 - orm-query-optimization (for query analysis)
 - socket-io-real-time (for broadcast efficiency)
 
 ### Support
 
 **Debug Agent** reads:
+
 - financial-calculations (when diagnosing calc errors)
 - trading-calculations (position/margin issues)
 - orm-query-optimization (slow query diagnosis)
 - socket-io-real-time (connection issues)
 
 **Architect Agent** reads:
+
 - All 12 skills (to understand constraints when designing)
 
 ---
@@ -268,6 +290,7 @@ Some skills build on others. When agents load multiple skills, they're applied i
 ```
 
 **Example**: When Coding Agent builds a trade opening endpoint:
+
 1. Database schema is locked (Schema Agent already designed it)
 2. Financial calcs are reviewed (margin, leverage, stop-out via skills)
 3. RBAC is enforced (traders can only open for themselves)
@@ -308,6 +331,7 @@ User: "Build the KYC upload form. Walk me through the kyc-compliance-flow skill 
 **Diagnosis**: Skill is either not loading, or agent chose a different approach.
 
 **Fix**:
+
 ```
 User: "Use the socket-io-real-time skill pattern for subscriptions — specifically the re-subscription on disconnect."
 ```
@@ -317,6 +341,7 @@ User: "Use the socket-io-real-time skill pattern for subscriptions — specifica
 **Diagnosis**: Agent didn't fully apply BigInt patterns from bigint-money-handling.
 
 **Fix**:
+
 1. Ask agent: "Show me the BigInt conversion per bigint-money-handling skill"
 2. Check: Does division happen last?
 3. Check: Are all types BigInt (not number/Decimal)?

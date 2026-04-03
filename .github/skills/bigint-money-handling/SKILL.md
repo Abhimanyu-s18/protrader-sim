@@ -1,6 +1,6 @@
 ---
 name: bigint-money-handling
-description: "Use when: converting between dollars and cents, storing/retrieving money values, validating monetary inputs, or formatting money for display. Ensures BigInt precision throughout payment flows, deposits, withdrawals, and API responses. Primary agents: Coding, Security, Test."
+description: 'Use when: converting between dollars and cents, storing/retrieving money values, validating monetary inputs, or formatting money for display. Ensures BigInt precision throughout payment flows, deposits, withdrawals, and API responses. Primary agents: Coding, Security, Test.'
 ---
 
 # BigInt Money Handling — ProTraderSim
@@ -19,6 +19,7 @@ User Balance = SUM(amount_cents) from ALL ledger_transactions for that user
 ```
 
 Example ledger entry:
+
 ```sql
 id | user_id | type       | amount_cents | balance_after_cents | created_at
 ---|---------|------------|--------------|---------------------|----
@@ -39,18 +40,18 @@ id | user_id | type       | amount_cents | balance_after_cents | created_at
 import { MoneyString, centsToDollars, dollarsToCents } from '@protrader/utils'
 
 // ❌ WRONG
-const cents = 100.50  // This is a number, not BigInt
+const cents = 100.5 // This is a number, not BigInt
 
 // ✅ CORRECT
-const centsValue: bigint = 10050n  // Exactly $100.50
+const centsValue: bigint = 10050n // Exactly $100.50
 
 // From string input (API request)
-const userInput = "100.50"  // User typed $100.50
-const centsValue: bigint = dollarsToCents(userInput)  // 10050n
+const userInput = '100.50' // User typed $100.50
+const centsValue: bigint = dollarsToCents(userInput) // 10050n
 
 // To string for API response
 const centsValue: bigint = 10050n
-const forDisplay: MoneyString = centsToDollars(centsValue)  // "10050" (stored as string)
+const forDisplay: MoneyString = centsToDollars(centsValue) // "10050" (stored as string)
 ```
 
 **Helper Functions** (from `packages/utils/src/money.ts`):
@@ -66,12 +67,12 @@ export function dollarsToCents(dollars: string): bigint {
   if (typeof dollars !== 'string') {
     throw new Error('dollarsToCents requires a string input (e.g., "100.50")')
   }
-  
+
   // Validate format: optional leading digits, optional two-decimal fraction
   if (!/^\d+(\.\d{1,2})?$/.test(dollars)) {
     throw new Error(`Invalid dollar format: "${dollars}". Expected format: "100.50"`)
   }
-  
+
   const [whole, fraction = '00'] = dollars.split('.')
   const frac = fraction.padEnd(2, '0').slice(0, 2)
   return BigInt(whole + frac)
@@ -83,7 +84,7 @@ export function dollarsToCents(dollars: string): bigint {
  * @returns "10050" (MoneyString for API)
  */
 export function centsToDollars(cents: bigint): MoneyString {
-  return cents.toString()  // API response format
+  return cents.toString() // API response format
 }
 
 /**
@@ -110,7 +111,7 @@ import { PriceString, priceToScaled, scaledToPrice } from '@protrader/utils'
 const PRICE_SCALE = 100000n
 
 // Quote: EUR/USD = 1.08500
-const scaledPrice = 108500n                 // Directly as BigInt (5 decimals × PRICE_SCALE)
+const scaledPrice = 108500n // Directly as BigInt (5 decimals × PRICE_SCALE)
 
 // Helper to convert string price to scaled BigInt (e.g., "1.08500" → 108500n)
 function priceToScaled(priceString: string): bigint {
@@ -127,13 +128,13 @@ function priceToScaled(priceString: string): bigint {
   return whole * PRICE_SCALE + scaledFraction
 }
 
-const scaledPrice2 = priceToScaled('1.08500')  // 108500n
+const scaledPrice2 = priceToScaled('1.08500') // 108500n
 
 // Back to readable price
-const readable = Number(scaledPrice) / Number(PRICE_SCALE)  // 1.08500
+const readable = Number(scaledPrice) / Number(PRICE_SCALE) // 1.08500
 
 // API response (PriceString)
-const forApi: PriceString = scaledPrice.toString()  // "108500"
+const forApi: PriceString = scaledPrice.toString() // "108500"
 ```
 
 ---
@@ -157,11 +158,11 @@ const WithdrawalSchema = z.object({
       } catch {
         return false
       }
-    }, 'Amount must be between $0.01 and $999,999.99')
+    }, 'Amount must be between $0.01 and $999,999.99'),
 })
 
 // Usage
-const input = req.body  // { amount: "150.50" }
+const input = req.body // { amount: "150.50" }
 const parsed = WithdrawalSchema.parse(input)
 // Now safe to use: dollarsToCents(parsed.amount)
 ```
@@ -172,7 +173,7 @@ const parsed = WithdrawalSchema.parse(input)
 async function recordDebit(
   userId: string,
   amountCents: bigint,
-  type: 'WITHDRAWAL' | 'TRADE_LOSS' | 'FEE'
+  type: 'WITHDRAWAL' | 'TRADE_LOSS' | 'FEE',
 ) {
   // 1. Validate amount is positive
   if (amountCents <= 0n) {
@@ -191,8 +192,8 @@ async function recordDebit(
       user_id: userId,
       type,
       amount_cents: (-amountCents).toString(),
-      balance_after_cents: (currentBalance - amountCents).toString()
-    }
+      balance_after_cents: (currentBalance - amountCents).toString(),
+    },
   })
 
   return entry
@@ -258,7 +259,7 @@ model LedgerTransaction {
   amount_cents    BigInt    // ✅ Store as BIGINT, never Decimal
   balance_after_cents BigInt
   created_at      DateTime  @default(now())
-  
+
   @@index([user_id, created_at])
 }
 
@@ -278,9 +279,9 @@ async function getBalance(userId: string): Promise<bigint> {
   const latestEntry = await prisma.ledger_transaction.findFirst({
     where: { user_id: userId },
     orderBy: { created_at: 'desc' },
-    select: { balance_after_cents: true }
+    select: { balance_after_cents: true },
   })
-  
+
   return latestEntry ? BigInt(latestEntry.balance_after_cents) : 0n
 }
 
@@ -289,10 +290,10 @@ async function computeBalance(userId: string): Promise<bigint> {
   const result = await prisma.ledger_transaction.aggregate({
     where: { user_id: userId },
     _sum: {
-      amount_cents: true  // Signed: debits negative, credits positive
-    }
+      amount_cents: true, // Signed: debits negative, credits positive
+    },
   })
-  
+
   return result._sum.amount_cents ?? 0n
 }
 ```
@@ -306,35 +307,35 @@ async function computeBalance(userId: string): Promise<bigint> {
 ```typescript
 async function processDeposit(
   userId: string,
-  amountDollars: string  // "100.50" from API
+  amountDollars: string, // "100.50" from API
 ): Promise<DepositRecord> {
   // 1. Convert to cents
   const amountCents = dollarsToCents(amountDollars)
-  
+
   // 2. Validate
   if (amountCents < 100n) {
     throw new Error('Minimum deposit is $1.00')
   }
-  
+
   // 3. Get current balance
   const oldBalance = await getBalance(userId)
   const newBalance = oldBalance + amountCents
-  
+
   // 4. Create ledger entry (atomic)
   const entry = await prisma.ledger_transaction.create({
     data: {
       user_id: userId,
       type: 'DEPOSIT',
       amount_cents: amountCents.toString(),
-      balance_after_cents: newBalance.toString()
-    }
+      balance_after_cents: newBalance.toString(),
+    },
   })
-  
+
   // 5. Return to API (as MoneyString)
   return {
     id: entry.id,
     amount: amountCents.toString() as MoneyString,
-    balance: newBalance.toString() as MoneyString
+    balance: newBalance.toString() as MoneyString,
   }
 }
 ```
@@ -342,41 +343,38 @@ async function processDeposit(
 ### Withdrawal Flow
 
 ```typescript
-async function processWithdrawal(
-  userId: string,
-  amountDollars: string
-): Promise<WithdrawalRecord> {
+async function processWithdrawal(userId: string, amountDollars: string): Promise<WithdrawalRecord> {
   // 1. Convert to cents
   const amountCents = dollarsToCents(amountDollars)
-  
+
   // 2. Check sufficient balance (with margin buffer)
   const availableBalance = await getAvailableBalance(userId)
   if (availableBalance < amountCents) {
     throw new Error('INSUFFICIENT_BALANCE')
   }
-  
+
   // 3. Create withdrawal request (ON_HOLD status)
   const withdrawal = await prisma.withdrawal_request.create({
     data: {
       user_id: userId,
       amount_cents: amountCents.toString(),
-      status: 'ON_HOLD'
-    }
+      status: 'ON_HOLD',
+    },
   })
-  
+
   // 4. Deduct from available (not yet confirmed)
   const oldBalance = await getBalance(userId)
   const newBalance = oldBalance - amountCents
-  
+
   await prisma.ledger_transaction.create({
     data: {
       user_id: userId,
       type: 'WITHDRAWAL_HOLD',
       amount_cents: (-amountCents).toString(),
-      balance_after_cents: newBalance.toString()
-    }
+      balance_after_cents: newBalance.toString(),
+    },
   })
-  
+
   return withdrawal
 }
 ```
@@ -386,6 +384,7 @@ async function processWithdrawal(
 ## ✅ Implementation Checklist
 
 ### Before Touching Money
+
 - [ ] Am I using BigInt (not number/float)?
 - [ ] Did I validate input with Zod schema?
 - [ ] Am I storing in a ledger entry, not a balance field?
@@ -393,6 +392,7 @@ async function processWithdrawal(
 - [ ] Is this an atomic transaction (all or nothing)?
 
 ### For Every Money Operation
+
 - [ ] Is the amount positive or negative as intended?
 - [ ] Did I check sufficient balance before debit?
 - [ ] Did I format response as MoneyString?
@@ -403,14 +403,14 @@ async function processWithdrawal(
 
 ## 🚨 Common Mistakes
 
-| ❌ Wrong | ✅ Correct |
-|---------|-----------|
-| Store balance in `trader_wallet.balance` field | Compute from `ledger_transactions` SUM |
-| Use `Decimal` type in Prisma | Use `BigInt` |
-| `const cents = dollars * 100` (as number) | `dollarsToCents("100.50")` → 10050n |
-| API response: `{ balance: 100000 }` | API response: `{ balance: "100000" }` |
-| Check balance after transaction | Check balance **before** and use in calc |
-| `new BigInt(dollars * 100)` | `dollarsToCents(dollars)` |
+| ❌ Wrong                                       | ✅ Correct                               |
+| ---------------------------------------------- | ---------------------------------------- |
+| Store balance in `trader_wallet.balance` field | Compute from `ledger_transactions` SUM   |
+| Use `Decimal` type in Prisma                   | Use `BigInt`                             |
+| `const cents = dollars * 100` (as number)      | `dollarsToCents("100.50")` → 10050n      |
+| API response: `{ balance: 100000 }`            | API response: `{ balance: "100000" }`    |
+| Check balance after transaction                | Check balance **before** and use in calc |
+| `new BigInt(dollars * 100)`                    | `dollarsToCents(dollars)`                |
 
 ---
 

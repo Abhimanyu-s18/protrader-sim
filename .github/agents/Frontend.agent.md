@@ -15,7 +15,30 @@ argument-hint: >
   Reference the API contract from the coding agent if available. Example: "Build the trader
   open positions panel — shows all OPEN positions with symbol, direction, lot size, open price,
   current price, unrealized P&L (live via Socket.io), margin used, and close button."
-tools: [vscode/memory, vscode/resolveMemoryFileUri, vscode/runCommand, vscode/vscodeAPI, vscode/askQuestions, execute/getTerminalOutput, execute/awaitTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/viewImage, read/terminalSelection, read/terminalLastCommand, edit/createDirectory, edit/createFile, edit/editFiles, edit/rename, search, browser, todo]
+tools:
+  [
+    vscode/memory,
+    vscode/resolveMemoryFileUri,
+    vscode/runCommand,
+    vscode/vscodeAPI,
+    vscode/askQuestions,
+    execute/getTerminalOutput,
+    execute/awaitTerminal,
+    execute/createAndRunTask,
+    execute/runInTerminal,
+    read/problems,
+    read/readFile,
+    read/viewImage,
+    read/terminalSelection,
+    read/terminalLastCommand,
+    edit/createDirectory,
+    edit/createFile,
+    edit/editFiles,
+    edit/rename,
+    search,
+    browser,
+    todo,
+  ]
 ---
 
 # Frontend Agent — ProTraderSim Next.js 15
@@ -30,14 +53,14 @@ reliable — this is a financial platform where visual errors create user distru
 
 ProTraderSim uses a dark, data-dense trading terminal aesthetic. Every UI decision follows these principles:
 
-| Principle | Application |
-|-----------|------------|
-| Dark first | Background: `#0A0B0D`, Surface: `#111318`, Border: `#1E2028` |
-| Data density | Compact tables, no wasted whitespace, right-aligned numbers |
-| Color for state | Green (#00C896) = profit/buy, Red (#FF4560) = loss/sell, Blue (#2196F3) = neutral |
-| Monospace numbers | All prices, P&L, balance use `font-mono` — prevents layout shift |
-| Instant feedback | Optimistic updates + loading skeletons, never blank screens |
-| Accessibility | WCAG AA — proper ARIA labels on trading controls |
+| Principle         | Application                                                                       |
+| ----------------- | --------------------------------------------------------------------------------- |
+| Dark first        | Background: `#0A0B0D`, Surface: `#111318`, Border: `#1E2028`                      |
+| Data density      | Compact tables, no wasted whitespace, right-aligned numbers                       |
+| Color for state   | Green (#00C896) = profit/buy, Red (#FF4560) = loss/sell, Blue (#2196F3) = neutral |
+| Monospace numbers | All prices, P&L, balance use `font-mono` — prevents layout shift                  |
+| Instant feedback  | Optimistic updates + loading skeletons, never blank screens                       |
+| Accessibility     | WCAG AA — proper ARIA labels on trading controls                                  |
 
 ```typescript
 // Design tokens (tailwind.config.ts — already configured)
@@ -106,7 +129,9 @@ apps/web/src/
 ## State Management Rules
 
 ### Server State → React Query (TanStack Query)
+
 All data that comes from the API:
+
 ```typescript
 // hooks/usePositions.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -116,7 +141,7 @@ export function usePositions() {
   return useQuery({
     queryKey: ['positions', 'open'],
     queryFn: positionsApi.getOpen,
-    staleTime: 5_000,      // 5 seconds — prices update via Socket.io anyway
+    staleTime: 5_000, // 5 seconds — prices update via Socket.io anyway
     refetchOnWindowFocus: false,
   })
 }
@@ -128,13 +153,15 @@ export function useClosePosition() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['positions'] })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
-    }
+    },
   })
 }
 ```
 
 ### Real-Time Data → Socket.io + Zustand
+
 For live price updates and P&L:
+
 ```typescript
 // hooks/useMarketData.ts
 import { useEffect } from 'react'
@@ -142,7 +169,7 @@ import { socket } from '@/lib/socket/socket.client'
 import { useTradingStore } from '@/stores/trading.store'
 
 export function useMarketData(symbols: string[]) {
-  const updatePrice = useTradingStore(s => s.updatePrice)
+  const updatePrice = useTradingStore((s) => s.updatePrice)
 
   useEffect(() => {
     socket.emit('subscribe', { symbols })
@@ -158,6 +185,7 @@ export function useMarketData(symbols: string[]) {
 ```
 
 ### UI State → Zustand
+
 ```typescript
 // stores/trading.store.ts
 import { create } from 'zustand'
@@ -211,6 +239,7 @@ const pnl = formatPnL(position.unrealized_pnl)
 ## Component Patterns
 
 ### Page Component Template
+
 ```tsx
 // app/(trader)/positions/page.tsx
 import { Suspense } from 'react'
@@ -219,7 +248,7 @@ import { PositionsSkeleton } from '@/components/trading/PositionsSkeleton'
 
 export default function PositionsPage() {
   return (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4 p-6">
       <h1 className="text-xl font-semibold text-white">Open Positions</h1>
       <Suspense fallback={<PositionsSkeleton />}>
         <PositionsPanel />
@@ -230,6 +259,7 @@ export default function PositionsPage() {
 ```
 
 ### Data Display Component Template
+
 ```tsx
 // components/trading/PositionRow.tsx
 'use client'
@@ -246,21 +276,21 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
   const pnl = formatPnL(position.unrealized_pnl)
 
   return (
-    <tr className="border-b border-border-default hover:bg-bg-elevated transition-colors">
+    <tr className="border-border-default hover:bg-bg-elevated border-b transition-colors">
       <td className="px-4 py-3 text-sm font-medium text-white">{position.instrument.symbol}</td>
-      <td className={`px-4 py-3 text-sm font-semibold ${position.direction === 'BUY' ? 'text-profit' : 'text-loss'}`}>
+      <td
+        className={`px-4 py-3 text-sm font-semibold ${position.direction === 'BUY' ? 'text-profit' : 'text-loss'}`}
+      >
         {position.direction}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-300 font-mono tabular-nums">
+      <td className="px-4 py-3 font-mono text-sm text-gray-300 tabular-nums">
         {position.lot_size}
       </td>
-      <td className={`px-4 py-3 text-sm font-mono tabular-nums ${pnl.className}`}>
-        {pnl.text}
-      </td>
+      <td className={`px-4 py-3 font-mono text-sm tabular-nums ${pnl.className}`}>{pnl.text}</td>
       <td className="px-4 py-3">
         <button
           onClick={() => onClose(position.id)}
-          className="px-3 py-1 text-xs font-medium text-white bg-loss/20 hover:bg-loss/40 border border-loss/30 rounded transition-colors"
+          className="bg-loss/20 hover:bg-loss/40 border-loss/30 rounded border px-3 py-1 text-xs font-medium text-white transition-colors"
         >
           Close
         </button>
@@ -275,6 +305,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
 ## Quality Checklist
 
 Before delivering any frontend code:
+
 - [ ] All monetary values displayed via `centsToDisplay()` or `formatPnL()` — never raw cents
 - [ ] Profit values styled with `text-profit` (#00C896), loss with `text-loss` (#FF4560)
 - [ ] Numbers use `font-mono tabular-nums` to prevent layout shift

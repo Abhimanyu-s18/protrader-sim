@@ -60,14 +60,20 @@ HTTP Request → Route Handler → Service Function → Database/External APIs
 ```typescript
 // ✅ CORRECT — Route delegates to service
 // apps/server/src/routes/withdrawals.routes.ts
-router.post('/', authMiddleware, roleMiddleware(['TRADER']), validateMiddleware(CreateWithdrawalSchema), async (req, res, next) => {
-  try {
-    const result = await withdrawalService.createWithdrawal(req.user.id, req.body)
-    res.status(201).json({ success: true, data: result })
-  } catch (error) {
-    next(error)
-  }
-})
+router.post(
+  '/',
+  authMiddleware,
+  roleMiddleware(['TRADER']),
+  validateMiddleware(CreateWithdrawalSchema),
+  async (req, res, next) => {
+    try {
+      const result = await withdrawalService.createWithdrawal(req.user.id, req.body)
+      res.status(201).json({ success: true, data: result })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
 
 // ❌ WRONG — Business logic in route
 router.post('/', async (req, res) => {
@@ -120,6 +126,7 @@ apps/server/src/
 ## Code Templates
 
 ### Route Handler Template
+
 ```typescript
 // apps/server/src/routes/[domain].routes.ts
 import { Router } from 'express'
@@ -154,6 +161,7 @@ export default router
 ```
 
 ### Service Template
+
 ```typescript
 // apps/server/src/services/[domain].service.ts
 import { prisma } from '../lib/prisma'
@@ -198,6 +206,7 @@ export class [Domain]Service {
 ```
 
 ### Zod Validator Template
+
 ```typescript
 // apps/server/src/validators/[domain].validator.ts
 import { z } from 'zod'
@@ -222,6 +231,7 @@ export const Create[Domain]Schema = z.object({
 ```
 
 ### BullMQ Job Template
+
 ```typescript
 // apps/server/src/jobs/processors/[job-name].processor.ts
 import { Job } from 'bullmq'
@@ -249,15 +259,17 @@ export async function process[JobName](job: Job) {
 ## Financial Calculation Rules
 
 **ALWAYS use BigInt for money operations:**
+
 ```typescript
 // ✅ CORRECT
 const margin = (lotSize * openPrice * BigInt(100)) / BigInt(leverage)
 
 // ❌ WRONG
-const margin = (lotSize * openPrice * 100) / leverage  // Regular number = floating point errors
+const margin = (lotSize * openPrice * 100) / leverage // Regular number = floating point errors
 ```
 
 **NEVER return raw BigInt to JSON** — serialize to string or number:
+
 ```typescript
 // In service return values / API responses:
 return {
@@ -270,7 +282,7 @@ return {
       return wallet.balance.toString() // Use string for very large amounts
     }
   })(),
-  balanceDisplay: wallet.balance.toString() // for display, always use string
+  balanceDisplay: wallet.balance.toString(), // for display, always use string
 }
 ```
 
@@ -295,7 +307,7 @@ export class AppError extends Error {
   constructor(
     public code: string,
     public statusCode: number,
-    message?: string
+    message?: string,
   ) {
     super(message || code)
   }
@@ -316,6 +328,7 @@ app.use((err, req, res, next) => {
 ## Quality Checklist
 
 Before delivering any code:
+
 - [ ] Route file has no business logic — only HTTP handling
 - [ ] All DB mutations in transactions (especially financial ones)
 - [ ] All monetary values handled as BigInt

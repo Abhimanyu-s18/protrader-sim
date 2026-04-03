@@ -1,6 +1,6 @@
 ---
 name: socket-io-real-time
-description: "Use when: implementing real-time features, setting up WebSocket price feeds, managing user subscriptions, broadcasting market data, or handling live position updates. Ensures proper room management, authentication, and scalable broadcasting. Primary agents: Coding, Frontend, Architecture."
+description: 'Use when: implementing real-time features, setting up WebSocket price feeds, managing user subscriptions, broadcasting market data, or handling live position updates. Ensures proper room management, authentication, and scalable broadcasting. Primary agents: Coding, Frontend, Architecture.'
 ---
 
 # Socket.io Real-Time — ProTraderSim
@@ -26,7 +26,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:3002',
   'https://app.protrader.com',
-  'https://platform.protrader.com'
+  'https://platform.protrader.com',
 ]
 
 const io = new SocketServer(server, {
@@ -38,10 +38,10 @@ const io = new SocketServer(server, {
         callback(new Error('CORS_NOT_ALLOWED'))
       }
     },
-    credentials: true
+    credentials: true,
   },
-  transports: ['websocket', 'polling'],  // Fallback to polling
-  maxHttpBufferSize: 1e6  // 1 MB max message
+  transports: ['websocket', 'polling'], // Fallback to polling
+  maxHttpBufferSize: 1e6, // 1 MB max message
 })
 
 // Export for use in routes
@@ -69,19 +69,19 @@ if (!JWT_PUBLIC_KEY) {
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth.token
-    
+
     if (!token) {
       return next(new Error('NO_TOKEN'))
     }
 
     // Verify JWT
     const decoded = jwt.verify(token, JWT_PUBLIC_KEY) as any
-    
+
     // Attach user to socket
     socket.data.userId = decoded.sub
     socket.data.userEmail = decoded.email
     socket.data.roles = decoded.roles
-    
+
     next()
   } catch (err) {
     next(new Error('INVALID_TOKEN'))
@@ -104,11 +104,11 @@ export { io }
 
 ```typescript
 // Private user rooms
-const userRoom = `user:${userId}`              // user:user_123
+const userRoom = `user:${userId}` // user:user_123
 const userPositionsRoom = `user:${userId}:positions`
 
 // Broadcast rooms (price feeds)
-const priceRoom = `prices:${symbol}`           // prices:EUR_USD
+const priceRoom = `prices:${symbol}` // prices:EUR_USD
 const instrumentRoom = `instruments:${symbol}` // Overall instrument updates
 
 // Admin rooms
@@ -123,24 +123,24 @@ const auditRoom = 'admin:audit'
 io.on('connection', (socket) => {
   // User joins their private room automatically
   socket.join(`user:${socket.data.userId}`)
-  
+
   socket.on('subscribe:prices', ({ symbols }: { symbols: string[] }) => {
     // Validate: max 20 symbols per connection
     if (symbols.length > 20) {
       socket.emit('error', { code: 'TOO_MANY_SUBSCRIPTIONS' })
       return
     }
-    
+
     // Join price rooms
-    symbols.forEach(symbol => {
+    symbols.forEach((symbol) => {
       socket.join(`prices:${symbol}`)
     })
-    
+
     socket.emit('subscribed', { symbols })
   })
-  
+
   socket.on('unsubscribe:prices', ({ symbols }: { symbols: string[] }) => {
-    symbols.forEach(symbol => {
+    symbols.forEach((symbol) => {
       socket.leave(`prices:${symbol}`)
     })
   })
@@ -163,33 +163,33 @@ export function emitPriceUpdate(
     mid_scaled: bigint
     change_bps: number
     timestamp: Date
-  }
+  },
 ) {
   io.to(`prices:${symbol}`).emit('price:update', {
     symbol,
-    bid: data.bid_scaled.toString(),       // MoneyString
+    bid: data.bid_scaled.toString(), // MoneyString
     ask: data.ask_scaled.toString(),
     mid: data.mid_scaled.toString(),
     change_bps: data.change_bps,
-    ts: data.timestamp.toISOString()
+    ts: data.timestamp.toISOString(),
   })
 }
 
 // Usage in price feed service
 async function updatePrices() {
   const prices = await twelve_data.getLatestPrices()
-  
+
   for (const price of prices) {
     const bid = price.bid * PRICE_SCALE
     const ask = price.ask * PRICE_SCALE
     const mid = (bid + ask) / 2n
-    
+
     emitPriceUpdate(price.symbol, {
       bid_scaled: bid,
       ask_scaled: ask,
       mid_scaled: mid,
       change_bps: price.changeBps,
-      timestamp: new Date()
+      timestamp: new Date(),
     })
   }
 }
@@ -230,33 +230,26 @@ async function openPosition(traderId: string, ...) {
 ### Trade Updates (To Trader Only)
 
 ```typescript
-export function emitToUser(
-  userId: string,
-  event: string,
-  data: any
-) {
+export function emitToUser(userId: string, event: string, data: any) {
   io.to(`user:${userId}`).emit(event, data)
 }
 
 // Usage
 socket.on('close:position', async ({ position_id }) => {
   try {
-    const position = await positionsService.closeTrade(
-      socket.data.userId,
-      position_id
-    )
-    
+    const position = await positionsService.closeTrade(socket.data.userId, position_id)
+
     // Notify trader
     emitToUser(socket.data.userId, 'position:closed', {
       position_id: position.id,
       close_price: position.close_rate_scaled.toString(),
-      pnl: position.pnl_cents.toString()
+      pnl: position.pnl_cents.toString(),
     })
-    
+
     // Notify admin (if monitoring)
     io.to('admin:panel').emit('trade:closed', {
       user_id: socket.data.userId,
-      position_id: position.id
+      position_id: position.id,
     })
   } catch (err) {
     socket.emit('error', { code: err.code, message: err.message })
@@ -271,26 +264,28 @@ export function emitMarginCall(userId: string) {
   io.to(`user:${userId}`).emit('margin:call', {
     level: 'WARNING',
     message: 'Your margin level has fallen below 100%. Please close some positions.',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   })
 }
 
 // Background job that runs frequently
 async function checkMarginCalls() {
   const users = await getUsersWithOpenPositions()
-  
+
   for (const user of users) {
     const metrics = await calculateMetrics(user.id)
-    
-    if (metrics.margin_level_bps <= 10000n) {  // 100%
+
+    if (metrics.margin_level_bps <= 10000n) {
+      // 100%
       emitMarginCall(user.id)
     }
-    
-    if (metrics.margin_level_bps <= 5000n) {   // 50% — auto-close
+
+    if (metrics.margin_level_bps <= 5000n) {
+      // 50% — auto-close
       await autoClosePositions(user.id)
       emitToUser(user.id, 'stop:out', {
         message: 'Positions auto-closed due to stop-out.',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
     }
   }
@@ -323,18 +318,19 @@ Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
 
 ```typescript
 // Monitor connections per user
-const MAX_CONNECTIONS_PER_USER = 3  // Allow 3 devices
+const MAX_CONNECTIONS_PER_USER = 3 // Allow 3 devices
 
 io.use((socket, next) => {
   const userId = socket.data.userId
   // Convert iterator to array before filtering
-  const existingConnections = Array.from(io.sockets.sockets.values())
-    .filter(s => s.data.userId === userId)
-  
+  const existingConnections = Array.from(io.sockets.sockets.values()).filter(
+    (s) => s.data.userId === userId,
+  )
+
   if (existingConnections.length >= MAX_CONNECTIONS_PER_USER) {
     return next(new Error('TOO_MANY_CONNECTIONS'))
   }
-  
+
   next()
 })
 ```
@@ -344,16 +340,16 @@ io.use((socket, next) => {
 ```typescript
 // Limit price update frequency to 100ms per symbol
 const PRICE_UPDATE_INTERVALS = new Map<string, number>()
-const MIN_INTERVAL = 100  // milliseconds
+const MIN_INTERVAL = 100 // milliseconds
 
 export function emitPriceUpdate(symbol: string, data: any) {
   const lastUpdate = PRICE_UPDATE_INTERVALS.get(symbol) || 0
   const now = Date.now()
-  
+
   if (now - lastUpdate < MIN_INTERVAL) {
-    return  // Skip this update
+    return // Skip this update
   }
-  
+
   PRICE_UPDATE_INTERVALS.set(symbol, now)
   io.to(`prices:${symbol}`).emit('price:update', data)
 }
@@ -373,7 +369,7 @@ socket.on('get:user-balance', ({ user_id }) => {
     socket.emit('error', { code: 'FORBIDDEN' })
     return
   }
-  
+
   // OK, return data
   const balance = await getBalance(user_id)
   socket.emit('user:balance', { balance })
@@ -389,7 +385,7 @@ socket.on('join:admin', () => {
     socket.emit('error', { code: 'FORBIDDEN' })
     return
   }
-  
+
   socket.join('admin:audit')
 })
 ```
@@ -404,8 +400,8 @@ import io from 'socket.io-client'
 
 const socket = io('http://localhost:4000', {
   auth: {
-    token: getAuthToken()  // JWT from localStorage
-  }
+    token: getAuthToken(), // JWT from localStorage
+  },
 })
 
 // Subscribe to prices
@@ -451,14 +447,14 @@ socket.on('position:closed', (data) => {
 
 ## 🚨 Common Mistakes
 
-| ❌ Wrong | ✅ Correct |
-|---------|-----------|
+| ❌ Wrong               | ✅ Correct                             |
+| ---------------------- | -------------------------------------- |
 | Trust room from client | Verify in middleware (use socket.data) |
-| No subscription limits | Max 20 per connection |
-| Broadcast without auth | Always verify user ownership |
-| Send large messages | Limit to 1 MB |
-| No fallback transport | Include polling as fallback |
-| Cache prices in memory | Broadcast fresh data each tick |
+| No subscription limits | Max 20 per connection                  |
+| Broadcast without auth | Always verify user ownership           |
+| Send large messages    | Limit to 1 MB                          |
+| No fallback transport  | Include polling as fallback            |
+| Cache prices in memory | Broadcast fresh data each tick         |
 
 ---
 

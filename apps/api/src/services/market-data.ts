@@ -525,6 +525,21 @@ function calcChangeBps(percentChange: number | undefined): number {
   return Math.round(percentChange * 100)
 }
 
+/**
+ * Get market data connection status for health checks.
+ */
+export function getMarketDataStatus(): {
+  connected: boolean
+  subscribedSymbols: number
+  reconnectAttempts: number
+} {
+  return {
+    connected: isRunning && ws !== null && ws.readyState === WebSocket.OPEN,
+    subscribedSymbols: instrumentMap.size,
+    reconnectAttempts,
+  }
+}
+
 // ── Stop Loss / Take Profit / Trailing Stop Checks ─────────────
 
 /**

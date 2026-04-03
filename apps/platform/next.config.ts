@@ -6,9 +6,7 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['@protrader/ui'],
   },
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: '*.r2.cloudflarestorage.com' },
-    ],
+    remotePatterns: [{ protocol: 'https', hostname: '*.r2.cloudflarestorage.com' }],
   },
 }
 

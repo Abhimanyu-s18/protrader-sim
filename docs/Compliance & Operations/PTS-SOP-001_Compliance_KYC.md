@@ -1,13 +1,16 @@
 # ProTraderSim
+
 ## PTS-SOP-001 — Compliance & KYC Operations Standard
+
 **Version 1.0 | March 2026 | CONFIDENTIAL**
-*Trader Registration, Onboarding, and KYC Review Standard Operating Procedure*
+_Trader Registration, Onboarding, and KYC Review Standard Operating Procedure_
 
 ---
 
 ## 1. Regulatory Context
 
 ProTraderSim operates under dual regulatory licences:
+
 - **FSC Mauritius** — Financial Services Commission, Mauritius
 - **FSA Seychelles** — Financial Services Authority, Seychelles
 
@@ -24,6 +27,7 @@ ProTraderSim operates exclusively under an Introducing Broker (IB) model. Every 
 **Registration URL pattern:** `auth.protrader.com/register?ref={pool_code}`
 
 **System behavior on Pool Code validation:**
+
 - Pool Code is validated server-side against `staff.pool_code`
 - If valid: `users.agent_id` is set to the staff record's ID at registration
 - If invalid or missing: registration returns error `INVALID_POOL_CODE`
@@ -34,6 +38,7 @@ ProTraderSim operates exclusively under an Introducing Broker (IB) model. Every 
 ## 3. Restricted Jurisdictions
 
 Registrations from the following jurisdictions are automatically blocked at the API level:
+
 - OFAC-sanctioned countries (current OFAC list maintained in platform config)
 - Countries on UN sanctions list
 - Countries on EU sanctions list
@@ -55,6 +60,7 @@ Blocking is applied through server-side validation of multiple data points, not 
 ## 4. Registration Requirements
 
 **Mandatory registration fields:**
+
 - Full legal name (as it appears on government ID)
 - Email address (verified via confirmation link)
 - Phone number (with country code)
@@ -65,12 +71,14 @@ Blocking is applied through server-side validation of multiple data points, not 
 - Risk Disclosure acceptance (checkbox, logged with timestamp)
 
 **Recommended security enhancements:**
+
 - Password breach checking (e.g., Have I Been Pwned API integration)
 - Passwordless authentication options (WebAuthn/passkeys)
 
-*Note: Multi-Factor Authentication (MFA) is not required at registration but is enforced before first withdrawal. See Section 5 (Security Requirements) for MFA policy.*
+_Note: Multi-Factor Authentication (MFA) is not required at registration but is enforced before first withdrawal. See Section 5 (Security Requirements) for MFA policy._
 
 **Auto-generated at registration:**
+
 - Account Number: `PT` + zero-padded 8-digit sequence (e.g. PT00000001)
 - Lead ID: `LEAD` + zero-padded 10-digit sequence (e.g. LEAD0000000001)
 - kyc_status: `NOT_STARTED`
@@ -83,12 +91,14 @@ Blocking is applied through server-side validation of multiple data points, not 
 ### Multi-Factor Authentication (MFA) Policy
 
 **Enforcement Timing:**
+
 - MFA enrollment is **mandatory before the first withdrawal attempt**
 - All traders (new and existing) must enable MFA before processing any withdrawal after [EFFECTIVE_DATE]
 - If MFA is not completed, the withdrawal is paused with a prompt to complete MFA setup
 - Grace period: Existing traders with accounts created before [CUTOFF_DATE] have until [GRACE_PERIOD_END] to enable MFA
 
 **UX Flow:**
+
 1. Trader initiates withdrawal request
 2. System checks if `users.mfa_enabled` = true
 3. If false: display modal "Enable Multi-Factor Authentication" with setup wizard
@@ -96,11 +106,13 @@ Blocking is applied through server-side validation of multiple data points, not 
 5. Thereafter, all sensitive operations (withdrawal, bulk settings change) require MFA verification
 
 **Accepted MFA Methods:**
+
 - **Time-based One-Time Password (TOTP)**: Authenticator apps (Google Authenticator, Authy, Microsoft Authenticator)
 - **SMS**: One-time code sent to registered phone number (fallback method)
 - **WebAuthn/FIDO2**: Hardware security keys or platform authenticators (recommended for high-balance accounts)
 
 **Method Preferences & Compliance:**
+
 - TOTP is the preferred method (stored locally, no secondary communication required)
 - SMS is available as a fallback but requires phone number verification
 - WebAuthn is strongly recommended for accounts managing balances > $25,000
@@ -117,11 +129,11 @@ Blocking is applied through server-side validation of multiple data points, not 
 
 ProTraderSim uses a three-level progressive verification framework.
 
-| Level | Label | Requirements | Verification Method | Account Capabilities |
-|---|---|---|---|---|
-| L1 | Email Verified | Email address confirmed via verification link | Automatic (system) | Account created. No trading. No deposit. KYC wizard presented. |
-| L2 | Identity Verified | Government-issued photo ID (front + back) | IB Agent preliminary review — 24-hour SLA | Trading enabled. Deposits via NowPayments unlocked. Withdrawal restricted to deposited amount. |
-| L3 | Fully Verified | L2 documents + proof of address + selfie capture | IB Team Leader final approval — 48-hour SLA | All features unlocked. Withdrawal unrestricted. Bonus eligibility active. |
+| Level | Label             | Requirements                                     | Verification Method                         | Account Capabilities                                                                           |
+| ----- | ----------------- | ------------------------------------------------ | ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| L1    | Email Verified    | Email address confirmed via verification link    | Automatic (system)                          | Account created. No trading. No deposit. KYC wizard presented.                                 |
+| L2    | Identity Verified | Government-issued photo ID (front + back)        | IB Agent preliminary review — 24-hour SLA   | Trading enabled. Deposits via NowPayments unlocked. Withdrawal restricted to deposited amount. |
+| L3    | Fully Verified    | L2 documents + proof of address + selfie capture | IB Team Leader final approval — 48-hour SLA | All features unlocked. Withdrawal unrestricted. Bonus eligibility active.                      |
 
 **No trading is permitted before kyc_level reaches L2 (kyc_status = 'APPROVED').**
 This is an absolute product policy enforced at the API level via `requireKYC` middleware.
@@ -132,22 +144,22 @@ This is an absolute product policy enforced at the API level via `requireKYC` mi
 
 ### 6.1 Identity Documents (L2 — Mandatory)
 
-| Type | Requirements |
-|---|---|
-| Passport | Full name, date of birth, nationality, passport number, expiry date, photo, all four corners visible |
-| National ID Card | Full name, DOB, ID number, expiry (front + back). All corners visible. |
-| Driving Licence | Full name, DOB, licence number, expiry. All corners visible. |
-| Other | As specified by compliance team in the kyc_documents review notes |
+| Type             | Requirements                                                                                         |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| Passport         | Full name, date of birth, nationality, passport number, expiry date, photo, all four corners visible |
+| National ID Card | Full name, DOB, ID number, expiry (front + back). All corners visible.                               |
+| Driving Licence  | Full name, DOB, licence number, expiry. All corners visible.                                         |
+| Other            | As specified by compliance team in the kyc_documents review notes                                    |
 
 ### 6.2 Address Documents (L3 — Required for Full Verification)
 
-| Type | Requirements |
-|---|---|
-| Utility Bill | Full name, current residential address, dated within 3 months |
-| Bank Statement | Full name, current residential address, dated within 3 months |
-| Credit Card Statement | Full name, address, dated within 3 months |
-| Local Authority Tax Bill | Full name, address, dated within 12 months |
-| Other | As specified by compliance team |
+| Type                     | Requirements                                                  |
+| ------------------------ | ------------------------------------------------------------- |
+| Utility Bill             | Full name, current residential address, dated within 3 months |
+| Bank Statement           | Full name, current residential address, dated within 3 months |
+| Credit Card Statement    | Full name, address, dated within 3 months                     |
+| Local Authority Tax Bill | Full name, address, dated within 12 months                    |
+| Other                    | As specified by compliance team                               |
 
 #### 6.2.1 Trading Profit Documentation (L3 — Required for Profit Withdrawals)
 
@@ -155,25 +167,28 @@ L2 traders may withdraw only their original deposited amount. To withdraw tradin
 
 **Acceptable Profit Documentation Artifacts:**
 
-| Artifact | Description | Required Elements |
-|---|---|---|
-| Trade History Export | Complete transaction log from the ProTraderSim platform | All closed trades with timestamps, instrument, direction, lot size, open/close prices, realized P&L |
-| Account Statement | Official platform statement showing trading activity | Date range, opening/closing balance, all transactions, fees, net P&L |
-| P&L Report | Profit and Loss summary from the trading platform | Realized P&L, unrealized P&L (if applicable), date range, account ID |
-| Third-Party Verification | Broker statement from linked external account (if applicable) | Official letterhead, account holder name matching KYC, trade confirmations |
+| Artifact                 | Description                                                   | Required Elements                                                                                   |
+| ------------------------ | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Trade History Export     | Complete transaction log from the ProTraderSim platform       | All closed trades with timestamps, instrument, direction, lot size, open/close prices, realized P&L |
+| Account Statement        | Official platform statement showing trading activity          | Date range, opening/closing balance, all transactions, fees, net P&L                                |
+| P&L Report               | Profit and Loss summary from the trading platform             | Realized P&L, unrealized P&L (if applicable), date range, account ID                                |
+| Third-Party Verification | Broker statement from linked external account (if applicable) | Official letterhead, account holder name matching KYC, trade confirmations                          |
 
 **Required Metadata for All Submissions:**
+
 - **Timestamp**: ISO 8601 format (UTC) of document generation
 - **Transaction IDs**: Unique identifiers for each trade (platform-generated)
 - **Date Range**: Clear start and end dates covering the profit period
 - **Account Identifier**: Internal ProTraderSim account ID
 
 **Review Authority:**
+
 - **Primary Reviewer:** IB Team Leader or designated KYC Review Officer
 - **Escalation:** Legal Counsel (Krishantha) for amounts >$50,000 or suspicious patterns
 - **SLA:** 48 hours from submission to approval/rejection
 
 **Submission Process:**
+
 1. L2 trader submits withdrawal request exceeding deposit amount
 2. System flags request as "Profit Withdrawal — Documentation Required"
 3. Trader uploads profit documentation via KYC portal (separate from address docs)
@@ -182,13 +197,13 @@ L2 traders may withdraw only their original deposited amount. To withdraw tradin
 
 **Technical Requirements:**
 
-| Requirement | Rule |
-|---|---|
-| Accepted formats | PDF (preferred), CSV (for trade history exports) |
-| Maximum file size | 10 MB per file |
-| Minimum retention period | 7 years from withdrawal date (regulatory requirement) |
-| Storage | Cloudflare R2 private bucket under `/kyc/profit-docs/` prefix |
-| Access control | Presigned URLs with 15-minute expiry; audit log of all views |
+| Requirement              | Rule                                                          |
+| ------------------------ | ------------------------------------------------------------- |
+| Accepted formats         | PDF (preferred), CSV (for trade history exports)              |
+| Maximum file size        | 10 MB per file                                                |
+| Minimum retention period | 7 years from withdrawal date (regulatory requirement)         |
+| Storage                  | Cloudflare R2 private bucket under `/kyc/profit-docs/` prefix |
+| Access control           | Presigned URLs with 15-minute expiry; audit log of all views  |
 
 **Reviewer Acceptance Checklist:**
 
@@ -203,6 +218,7 @@ Before approving profit documentation, the reviewer must verify:
 - [ ] **Completeness:** All pages present; no missing transactions in the reported period
 
 **Rejection Reasons (Document in Review Notes):**
+
 - Incomplete trade history (missing transactions)
 - Mismatched profit calculations
 - Identity discrepancy
@@ -217,14 +233,14 @@ Tax residency certificate, company registration, source of funds documentation, 
 
 ### 6.4 File Technical Rules
 
-| Requirement | Rule |
-|---|---|
-| Accepted formats | PDF, JPEG, PNG |
-| Maximum file size | 10 MB per file |
-| Minimum image resolution | 800 × 600 pixels |
-| MIME type validation | Verified from file bytes server-side (not extension) |
-| Storage | Cloudflare R2 private bucket — never publicly accessible |
-| Access method | Presigned URLs with 15-minute expiry, generated per admin request |
+| Requirement              | Rule                                                              |
+| ------------------------ | ----------------------------------------------------------------- |
+| Accepted formats         | PDF, JPEG, PNG                                                    |
+| Maximum file size        | 10 MB per file                                                    |
+| Minimum image resolution | 800 × 600 pixels                                                  |
+| MIME type validation     | Verified from file bytes server-side (not extension)              |
+| Storage                  | Cloudflare R2 private bucket — never publicly accessible          |
+| Access method            | Presigned URLs with 15-minute expiry, generated per admin request |
 
 ---
 
@@ -233,10 +249,12 @@ Tax residency certificate, company registration, source of funds documentation, 
 ### 7.1 Automated Screening
 
 PEP (Politically Exposed Person) and sanctions checks are triggered automatically:
+
 - At trader registration (name + nationality check)
 - At each KYC document submission
 
 If a match is found against OFAC, UN, EU, or FSC/FSA sanctions lists:
+
 - Account is immediately suspended
 - Legal Counsel (Krishantha) is notified immediately
 - Do NOT inform the trader of the match
@@ -246,13 +264,13 @@ If a match is found against OFAC, UN, EU, or FSC/FSA sanctions lists:
 
 The following patterns must be escalated to Krishantha (Legal Counsel) and logged in the audit trail. BullMQ jobs monitor patterns 1, 2, and 3 nightly. Pattern 4 is a manual review item. Pattern 5 fires at registration and document submission.
 
-| # | Trigger Pattern | Threshold / Signal | Required Action |
-|---|---|---|---|
-| 1 | Rapid deposit/withdrawal cycle | >90% of deposited amount withdrawn within 24 hours of credit, with minimal trading activity | Freeze withdrawal. Escalate to Legal. Request source-of-funds documentation. |
-| 2 | Large deposit — unknown source | Single deposit > 5× the trader's declared monthly income | Request source-of-funds declaration before crediting account. |
-| 3 | Multiple accounts — same IP or device | 2+ accounts from identical IP address within 30 days | Flag all accounts. Admin review. Suspend if same beneficial owner confirmed. |
-| 4 | Trading pattern vs risk profile mismatch | High-frequency, high-leverage trading on account declaring "Beginner / Low Risk" | Risk questionnaire re-review. Notify trader. May trigger enhanced due diligence. |
-| 5 | Sanctions list match (name/country) | Automated AML/PEP API match or manual identification | Immediate account suspension. Notify Legal. Do not inform trader. File SAR. |
+| #   | Trigger Pattern                          | Threshold / Signal                                                                          | Required Action                                                                  |
+| --- | ---------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 1   | Rapid deposit/withdrawal cycle           | >90% of deposited amount withdrawn within 24 hours of credit, with minimal trading activity | Freeze withdrawal. Escalate to Legal. Request source-of-funds documentation.     |
+| 2   | Large deposit — unknown source           | Single deposit > 5× the trader's declared monthly income                                    | Request source-of-funds declaration before crediting account.                    |
+| 3   | Multiple accounts — same IP or device    | 2+ accounts from identical IP address within 30 days                                        | Flag all accounts. Admin review. Suspend if same beneficial owner confirmed.     |
+| 4   | Trading pattern vs risk profile mismatch | High-frequency, high-leverage trading on account declaring "Beginner / Low Risk"            | Risk questionnaire re-review. Notify trader. May trigger enhanced due diligence. |
+| 5   | Sanctions list match (name/country)      | Automated AML/PEP API match or manual identification                                        | Immediate account suspension. Notify Legal. Do not inform trader. File SAR.      |
 
 ---
 
@@ -294,28 +312,28 @@ The following patterns must be escalated to Krishantha (Legal Counsel) and logge
 
 ### 8.3 Escalation to Compliance
 
-| Situation | Escalate to | Timeframe | Method |
-|---|---|---|---|
-| Suspected document forgery | Krishantha (Legal) + George (Executive Sponsor) | Immediately | Direct call + written memo |
-| Sanctions list match (PEP/AML) | Krishantha (Legal) | Immediately | Encrypted email + call |
-| High-value deposit >$10,000 | Admin team + Krishantha | Same business day | Admin panel flag + email |
-| Behavioural AML trigger (any) | Krishantha (Legal) | Within 4 hours | Written escalation report |
-| Account suspension dispute | Krishantha + Victor (Operations) | Within 24 hours | Email |
+| Situation                      | Escalate to                                     | Timeframe         | Method                     |
+| ------------------------------ | ----------------------------------------------- | ----------------- | -------------------------- |
+| Suspected document forgery     | Krishantha (Legal) + George (Executive Sponsor) | Immediately       | Direct call + written memo |
+| Sanctions list match (PEP/AML) | Krishantha (Legal)                              | Immediately       | Encrypted email + call     |
+| High-value deposit >$10,000    | Admin team + Krishantha                         | Same business day | Admin panel flag + email   |
+| Behavioural AML trigger (any)  | Krishantha (Legal)                              | Within 4 hours    | Written escalation report  |
+| Account suspension dispute     | Krishantha + Victor (Operations)                | Within 24 hours   | Email                      |
 
 ---
 
 ## 9. KYC Rejection Reason Codes
 
-| Code | Condition | Trader-Facing Message | Outcome |
-|---|---|---|---|
-| DOC_QUALITY_POOR | Blurry or illegible scan | "Your document image is not sufficiently clear. Please re-upload a high-resolution, well-lit photo." | kyc_status → REQUIRES_RESUBMIT |
-| DOC_EXPIRED | Identity document has expired | "The identity document you submitted has expired. Please provide a currently valid document." | kyc_status → REJECTED |
-| NAME_MISMATCH | Name on document does not match registration | "The name on your submitted document does not match your registered name. Please check and resubmit." | kyc_status → REJECTED |
-| ADDRESS_MISMATCH | Address document does not match profile | "The address on your document does not match your registered address. Please update your profile or submit a matching document." | kyc_status → REQUIRES_RESUBMIT |
-| `DOC_OUTDATED` | Address document is older than the accepted timeframe (3 months, or up to 12 months for Local Authority Tax Bill) | "Your address document is dated more than the accepted timeframe. Please submit a document issued within the last 3 months (or 12 months for Local Authority Tax Bill)." | kyc_status → REQUIRES_RESUBMIT |
-| PARTIAL_VISIBILITY | Document edges or corners not fully visible | "Your document image does not show all four corners. Please re-photograph in a clear area with all corners visible." | kyc_status → REQUIRES_RESUBMIT |
-| UNSUPPORTED_TYPE | Document type not accepted | "The document type you submitted is not accepted for this verification step. Please refer to the accepted document list and resubmit." | kyc_status → REQUIRES_RESUBMIT |
-| PEP_MATCH | Name/nationality matches PEP/sanctions list | Account suspended. Do NOT communicate this code to the trader. | Immediate suspension. Notify Legal. File SAR. |
+| Code               | Condition                                                                                                         | Trader-Facing Message                                                                                                                                                    | Outcome                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| DOC_QUALITY_POOR   | Blurry or illegible scan                                                                                          | "Your document image is not sufficiently clear. Please re-upload a high-resolution, well-lit photo."                                                                     | kyc_status → REQUIRES_RESUBMIT                |
+| DOC_EXPIRED        | Identity document has expired                                                                                     | "The identity document you submitted has expired. Please provide a currently valid document."                                                                            | kyc_status → REJECTED                         |
+| NAME_MISMATCH      | Name on document does not match registration                                                                      | "The name on your submitted document does not match your registered name. Please check and resubmit."                                                                    | kyc_status → REJECTED                         |
+| ADDRESS_MISMATCH   | Address document does not match profile                                                                           | "The address on your document does not match your registered address. Please update your profile or submit a matching document."                                         | kyc_status → REQUIRES_RESUBMIT                |
+| `DOC_OUTDATED`     | Address document is older than the accepted timeframe (3 months, or up to 12 months for Local Authority Tax Bill) | "Your address document is dated more than the accepted timeframe. Please submit a document issued within the last 3 months (or 12 months for Local Authority Tax Bill)." | kyc_status → REQUIRES_RESUBMIT                |
+| PARTIAL_VISIBILITY | Document edges or corners not fully visible                                                                       | "Your document image does not show all four corners. Please re-photograph in a clear area with all corners visible."                                                     | kyc_status → REQUIRES_RESUBMIT                |
+| UNSUPPORTED_TYPE   | Document type not accepted                                                                                        | "The document type you submitted is not accepted for this verification step. Please refer to the accepted document list and resubmit."                                   | kyc_status → REQUIRES_RESUBMIT                |
+| PEP_MATCH          | Name/nationality matches PEP/sanctions list                                                                       | Account suspended. Do NOT communicate this code to the trader.                                                                                                           | Immediate suspension. Notify Legal. File SAR. |
 
 ---
 
@@ -357,12 +375,12 @@ PENDING
 
 ## 11. Account Status Lifecycle
 
-| Status | Meaning | Trade Access | Deposit Access | Withdrawal Access |
-|---|---|---|---|---|
-| ACTIVE | Normal trading account | L2/L3: Yes; L1: No | L2/L3: Yes; L1: No | **L2:** Limited to original deposited amount; documented trading profits require L3 verification. *Example: $1,000 deposited, now has $5,000 equity ($3,000 unrealized P&L), may withdraw max $1,000 as L2.* [L2 withdrawal verification required] **L3:** Unrestricted |
-| INACTIVE | No activity for 90+ days | L2/L3: Yes; L1: No | L2/L3: Yes; L1: No | **L2:** Limited to original deposited amount; documented trading profits require L3 verification. *Example: $1,000 deposited, now has $5,000 equity ($3,000 unrealized P&L), may withdraw max $1,000 as L2.* [L2 withdrawal verification required] **L3:** Unrestricted (inactivity fee charged monthly) |
-| SUSPENDED | Admin-initiated freeze | No | No | No |
-| CLOSED | Account permanently closed | No | No | No (final balance settled) |
+| Status    | Meaning                    | Trade Access       | Deposit Access     | Withdrawal Access                                                                                                                                                                                                                                                                                        |
+| --------- | -------------------------- | ------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ACTIVE    | Normal trading account     | L2/L3: Yes; L1: No | L2/L3: Yes; L1: No | **L2:** Limited to original deposited amount; documented trading profits require L3 verification. _Example: $1,000 deposited, now has $5,000 equity ($3,000 unrealized P&L), may withdraw max $1,000 as L2._ [L2 withdrawal verification required] **L3:** Unrestricted                                  |
+| INACTIVE  | No activity for 90+ days   | L2/L3: Yes; L1: No | L2/L3: Yes; L1: No | **L2:** Limited to original deposited amount; documented trading profits require L3 verification. _Example: $1,000 deposited, now has $5,000 equity ($3,000 unrealized P&L), may withdraw max $1,000 as L2._ [L2 withdrawal verification required] **L3:** Unrestricted (inactivity fee charged monthly) |
+| SUSPENDED | Admin-initiated freeze     | No                 | No                 | No                                                                                                                                                                                                                                                                                                       |
+| CLOSED    | Account permanently closed | No                 | No                 | No (final balance settled)                                                                                                                                                                                                                                                                               |
 
 > **Note:** Access is tiered based on KYC Level (L1, L2, L3) as defined in Section 6. L1 has no trading or deposit access. L2 enables trading and deposits with withdrawal restrictions (original deposited amount only). L3 enables all features including unrestricted withdrawals.
 
@@ -370,18 +388,18 @@ PENDING
 
 ## 12. Document Retention Policy
 
-| Document Type | Retention Period | Storage Location |
-|---|---|---|
-| KYC identity documents | Minimum 5 years from account closure | Cloudflare R2 (private bucket) |
-| KYC address documents | Minimum 5 years from account closure | Cloudflare R2 (private bucket) |
-| Trading profit documentation | Minimum 7 years from withdrawal date | Cloudflare R2 (`/kyc/profit-docs/`) |
-| KYC review audit logs | Minimum 7 years | PostgreSQL (immutable ledger) |
-| Registration + T&C acceptance records | Minimum 7 years | PostgreSQL |
-| Transaction records | Minimum 7 years | PostgreSQL |
-| SAR filings | 5 years from filing date | Secure offline backup + R2 |
+| Document Type                         | Retention Period                     | Storage Location                    |
+| ------------------------------------- | ------------------------------------ | ----------------------------------- |
+| KYC identity documents                | Minimum 5 years from account closure | Cloudflare R2 (private bucket)      |
+| KYC address documents                 | Minimum 5 years from account closure | Cloudflare R2 (private bucket)      |
+| Trading profit documentation          | Minimum 7 years from withdrawal date | Cloudflare R2 (`/kyc/profit-docs/`) |
+| KYC review audit logs                 | Minimum 7 years                      | PostgreSQL (immutable ledger)       |
+| Registration + T&C acceptance records | Minimum 7 years                      | PostgreSQL                          |
+| Transaction records                   | Minimum 7 years                      | PostgreSQL                          |
+| SAR filings                           | 5 years from filing date             | Secure offline backup + R2          |
 
 R2 bucket lifecycle policy: files in the `/kyc/` prefix are protected from deletion. Admin UI delete is disabled for KYC documents — only archival (status change to EXPIRED) is permitted.
 
 ---
 
-*ProTraderSim — PTS-SOP-001 — Compliance & KYC Operations Standard — v1.0 — March 2026*
+_ProTraderSim — PTS-SOP-001 — Compliance & KYC Operations Standard — v1.0 — March 2026_

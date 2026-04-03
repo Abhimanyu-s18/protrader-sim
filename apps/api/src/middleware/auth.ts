@@ -63,9 +63,7 @@ export function requireRole(...roles: string[]) {
 
 // ── requireSelf ───────────────────────────────────────────────────
 // Ensures the authenticated user can only access their own resources.
-export function requireSelf(
-  getResourceUserId: (req: Request) => Promise<bigint | null>,
-) {
+export function requireSelf(getResourceUserId: (req: Request) => Promise<bigint | null>) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     if (!req.user) {
       next(Errors.unauthorized())

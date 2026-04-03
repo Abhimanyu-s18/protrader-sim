@@ -1,5 +1,6 @@
 import express, { type Express } from 'express'
-import { createServer } from 'http'
+import { createServer, type Server } from 'http'
+import { pathToFileURL } from 'url'
 import { Server as SocketIOServer } from 'socket.io'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -40,22 +41,36 @@ const httpServer = createServer(app)
 let appReady = false
 let startupErrors: string[] = []
 
-// ── Socket.io ─────────────────────────────────────────────────────
-export const io = new SocketIOServer(httpServer, {
-  cors: {
-    origin: [
-      process.env['PLATFORM_URL'] ?? 'http://localhost:3002',
-      process.env['ADMIN_URL'] ?? 'http://localhost:3003',
-      process.env['IB_PORTAL_URL'] ?? 'http://localhost:3004',
-      process.env['AUTH_APP_URL'] ?? 'http://localhost:3005',
-    ],
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
-  transports: ['websocket', 'polling'],
-})
+// ── Socket.io (lazy init) ─────────────────────────────────────────
+// test-mode import should not auto-create socket server.
+// Call initSocketServer(server) explicitly to initialize the socket server and handlers.
+let socketIO: SocketIOServer | null = null
 
-registerSocketHandlers(io)
+export function initSocketServer(server: Server): SocketIOServer {
+  if (!socketIO) {
+    socketIO = new SocketIOServer(server, {
+      cors: {
+        origin: [
+          process.env['PLATFORM_URL'] ?? 'http://localhost:3002',
+          process.env['ADMIN_URL'] ?? 'http://localhost:3003',
+          process.env['IB_PORTAL_URL'] ?? 'http://localhost:3004',
+          process.env['AUTH_APP_URL'] ?? 'http://localhost:3005',
+        ],
+        methods: ['GET', 'POST'],
+        credentials: true,
+      },
+      transports: ['websocket', 'polling'],
+    })
+
+    registerSocketHandlers(socketIO)
+  }
+
+  return socketIO
+}
+
+export function getSocketServer(): SocketIOServer | null {
+  return socketIO
+}
 
 // ── Global Middleware ─────────────────────────────────────────────
 app.use(
@@ -157,8 +172,45 @@ app.use(errorHandler)
 // ── Start ─────────────────────────────────────────────────────────
 const PORT = parseInt(process.env['PORT'] ?? '4000', 10)
 
+function isEntrypoint(): boolean {
+  const isCjs = typeof require !== 'undefined' && require.main === module
+
+  const isEsm = (() => {
+    if (typeof process === 'undefined' || !process.argv?.[1]) {
+      return false
+    }
+
+    const argvPath = process.argv[1]
+    const fileUrlFromArgv = pathToFileURL(argvPath).href
+
+    // eval('import.meta.url') and eval('import.meta.filename') are used intentionally as a bundler/TypeScript-compatible workaround to safely access import.meta properties at runtime (avoiding compile-time transform errors and maintaining compatibility with different bundlers and Node/Eval contexts). Note potential CSP/security audit considerations. References: importMetaUrl and importMetaFilename variables.
+    const importMetaUrl = (() => {
+      try {
+        return eval('import.meta.url') as string | undefined
+      } catch {
+        return undefined
+      }
+    })()
+
+    const importMetaFilename = (() => {
+      try {
+        return eval('import.meta.filename') as string | undefined
+      } catch {
+        return undefined
+      }
+    })()
+
+    const importMetaUrlMatches = importMetaUrl === fileUrlFromArgv
+    const importMetaFilenameMatches = importMetaFilename === argvPath
+
+    return importMetaUrlMatches || importMetaFilenameMatches
+  })()
+
+  return isCjs || isEsm
+}
+
 // Only start the server if this file is run directly (not imported for testing)
-if (require.main === module) {
+if (isEntrypoint()) {
   httpServer.listen(PORT, async () => {
     log.info(
       { port: PORT, env: process.env['NODE_ENV'] ?? 'development' },
@@ -177,6 +229,9 @@ if (require.main === module) {
     }
 
     try {
+      // Initialize and register Socket.io once server is running
+      const io = initSocketServer(httpServer)
+
       // Start market data pipeline (Twelve Data WebSocket → Redis → Socket.io)
       log.info('Starting market data pipeline...')
       await startMarketData(io)
@@ -198,6 +253,9 @@ if (require.main === module) {
       )
     }
   })
+
+  process.on('SIGTERM', () => void shutdown('SIGTERM'))
+  process.on('SIGINT', () => void shutdown('SIGINT'))
 }
 
 // ── Graceful Shutdown ─────────────────────────────────────────────
@@ -214,6 +272,12 @@ async function shutdown(signal: string): Promise<void> {
 
   // Create Promises for httpServer.close and io.close with timeout
   const closeHttpServer = new Promise<void>((resolve, reject) => {
+    if (!httpServer.listening) {
+      log.info('HTTP server not listening, skipping close')
+      resolve()
+      return
+    }
+
     const timeout = setTimeout(() => {
       reject(new Error('HTTP server close timeout'))
     }, 10000) // 10 second timeout
@@ -231,11 +295,18 @@ async function shutdown(signal: string): Promise<void> {
   })
 
   const closeSocketIO = new Promise<void>((resolve, reject) => {
+    const socket = getSocketServer()
+    if (!socket) {
+      log.info('Socket.io not initialized, skipping close')
+      resolve()
+      return
+    }
+
     const timeout = setTimeout(() => {
       reject(new Error('Socket.io close timeout'))
     }, 10000) // 10 second timeout
 
-    io.close(() => {
+    socket.close(() => {
       clearTimeout(timeout)
       log.info('Socket.io closed')
       resolve()

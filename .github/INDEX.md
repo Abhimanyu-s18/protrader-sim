@@ -14,14 +14,16 @@ Navigate directly to what you need:
 ## 📚 Core Documentation (Start Here)
 
 ### For New Developers
+
 1. **[WORKSPACE_INSTRUCTIONS.md](./WORKSPACE_INSTRUCTIONS.md)** ← START HERE
-   - 30-minute onboarding  
+   - 30-minute onboarding
    - Architecture overview
    - Quick commands
    - Financial precision rules
    - Key files to know
 
 ### For Using Agents
+
 2. **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** — 1-page agent selector
    - Decision tree: "What do I want to do?"
    - 14 agents with activation keywords
@@ -44,39 +46,41 @@ Navigate directly to what you need:
 ## 🛠️ Task Guides
 
 ### [COMMON_WORKFLOWS.md](./COMMON_WORKFLOWS.md) — Step-by-step how-tos
+
 Pick your task 👇
 
-| I Want To... | Location |
-|---|---|
-| Add a new API endpoint | [Workflow 1](./COMMON_WORKFLOWS.md#add-api-endpoint) |
-| Create a new database table | [Workflow 2](./COMMON_WORKFLOWS.md#create-db-table) |
-| Fix a financial calculation bug | [Workflow 3](./COMMON_WORKFLOWS.md#fix-calc-bug) |
-| Optimize a slow query/endpoint | [Workflow 4](./COMMON_WORKFLOWS.md#optimize-query) |
-| Build a new frontend feature | [Workflow 5](./COMMON_WORKFLOWS.md#build-frontend-feature) |
-| Implement KYC document upload | [Workflow 6](./COMMON_WORKFLOWS.md#kyc-upload) |
-| Build a deposit/withdrawal flow | [Workflow 7](./COMMON_WORKFLOWS.md#payment-flow) |
-| Handle Socket.io real-time feature | [Workflow 8](./COMMON_WORKFLOWS.md#socket-feature) |
-| Debug a production error | [Workflow 9](./COMMON_WORKFLOWS.md#debug-production) |
-| Write comprehensive tests | [Workflow 10](./COMMON_WORKFLOWS.md#write-tests) |
+| I Want To...                       | Location                                                   |
+| ---------------------------------- | ---------------------------------------------------------- |
+| Add a new API endpoint             | [Workflow 1](./COMMON_WORKFLOWS.md#add-api-endpoint)       |
+| Create a new database table        | [Workflow 2](./COMMON_WORKFLOWS.md#create-db-table)        |
+| Fix a financial calculation bug    | [Workflow 3](./COMMON_WORKFLOWS.md#fix-calc-bug)           |
+| Optimize a slow query/endpoint     | [Workflow 4](./COMMON_WORKFLOWS.md#optimize-query)         |
+| Build a new frontend feature       | [Workflow 5](./COMMON_WORKFLOWS.md#build-frontend-feature) |
+| Implement KYC document upload      | [Workflow 6](./COMMON_WORKFLOWS.md#kyc-upload)             |
+| Build a deposit/withdrawal flow    | [Workflow 7](./COMMON_WORKFLOWS.md#payment-flow)           |
+| Handle Socket.io real-time feature | [Workflow 8](./COMMON_WORKFLOWS.md#socket-feature)         |
+| Debug a production error           | [Workflow 9](./COMMON_WORKFLOWS.md#debug-production)       |
+| Write comprehensive tests          | [Workflow 10](./COMMON_WORKFLOWS.md#write-tests)           |
 
 ---
 
 ## 🐛 Troubleshooting
 
 ### [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) — Diagnosis & fixes
+
 Pick your symptom 👇
 
-| Issue | Location |
-|---|---|
-| Environment & setup problems | [Section](./TROUBLESHOOTING.md#env-setup) |
-| Database errors | [Section](./TROUBLESHOOTING.md#database) |
-| API errors (500, 401, 400, 429) | [Section](./TROUBLESHOOTING.md#api-errors) |
-| Financial calculation bugs | [Section](./TROUBLESHOOTING.md#calc-errors) |
-| Socket.io & real-time issues | [Section](./TROUBLESHOOTING.md#socket-io) |
-| Frontend component issues | [Section](./TROUBLESHOOTING.md#frontend) |
-| Authentication & RBAC problems | [Section](./TROUBLESHOOTING.md#auth-rbac) |
-| Payment & deposit issues | [Section](./TROUBLESHOOTING.md#payment) |
-| Deployment & production errors | [Section](./TROUBLESHOOTING.md#deployment) |
+| Issue                           | Location                                    |
+| ------------------------------- | ------------------------------------------- |
+| Environment & setup problems    | [Section](./TROUBLESHOOTING.md#env-setup)   |
+| Database errors                 | [Section](./TROUBLESHOOTING.md#database)    |
+| API errors (500, 401, 400, 429) | [Section](./TROUBLESHOOTING.md#api-errors)  |
+| Financial calculation bugs      | [Section](./TROUBLESHOOTING.md#calc-errors) |
+| Socket.io & real-time issues    | [Section](./TROUBLESHOOTING.md#socket-io)   |
+| Frontend component issues       | [Section](./TROUBLESHOOTING.md#frontend)    |
+| Authentication & RBAC problems  | [Section](./TROUBLESHOOTING.md#auth-rbac)   |
+| Payment & deposit issues        | [Section](./TROUBLESHOOTING.md#payment)     |
+| Deployment & production errors  | [Section](./TROUBLESHOOTING.md#deployment)  |
 
 ---
 
@@ -85,19 +89,23 @@ Pick your symptom 👇
 Individual system prompts for each specialized agent.
 
 ### Tier 1: Coordination
+
 - **[Orchestrator.agent.md](./agents/Orchestrator.agent.md)** — Master coordinator for multi-step tasks
 
 ### Tier 2-3: Architecture & Design
+
 - **[Architect.agent.md](./agents/Architect.agent.md)** — System design & contracts
 - **[Research.agent.md](./agents/Research.agent.md)** — Vendor research, compliance
 - **[UI-UX-Designer.agent.md](./agents/UI-UX-Designer.agent.md)** — Interaction flows, wireframes
 
 ### Tier 3-4: Implementation
+
 - **[Coding.agent.md](./agents/Coding.agent.md)** — Express.js backend implementation
 - **[Frontend.agent.md](./agents/Frontend.agent.md)** — Next.js 15 React components
 - **[Schema.agent.md](./agents/Schema.agent.md)** — Database design & migrations
 
 ### Tier 5: Quality
+
 - **[Test.agent.md](./agents/Test.agent.md)** — Unit & integration tests
 - **[Security.agent.md](./agents/Security.agent.md)** — Auth, KYC, payment security
 - **[Code-Review.agent.md](./agents/Code-Review.agent.md)** — PR reviews & quality gates
@@ -113,24 +121,29 @@ Individual system prompts for each specialized agent.
 Best practices & patterns for specialized areas. These load automatically with agents, but you can read them independently.
 
 ### Database & Data
+
 - **[database-schema-design](./skills/database-schema-design/SKILL.md)** — Table design, BigInt, normalization, indexing
 
-### Financial & Trading  
+### Financial & Trading
+
 - **[bigint-money-handling](./skills/bigint-money-handling/SKILL.md)** — Convert dollars↔cents, precision, validation
 - **[financial-calculations](./skills/financial-calculations/SKILL.md)** — P&L, margin, leverage with BigInt
 - **[trading-calculations](./skills/trading-calculations/SKILL.md)** — Position sizing, margin calls, stop-out
 
 ### Backend API
+
 - **[api-route-creation](./skills/api-route-creation/SKILL.md)** — Express.js: validation, error handling, responses
 - **[orm-query-optimization](./skills/orm-query-optimization/SKILL.md)** — Prisma patterns, N+1 detection, indexes
 - **[rbac-implementation](./skills/rbac-implementation/SKILL.md)** — Role hierarchy, permission checks
 
 ### Real-Time & Frontend
+
 - **[socket-io-real-time](./skills/socket-io-real-time/SKILL.md)** — Room management, auth, subscription patterns
 - **[state-management-trading](./skills/state-management-trading/SKILL.md)** — Zustand, React Query, Socket.io sync
 - **[trading-ui-components](./skills/trading-ui-components/SKILL.md)** — Charts, tables, order forms, Terminal Precision
 
 ### Security & Compliance
+
 - **[kyc-compliance-flow](./skills/kyc-compliance-flow/SKILL.md)** — Document upload, review, PII handling
 - **[payment-integration](./skills/payment-integration/SKILL.md)** — Deposits, withdrawals, webhooks, idempotency
 
@@ -139,6 +152,7 @@ Best practices & patterns for specialized areas. These load automatically with a
 ## 📖 Project Documentation
 
 **See also**:
+
 - `../../CLAUDE.md` — Developer identity & code preferences
 - `../../docs/` — Business, compliance, and technical specs
   - Core Technical Specifications (API, database, calculations)

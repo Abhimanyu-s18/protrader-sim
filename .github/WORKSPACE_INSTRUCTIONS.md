@@ -44,14 +44,14 @@ pnpm format                       # Auto-format
 
 ### Environments
 
-| Service | Local | Staging | Production |
-|---------|-------|---------|------------|
-| API | localhost:4000 | Railway | AWS ECS eu-west-1 |
-| Platform (Trader UI) | localhost:3002 | Railway | Railway |
-| Admin | localhost:3003 | Railway | Railway |
-| Auth | localhost:3001 | Railway | Railway |
-| Database | PostgreSQL 17 @ localhost:5432 | Supabase (eu) | Supabase (eu) |
-| Cache | Redis 7 @ localhost:6379 | ElastiCache | ElastiCache |
+| Service              | Local                          | Staging       | Production        |
+| -------------------- | ------------------------------ | ------------- | ----------------- |
+| API                  | localhost:4000                 | Railway       | AWS ECS eu-west-1 |
+| Platform (Trader UI) | localhost:3002                 | Railway       | Railway           |
+| Admin                | localhost:3003                 | Railway       | Railway           |
+| Auth                 | localhost:3001                 | Railway       | Railway           |
+| Database             | PostgreSQL 17 @ localhost:5432 | Supabase (eu) | Supabase (eu)     |
+| Cache                | Redis 7 @ localhost:6379       | ElastiCache   | ElastiCache       |
 
 ### Financial Precision Rules (NON-NEGOTIABLE)
 
@@ -69,6 +69,7 @@ See [bigint-money-handling SKILL](./skills/bigint-money-handling/SKILL.md) for f
 ### Phase 1A: Environment (5 min)
 
 1. **Check you have**: Node 18+, pnpm 8+, Docker Desktop
+
    ```bash
    node --version          # Should be 18.x or 20.x
    pnpm --version         # Should be 8.x or 9.x
@@ -76,6 +77,7 @@ See [bigint-money-handling SKILL](./skills/bigint-money-handling/SKILL.md) for f
    ```
 
 2. **Clone & install**
+
    ```bash
    cd protrader-sim
    pnpm install           # Creates all workspaces
@@ -112,7 +114,7 @@ ProTraderSim = Turborepo Monorepo
 
 apps/          (6 Next.js frontend apps + 1 Express backend)
 ├── api/              ← Core Express.js server (4000)
-├── platform/         ← Trader UI (3002) 
+├── platform/         ← Trader UI (3002)
 ├── admin/            ← Admin panel (3003)
 ├── auth/             ← Auth flows (3001)
 ├── ib-portal/        ← IB agent portal (3004)
@@ -128,6 +130,7 @@ packages/      (Shared code across all apps)
 ```
 
 **How requests flow:**
+
 ```
 Trader clicks "Open Position" on platform (3002)
   → Calls POST /api/trades (to 4000)
@@ -139,18 +142,18 @@ Trader clicks "Open Position" on platform (3002)
 
 ### Phase 1D: Key Files to Know (5 min)
 
-| File | Purpose |
-|------|---------|
-| `CLAUDE.md` | Developer identity & code preferences (you reading it) |
-| `copilot-instructions.md` | Project context for AI agents |
-| `AGENTS.md` | Registry of 14 specialized agents |
-| `QUICK_REFERENCE.md` | Quick agent activation guide |
-| `agents/*.agent.md` | Individual agent system prompts |
-| `skills/*/SKILL.md` | Domain-specific best practices |
-| `packages/db/prisma/schema.prisma` | Database schema (the source of truth) |
-| `apps/api/src/lib/calculations.ts` | All financial math (CRITICAL) |
-| `apps/api/src/routes/` | API endpoints |
-| `apps/api/src/services/` | Business logic (auth, trades, positions, etc.) |
+| File                               | Purpose                                                |
+| ---------------------------------- | ------------------------------------------------------ |
+| `CLAUDE.md`                        | Developer identity & code preferences (you reading it) |
+| `copilot-instructions.md`          | Project context for AI agents                          |
+| `AGENTS.md`                        | Registry of 14 specialized agents                      |
+| `QUICK_REFERENCE.md`               | Quick agent activation guide                           |
+| `agents/*.agent.md`                | Individual agent system prompts                        |
+| `skills/*/SKILL.md`                | Domain-specific best practices                         |
+| `packages/db/prisma/schema.prisma` | Database schema (the source of truth)                  |
+| `apps/api/src/lib/calculations.ts` | All financial math (CRITICAL)                          |
+| `apps/api/src/routes/`             | API endpoints                                          |
+| `apps/api/src/services/`           | Business logic (auth, trades, positions, etc.)         |
 
 ---
 
@@ -163,7 +166,7 @@ ProTraderSim has **14 specialized AI agents**, each with deep expertise. They're
 ```
 Orchestrator (coordinator)
 ├── Schema Agent          → Database design & migrations
-├── Architect Agent      → System design & contracts  
+├── Architect Agent      → System design & contracts
 ├── Coding Agent         → Express.js backend implementation
 ├── Frontend Agent       → Next.js 15 React components
 ├── UI/UX Designer       → Interaction flows & wireframes
@@ -181,12 +184,14 @@ Orchestrator (coordinator)
 ### How to Invoke Agents
 
 **For complex/multi-step work:** Start with **Orchestrator**
+
 ```
 → Prompt: "Build the trader KYC flow — document upload, admin review, approval/rejection."
 → Orchestrator: Decomposes into subtasks, routes to Schema → Security → Coding → Frontend → Test
 ```
 
 **For focused work:** Use the specialist directly
+
 ```
 → Prompt: "Optimize the positions endpoint — it's returning in 800ms, target is 100ms"
 → Performance Agent: Profiles queries, adds indexes, optimizes Socket.io broadcasting
@@ -195,6 +200,7 @@ Orchestrator (coordinator)
 ### Skills vs. Agents
 
 **Skills** = Best practices & patterns for a domain (stored in `skills/*/SKILL.md`)
+
 - `database-schema-design` — How to design tables, use BIGINT, index strategy
 - `financial-calculations` — P&L, margin, leverage formulas with BigInt
 - `api-route-creation` — Layering rules, validation, error handling
@@ -214,16 +220,16 @@ When you invoke an agent, they automatically load the relevant skills for your t
 
 ### Agent Selection Matrix
 
-| I Want To... | → Agent | Skill(s) Used |
-|---|---|---|
-| Add a new API endpoint | Coding | api-route-creation, rbac-implementation |
-| Create a database table | Schema | database-schema-design |
-| Fix a financial calculation bug | Debug | financial-calculations, trading-calculations, bigint-money-handling |
-| Build a trades page | Frontend | trading-ui-components, state-management-trading, socket-io-real-time |
-| Speed up a slow endpoint | Performance | orm-query-optimization, socket-io-real-time |
-| Handle deposits/withdrawals | Coding + Security | payment-integration, bigint-money-handling |
-| Design the KYC flow | Architect + Security | kyc-compliance-flow |
-| Write comprehensive tests | Test | (reads the implementation, applies all relevant skills) |
+| I Want To...                    | → Agent              | Skill(s) Used                                                        |
+| ------------------------------- | -------------------- | -------------------------------------------------------------------- |
+| Add a new API endpoint          | Coding               | api-route-creation, rbac-implementation                              |
+| Create a database table         | Schema               | database-schema-design                                               |
+| Fix a financial calculation bug | Debug                | financial-calculations, trading-calculations, bigint-money-handling  |
+| Build a trades page             | Frontend             | trading-ui-components, state-management-trading, socket-io-real-time |
+| Speed up a slow endpoint        | Performance          | orm-query-optimization, socket-io-real-time                          |
+| Handle deposits/withdrawals     | Coding + Security    | payment-integration, bigint-money-handling                           |
+| Design the KYC flow             | Architect + Security | kyc-compliance-flow                                                  |
+| Write comprehensive tests       | Test                 | (reads the implementation, applies all relevant skills)              |
 
 ---
 
@@ -238,7 +244,9 @@ Scenario: Traders need a "close all positions" endpoint
 **Who**: Coding Agent + Test Agent
 
 **Steps**:
+
 1. Invoke **Coding Agent** with:
+
    ```
    "Implement POST /api/trades/close-all
    - Authenticate as trader (TRADER role)
@@ -277,6 +285,7 @@ Scenario: "GET /api/positions returns in 1.2s, target: <200ms, with 50 open trad
 **Who**: Performance Agent
 
 **Invoke**:
+
 ```
 "The positions endpoint is slow. Traders open it, see ~50 positions with live prices.
 Current: 1.2s, Target: 200ms.
@@ -289,6 +298,7 @@ ProfileFirst, then optimize."
 ```
 
 **Performance Agent will**:
+
 1. Profile queries (find N+1 patterns, missing indexes)
 2. Run explain plans on PostgreSQL
 3. Check Redis cache hits
@@ -306,6 +316,7 @@ Scenario: "Traders want a Watchlist — save/favorite instruments, quick access"
 **Who**: Orchestrator Agent (will delegate to 4+ agents)
 
 **Invoke**:
+
 ```
 "Build the watchlist feature:
 - Traders can add/remove instruments to a watchlist
@@ -316,11 +327,12 @@ Scenario: "Traders want a Watchlist — save/favorite instruments, quick access"
 ```
 
 **Orchestrator decomposes**:
+
 ```
 SUBTASK-1: Schema → Add watchlist_items table
     (user_id, instrument_id, added_at, PK, FKs)
 
-SUBTASK-2: Coding → Add 3 API endpoints  
+SUBTASK-2: Coding → Add 3 API endpoints
     POST /api/watchlist (add)
     DELETE /api/watchlist/:id (remove)
     GET /api/watchlist (list with live prices via Socket.io)
@@ -348,11 +360,13 @@ SUBTASK-6: Docs → Update API docs
 **Diagnosis**: A service is trying to access user data without checking it exists first.
 
 **Common Causes**:
+
 - User ID from JWT is invalid or missing
 - User deleted from database but token still valid
 - Middleware didn't set `req.user` properly
 
 **Fix**:
+
 1. Check auth middleware: `apps/api/src/middleware/auth.ts`
 2. Verify JWT payload includes `userId`
 3. Add null checks in services:
@@ -368,11 +382,13 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for more.
 **Diagnosis**: Incorrect BigInt scaling or order of operations.
 
 **Common Causes**:
+
 - Division happens before multiplication (loses precision)
-- Mixing PRICE_SCALE and BPS_SCALE incorrectly  
+- Mixing PRICE_SCALE and BPS_SCALE incorrectly
 - Number type creeping in (should always use BigInt)
 
 **Fix**:
+
 1. Check `apps/api/src/lib/calculations.ts` — this is the source of truth
 2. Verify: division is ALWAYS last
 3. Read [financial-calculations SKILL](skills/financial-calculations/SKILL.md)
@@ -384,11 +400,13 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for more.
 **Diagnosis**: Price feed or user subscription issues.
 
 **Common Causes**:
+
 - JWT expired, socket rejects at handshake
-- Client unsubscribing before resubscribing  
+- Client unsubscribing before resubscribing
 - Server broadcasting to wrong rooms
 
 **Fix**:
+
 1. Check client subscription logic: `apps/platform/src/hooks/usePriceSubscription.ts`
 2. Check room names match: `socket.join('prices:EURUSD')`
 3. Verify auth middleware: `socket.handshake.auth.token`
@@ -401,31 +419,34 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) & [socket-io-real-time SKILL](skill
 
 ### Critical Rules (Memorize These)
 
-| Rule | Why |
-|------|-----|
-| **All money = BIGINT cents** | Financial precision — no rounding errors |
-| **All prices = BIGINT ×100000** | Consistent scaling across platform |
-| **Business logic in services/** | Testable, reusable, not coupled to HTTP |
-| **Routes only handle HTTP** | Single responsibility, easier testing |
-| **Never use Decimal/Float for money** | They have precision rounding errors |
-| **Leverage must never exceed max** | Regulatory compliance (FSC/FSA) |
-| **Stop-out = 50% margin level** | Automatic position close at risk threshold |
+| Rule                                  | Why                                           |
+| ------------------------------------- | --------------------------------------------- |
+| **All money = BIGINT cents**          | Financial precision — no rounding errors      |
+| **All prices = BIGINT ×100000**       | Consistent scaling across platform            |
+| **Business logic in services/**       | Testable, reusable, not coupled to HTTP       |
+| **Routes only handle HTTP**           | Single responsibility, easier testing         |
+| **Never use Decimal/Float for money** | They have precision rounding errors           |
+| **Leverage must never exceed max**    | Regulatory compliance (FSC/FSA)               |
+| **Stop-out = 50% margin level**       | Automatic position close at risk threshold    |
 | **All user data scoped to requester** | RBAC prevents trader A seeing trader B's data |
 
 ### Key Concepts
 
 **Margin** = Collateral locked to hold a position
+
 ```
 margin = (units × contractSize × openRate × 100) / (leverage × PRICE_SCALE)
 ```
 
 **Equity** = Balance + unrealizedP&L
+
 ```
 equity = balance + unrealizedP&L
 ```
 
 **Margin Level** = Equity / UsedMargin (null if no open positions)
-- >100% = Safe
+
+- > 100% = Safe
 - 50%-100% = Margin call warning
 - <50% = Stop out (positions auto-closed)
 
@@ -436,6 +457,7 @@ See [PTS-CALC-001_Trading_Calculations.md](../docs/Core Technical Specifications
 ### Database Schema Overview
 
 **Core tables**:
+
 - `users` — Traders with balance, margin, etc.
 - `trades` — Open/closed positions, entry/exit prices, P&L
 - `instruments` — EUR/USD, AAPL, etc. with leverage, spread, contract size
@@ -444,6 +466,7 @@ See [PTS-CALC-001_Trading_Calculations.md](../docs/Core Technical Specifications
 - `ib_commissions` — IB agent earnings per trade closed
 
 **Key design**:
+
 - Balance/equity are **never stored** — computed from `ledger_transactions`
 - All money in **BIGINT cents**
 - All prices in **BIGINT ×100000**
@@ -455,15 +478,15 @@ See [packages/db/prisma/schema.prisma](../packages/db/prisma/schema.prisma) for 
 
 ## Documentation Index
 
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | 1-page agent selector | All developers |
-| [AGENTS.md](AGENTS.md) | 14-agent registry | All developers |
-| [AGENT_SKILLS_INTEGRATION.md](AGENT_SKILLS_INTEGRATION.md) | How skills work with agents | Advanced developers |
-| [COMMON_WORKFLOWS.md](COMMON_WORKFLOWS.md) | Step-by-step task guides | Feature developers |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Diagnosis & fixes | Debugging developers |
-| [copilot-instructions.md](copilot-instructions.md) | Project context for AI | AI agents |
-| [CLAUDE.md](../CLAUDE.md) | Developer identity & preferences | Krishan + all contributors |
+| Document                                                   | Purpose                          | Audience                   |
+| ---------------------------------------------------------- | -------------------------------- | -------------------------- |
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md)                   | 1-page agent selector            | All developers             |
+| [AGENTS.md](AGENTS.md)                                     | 14-agent registry                | All developers             |
+| [AGENT_SKILLS_INTEGRATION.md](AGENT_SKILLS_INTEGRATION.md) | How skills work with agents      | Advanced developers        |
+| [COMMON_WORKFLOWS.md](COMMON_WORKFLOWS.md)                 | Step-by-step task guides         | Feature developers         |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md)                   | Diagnosis & fixes                | Debugging developers       |
+| [copilot-instructions.md](copilot-instructions.md)         | Project context for AI           | AI agents                  |
+| [CLAUDE.md](../CLAUDE.md)                                  | Developer identity & preferences | Krishan + all contributors |
 
 ---
 
@@ -476,6 +499,7 @@ See [packages/db/prisma/schema.prisma](../packages/db/prisma/schema.prisma) for 
 - **"What are the rules?"** → [Architecture Essentials](#architecture-essentials)
 
 **Or**:
+
 - Ask the **Explore Agent** for codebase Q&A (quick lookup)
 - Ask **Orchestrator Agent** for multi-step features
 - Ask specialized agents for focused work (Coding, Frontend, Security, etc.)

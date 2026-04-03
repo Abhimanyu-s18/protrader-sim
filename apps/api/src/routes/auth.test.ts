@@ -5,20 +5,46 @@ import { getRedis } from '../lib/redis.js'
 
 const agent = request.agent(app)
 
+async function cleanupTestData() {
+  // Get test users before deleting to derive Redis key patterns
+  const testUsers = await prisma.user.findMany({
+    where: { email: { startsWith: 'test-' } },
+    select: { id: true, email: true },
+  })
+
+  await prisma.session.deleteMany({ where: { user: { email: { startsWith: 'test-' } } } })
+  await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+
+  const redis = getRedis()
+
+  // Clean up test-related Redis keys
+  const patterns = ['test:*']
+  for (const user of testUsers) {
+    patterns.push(`session:*${user.id}*`, `user:${user.id}:*`, `*${user.email}*`)
+  }
+
+  for (const pattern of patterns) {
+    const stream = redis.scanStream({ match: pattern, count: 100 })
+    for await (const keys of stream) {
+      if (keys.length > 0) {
+        await redis.del(...keys)
+      }
+    }
+  }
+
+  return redis
+}
+
 describe('Auth API Integration Tests', () => {
   beforeAll(async () => {
-    // Clean up test data
-    await prisma.session.deleteMany()
-    await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
-    await getRedis().flushall()
+    await cleanupTestData()
   })
 
   afterAll(async () => {
-    // Clean up
-    await prisma.session.deleteMany()
-    await prisma.session.deleteMany()
-    await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
-    await getRedis().flushall()
+    const redis = await cleanupTestData()
+
+    await redis.quit()
+    await prisma.$disconnect()
   })
 
   describe('POST /v1/auth/register', () => {
@@ -42,7 +68,7 @@ describe('Auth API Integration Tests', () => {
     })
 
     it('should reject invalid email', async () => {
-      await agent
+      const res = await agent
         .post('/v1/auth/register')
         .send({
           email: 'invalid-email',
@@ -53,10 +79,13 @@ describe('Auth API Integration Tests', () => {
           terms_accepted: true,
         })
         .expect(400)
+
+      expect(res.body).toHaveProperty('error_code', 'VALIDATION_ERROR')
+      expect(res.body).toHaveProperty('message')
     })
 
     it('should reject weak password', async () => {
-      await agent
+      const res = await agent
         .post('/v1/auth/register')
         .send({
           email: 'test-weak@example.com',
@@ -67,6 +96,9 @@ describe('Auth API Integration Tests', () => {
           terms_accepted: true,
         })
         .expect(400)
+
+      expect(res.body).toHaveProperty('error_code', 'VALIDATION_ERROR')
+      expect(res.body).toHaveProperty('message')
     })
 
     it('should reject duplicate email', async () => {
@@ -160,9 +192,14 @@ describe('Auth API Integration Tests', () => {
         password: 'TestPassword123!',
       })
 
+      if (response.status !== 200 || !response.body?.data?.refresh_token) {
+        throw new Error(
+          `Failed to get refresh token during setup: status=${response.status} body=${JSON.stringify(response.body)}`,
+        )
+      }
+
       refreshToken = response.body.data.refresh_token
     })
-
     it('should refresh access token', async () => {
       const response = await agent
         .post('/v1/auth/refresh')
@@ -171,6 +208,8 @@ describe('Auth API Integration Tests', () => {
 
       expect(response.body.data).toHaveProperty('access_token')
       expect(response.body.data).toHaveProperty('refresh_token')
+
+      refreshToken = response.body.data.refresh_token
     })
 
     it('should reject invalid refresh token', async () => {
@@ -188,6 +227,12 @@ describe('Auth API Integration Tests', () => {
         password: 'TestPassword123!',
       })
 
+      if (response.status !== 200 || !response.body?.data?.access_token) {
+        throw new Error(
+          `Failed to get access token during setup: status=${response.status} body=${JSON.stringify(response.body)}`,
+        )
+      }
+
       accessToken = response.body.data.access_token
     })
 
@@ -201,10 +246,10 @@ describe('Auth API Integration Tests', () => {
   })
 
   describe('POST /v1/auth/forgot-password', () => {
-    it('should accept forgot password request (anti-enumeration)', async () => {
+    it('should accept forgot password request for registered email (anti-enumeration)', async () => {
       const response = await agent
         .post('/v1/auth/forgot-password')
-        .send({ email: 'test-forgot@example.com' })
+        .send({ email: 'test-login@example.com' })
         .expect(200)
 
       // Should always return success to prevent email enumeration

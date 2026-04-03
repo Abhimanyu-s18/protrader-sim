@@ -14,7 +14,32 @@ argument-hint: >
   (local/staging/production), which services are affected, and any error output from the
   deployment pipeline. Example: "Set up GitHub Actions CI/CD pipeline that runs tests on
   PR, builds Docker images, pushes to ECR, and deploys to ECS on merge to main."
-tools: [vscode/memory, vscode/resolveMemoryFileUri, vscode/runCommand, vscode/vscodeAPI, vscode/askQuestions, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit/createDirectory, edit/createFile, edit/editFiles, edit/rename, search, web/githubRepo, browser, 'io.github.upstash/context7/*', todo]
+tools:
+  [
+    vscode/memory,
+    vscode/resolveMemoryFileUri,
+    vscode/runCommand,
+    vscode/vscodeAPI,
+    vscode/askQuestions,
+    execute/getTerminalOutput,
+    execute/awaitTerminal,
+    execute/killTerminal,
+    execute/createAndRunTask,
+    execute/runInTerminal,
+    read/problems,
+    read/readFile,
+    read/terminalSelection,
+    read/terminalLastCommand,
+    edit/createDirectory,
+    edit/createFile,
+    edit/editFiles,
+    edit/rename,
+    search,
+    web/githubRepo,
+    browser,
+    'io.github.upstash/context7/*',
+    todo,
+  ]
 ---
 
 # DevOps Agent — ProTraderSim Infrastructure
@@ -29,11 +54,11 @@ regulated financial platform that must be reliable, secure, and auditable.
 
 ### Environments
 
-| Environment | Platform | Purpose | Branch |
-|------------|----------|---------|--------|
-| Local | Docker Compose | Developer machines | feature/* |
-| Staging | Railway | Pre-production testing | develop |
-| Production | AWS ECS eu-west-1 | Live platform | main |
+| Environment | Platform          | Purpose                | Branch     |
+| ----------- | ----------------- | ---------------------- | ---------- |
+| Local       | Docker Compose    | Developer machines     | feature/\* |
+| Staging     | Railway           | Pre-production testing | develop    |
+| Production  | AWS ECS eu-west-1 | Live platform          | main       |
 
 ### Services per Environment
 
@@ -57,6 +82,7 @@ External Services (all environments):
 ## Docker Configuration
 
 ### apps/server/Dockerfile
+
 ```dockerfile
 FROM node:20-alpine AS base
 RUN npm install -g pnpm@9
@@ -101,6 +127,7 @@ CMD ["node", "dist/index.js"]
 ```
 
 ### apps/web/Dockerfile
+
 ```dockerfile
 FROM node:20-alpine AS base
 RUN npm install -g pnpm@9
@@ -133,6 +160,7 @@ CMD ["node", "apps/web/server.js"]
 ```
 
 ### docker-compose.yml (Local Development)
+
 ```yaml
 version: '3.9'
 services:
@@ -143,14 +171,14 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '6379:6379'
 
   server:
     build:
@@ -159,7 +187,7 @@ services:
       target: builder
     command: pnpm --filter @protrader/server dev
     ports:
-      - "3001:3001"
+      - '3001:3001'
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/protrader_dev
       REDIS_URL: redis://redis:6379
@@ -176,7 +204,7 @@ services:
       target: builder
     command: pnpm --filter @protrader/web dev
     ports:
-      - "3000:3000"
+      - '3000:3000'
     env_file: .env
     depends_on: [server]
     volumes:
@@ -192,6 +220,7 @@ volumes:
 ## GitHub Actions CI/CD Pipeline
 
 ### .github/workflows/ci.yml
+
 ```yaml
 name: CI
 
@@ -337,7 +366,7 @@ jobs:
             --region eu-west-1 \
             --query 'taskDefinition' \
             --output json)
-          
+
           # Update container images
           UPDATED_DEF=$(echo $TASK_DEF | jq \
             --arg SERVER_IMAGE "$ECR_REGISTRY/protrader-server:$GITHUB_SHA" \
@@ -347,7 +376,7 @@ jobs:
               elif .name == "web" then .image = $WEB_IMAGE
               else . end
             ) | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
-          
+
           # Register the updated task definition
           aws ecs register-task-definition \
             --family protrader-api \
@@ -437,6 +466,7 @@ PORT                         ← 3001
 ## Production Deployment Checklist
 
 Before every production deployment:
+
 - [ ] All tests pass in CI
 - [ ] Migration dry-run reviewed (`prisma migrate status`)
 - [ ] New env variables added to ECS task definition

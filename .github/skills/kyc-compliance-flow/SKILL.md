@@ -1,6 +1,6 @@
 ---
 name: kyc-compliance-flow
-description: "Use when: implementing KYC document upload flows, building admin review workflows, managing PII (personally identifiable information), storing files securely, or implementing identity verification compliance. Ensures proper file validation, secure storage, and regulatory compliance for FSC Mauritius / FSA Seychelles. Primary agents: Security, Coding, Architecture."
+description: 'Use when: implementing KYC document upload flows, building admin review workflows, managing PII (personally identifiable information), storing files securely, or implementing identity verification compliance. Ensures proper file validation, secure storage, and regulatory compliance for FSC Mauritius / FSA Seychelles. Primary agents: Security, Coding, Architecture.'
 ---
 
 # KYC Compliance Flow — ProTraderSim
@@ -15,19 +15,19 @@ Complete **Know-Your-Customer (KYC) identity verification** workflow with secure
 
 ```typescript
 enum KycDocumentType {
-  PASSPORT = 'PASSPORT',                      // ID verification
-  DRIVER_LICENSE = 'DRIVER_LICENSE',          // Alternative ID
-  NATIONAL_ID = 'NATIONAL_ID',                // Some countries
-  PROOF_OF_ADDRESS = 'PROOF_OF_ADDRESS'       // Utility bill, lease, etc.
+  PASSPORT = 'PASSPORT', // ID verification
+  DRIVER_LICENSE = 'DRIVER_LICENSE', // Alternative ID
+  NATIONAL_ID = 'NATIONAL_ID', // Some countries
+  PROOF_OF_ADDRESS = 'PROOF_OF_ADDRESS', // Utility bill, lease, etc.
 }
 
 enum KycStatus {
-  PENDING = 'PENDING',                        // Not started
-  SUBMITTED = 'SUBMITTED',                    // Awaiting admin review
-  UNDER_REVIEW = 'UNDER_REVIEW',              // Admin actively reviewing
-  APPROVED = 'APPROVED',                      // Can trade
-  REJECTED = 'REJECTED',                      // Must resubmit
-  EXPIRED = 'EXPIRED'                         // Needs renewal
+  PENDING = 'PENDING', // Not started
+  SUBMITTED = 'SUBMITTED', // Awaiting admin review
+  UNDER_REVIEW = 'UNDER_REVIEW', // Admin actively reviewing
+  APPROVED = 'APPROVED', // Can trade
+  REJECTED = 'REJECTED', // Must resubmit
+  EXPIRED = 'EXPIRED', // Needs renewal
 }
 
 // Trader must submit:
@@ -90,7 +90,7 @@ export default function KycPage() {
   return (
     <div>
       <h1>KYC Verification</h1>
-      
+
       <div>
         <label>Passport or National ID</label>
         <input
@@ -132,15 +132,15 @@ const r2 = new S3Client({
   region: 'auto',
   credentials: {
     accessKeyId: CLOUDFLARE_R2_ACCESS_KEY,
-    secretAccessKey: CLOUDFLARE_R2_SECRET_KEY
+    secretAccessKey: CLOUDFLARE_R2_SECRET_KEY,
   },
-  endpoint: CLOUDFLARE_R2_ENDPOINT  // https://xxx.r2.cloudflarestorage.com
+  endpoint: CLOUDFLARE_R2_ENDPOINT, // https://xxx.r2.cloudflarestorage.com
 })
 
 export async function uploadKycDocument(
   userId: string,
   docType: string,
-  file: Express.Multer.File
+  file: Express.Multer.File,
 ) {
   // Validate file
   const allowedMimes = ['image/jpeg', 'image/png', 'application/pdf']
@@ -160,18 +160,20 @@ export async function uploadKycDocument(
 
   // Upload to R2
   try {
-    await r2.send(new PutObjectCommand({
-      Bucket: CLOUDFLARE_R2_BUCKET,
-      Key: filename,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-      Metadata: {
-        'user-id': userId,
-        'doc-type': docType,
-        'uploaded-by': userId,
-        'upload-timestamp': new Date().toISOString()
-      }
-    }))
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: CLOUDFLARE_R2_BUCKET,
+        Key: filename,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+        Metadata: {
+          'user-id': userId,
+          'doc-type': docType,
+          'uploaded-by': userId,
+          'upload-timestamp': new Date().toISOString(),
+        },
+      }),
+    )
   } catch (err) {
     throw new ApiError('UPLOAD_FAILED', 500, 'Could not upload file')
   }
@@ -186,22 +188,22 @@ export async function uploadKycDocument(
       mime_type: file.mimetype,
       status: 'SUBMITTED',
       uploaded_at: new Date(),
-      created_at: new Date()
-    }
+      created_at: new Date(),
+    },
   })
 
   // Notify admins
   io.to('admin:panel').emit('kyc:submitted', {
     user_id: userId,
     document_type: docType,
-    id: kycDocument.id
+    id: kycDocument.id,
   })
 
   return {
     data: {
       document_id: kycDocument.id,
-      status: 'SUBMITTED'
-    }
+      status: 'SUBMITTED',
+    },
   }
 }
 ```
@@ -236,7 +238,7 @@ export default function AdminKycPage() {
   return (
     <div>
       <h1>KYC Review Queue</h1>
-      
+
       {pendingUsers.map(user => (
         <KycReviewCard key={user.id} user={user} />
       ))}
@@ -289,7 +291,7 @@ function KycReviewCard({ user }) {
   return (
     <div style={{ border: '1px solid #ccc', padding: '1rem', margin: '1rem 0' }}>
       <h3>{user.email}</h3>
-      
+
       {user.kyc_documents.map(doc => (
         <div key={doc.id}>
           <strong>{doc.document_type}</strong>
@@ -338,7 +340,7 @@ export async function adminApproveKyc(
     }
   })
 
-  const hasId = documents.some(d => 
+  const hasId = documents.some(d =>
     ['PASSPORT', 'DRIVER_LICENSE', 'NATIONAL_ID'].includes(d.document_type)
   )
   const hasProof = documents.some(d => d.document_type === 'PROOF_OF_ADDRESS')
@@ -366,7 +368,7 @@ export async function adminApproveKyc(
     where: { id: userId },
     select: { email: true }
   })
-  
+
   if (!user) {
     throw new Error('User not found')
   }
@@ -379,7 +381,7 @@ export async function adminApproveKyc(
       kyc_approved_at: new Date()
     }
   })
-  
+
   await resend.emails.send({
     from: 'noreply@protrader.com',
     to: user.email,
@@ -423,7 +425,7 @@ export async function adminRejectKyc(
     where: { id: userId },
     select: { email: true }
   })
-  
+
   if (!user) {
     throw new Error('User not found')
   }
@@ -444,7 +446,7 @@ export async function adminRejectKyc(
     where: { id: userId },
     data: { kyc_status: 'REJECTED' }
   })
-  
+
   await resend.emails.send({
     from: 'noreply@protrader.com',
     to: user.email,
@@ -491,7 +493,7 @@ export function sanitizeKyc(doc: KycDocument) {
 const ALLOWED_MIMES = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
-  'application/pdf': '.pdf'
+  'application/pdf': '.pdf',
 }
 
 // Scan for malware (optional, can integrate VirusTotal API)
@@ -515,12 +517,12 @@ app.get('/kyc/documents/:file_key', async (req, res) => {
 
   // Verify admin role
   const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN'
-  
+
   // Fetch the document to check access rights
   const doc = await db.kycDocument.findUnique({
-    where: { file_key: req.params.file_key }
+    where: { file_key: req.params.file_key },
   })
-  
+
   if (!doc) {
     return res.status(404).json({ error: 'DOCUMENT_NOT_FOUND' })
   }
@@ -532,10 +534,12 @@ app.get('/kyc/documents/:file_key', async (req, res) => {
 
   // Stream from R2
   try {
-    const file = await r2.send(new GetObjectCommand({
-      Bucket: CLOUDFLARE_R2_BUCKET,
-      Key: req.params.file_key
-    }))
+    const file = await r2.send(
+      new GetObjectCommand({
+        Bucket: CLOUDFLARE_R2_BUCKET,
+        Key: req.params.file_key,
+      }),
+    )
 
     res.setHeader('Content-Type', file.ContentType || 'application/octet-stream')
     file.Body.pipe(res)
@@ -585,15 +589,15 @@ SUBMITTED → APPROVED
 
 ## 🚨 Common Mistakes
 
-| ❌ Wrong | ✅ Correct |
-|---------|-----------|
-| Store files on disk / local | Use Cloudflare R2 (S3-compatible) |
-| Log passport numbers | Only log file key + status |
-| No file type validation | Validate MIME + file extension |
-| Auto-approve KYC | Require manual admin approval |
-| Allow traders to view others' KYC | Enforce strict access control |
-| No audit trail | Log who approved, when, with notes |
-| Cache PII in memory | Never cache sensitive documents |
+| ❌ Wrong                          | ✅ Correct                         |
+| --------------------------------- | ---------------------------------- |
+| Store files on disk / local       | Use Cloudflare R2 (S3-compatible)  |
+| Log passport numbers              | Only log file key + status         |
+| No file type validation           | Validate MIME + file extension     |
+| Auto-approve KYC                  | Require manual admin approval      |
+| Allow traders to view others' KYC | Enforce strict access control      |
+| No audit trail                    | Log who approved, when, with notes |
+| Cache PII in memory               | Never cache sensitive documents    |
 
 ---
 

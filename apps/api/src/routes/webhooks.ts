@@ -23,12 +23,18 @@ webhooksRouter.post('/nowpayments', async (req, res, next) => {
     }
 
     const { payment_id, payment_status, pay_currency, order_id } = req.body as {
-      payment_id: string; payment_status: string; pay_currency: string; order_id: string
+      payment_id: string
+      payment_status: string
+      pay_currency: string
+      order_id: string
     }
 
     if (payment_status === 'finished' || payment_status === 'confirmed') {
       const deposit = await prisma.deposit.findUnique({ where: { nowpaymentsInvoiceId: order_id } })
-      if (!deposit || deposit.status === 'COMPLETED') { res.json({ received: true }); return }
+      if (!deposit || deposit.status === 'COMPLETED') {
+        res.json({ received: true })
+        return
+      }
 
       const totalAmountCents = deposit.amountCents + deposit.bonusCents
 
@@ -38,7 +44,9 @@ webhooksRouter.post('/nowpayments', async (req, res, next) => {
           data: { status: 'COMPLETED', nowpaymentsPaymentId: payment_id, processedAt: new Date() },
         })
         // Get current balance for snapshot
-        const [bal] = await tx.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${deposit.userId}) AS balance_cents`
+        const [bal] = await tx.$queryRaw<
+          [{ balance_cents: bigint }]
+        >`SELECT get_user_balance(${deposit.userId}) AS balance_cents`
         await tx.ledgerTransaction.create({
           data: {
             userId: deposit.userId,
@@ -51,11 +59,17 @@ webhooksRouter.post('/nowpayments', async (req, res, next) => {
           },
         })
         if (deposit.bonusCents > 0n) {
-          const [bal2] = await tx.$queryRaw<[{ balance_cents: bigint }]>`SELECT get_user_balance(${deposit.userId}) AS balance_cents`
+          const [bal2] = await tx.$queryRaw<
+            [{ balance_cents: bigint }]
+          >`SELECT get_user_balance(${deposit.userId}) AS balance_cents`
           await tx.ledgerTransaction.create({
             data: {
-              userId: deposit.userId, transactionType: 'BONUS', amountCents: deposit.bonusCents,
-              balanceAfterCents: (bal2?.balance_cents ?? 0n), referenceId: deposit.id, referenceType: 'DEPOSIT',
+              userId: deposit.userId,
+              transactionType: 'BONUS',
+              amountCents: deposit.bonusCents,
+              balanceAfterCents: bal2?.balance_cents ?? 0n,
+              referenceId: deposit.id,
+              referenceType: 'DEPOSIT',
               description: `Deposit bonus`,
             },
           })
@@ -64,5 +78,7 @@ webhooksRouter.post('/nowpayments', async (req, res, next) => {
     }
 
     res.json({ received: true })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })

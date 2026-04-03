@@ -1,6 +1,6 @@
 ---
 name: database-schema-design
-description: "Use when: designing database schema, creating new tables, adding columns, designing relationships, or planning migrations. Ensures proper normalization, BIGINT usage for money, index strategies, and Prisma best practices. Primary agents: Schema, Architecture, Coding."
+description: 'Use when: designing database schema, creating new tables, adding columns, designing relationships, or planning migrations. Ensures proper normalization, BIGINT usage for money, index strategies, and Prisma best practices. Primary agents: Schema, Architecture, Coding.'
 ---
 
 # Database Schema Design — ProTraderSim
@@ -22,7 +22,7 @@ model LedgerTransaction {
   amount_cents      BigInt   // Signed: positive credit, negative debit
   balance_after_cents BigInt // Immutable snapshot for audit only (never a canonical balance)
   created_at        DateTime @default(now())
-  
+
   @@index([user_id, created_at])
 }
 
@@ -48,7 +48,7 @@ model Trade {
   open_rate_scaled BigInt // 1.08500 → 108500n
   close_rate_scaled BigInt?
   current_bid_scaled BigInt // Real-time
-  
+
   @@index([symbol, created_at])
 }
 ```
@@ -96,7 +96,7 @@ model User {
   pool_code       String?  // Mandatory for traders
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
-  
+
   // Relations
   trades          Trade[]
   ledger          LedgerTransaction[]
@@ -105,7 +105,7 @@ model User {
   kyc_documents   KycDocument[]
   sessions        Session[]
   managed_by      StaffManagedUser[]
-  
+
   @@index([email])
   @@index([pool_code])
 }
@@ -116,9 +116,9 @@ model Session {
   token         String   @unique
   expires_at    DateTime
   created_at    DateTime @default(now())
-  
+
   user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
+
   @@index([user_id])
 }
 ```
@@ -141,10 +141,10 @@ model Instrument {
   is_active          Boolean  @default(true)
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
-  
+
   // Relations
   trades             Trade[]
-  
+
   @@index([symbol])
   @@unique([twelve_data_symbol])
 }
@@ -166,11 +166,11 @@ model Trade {
   swap_charged_cents  BigInt   @default(0)      // Accumulating
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
-  
+
   // Relations
   user                User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   instrument          Instrument @relation(fields: [symbol], references: [symbol], onDelete: Restrict)
-  
+
   @@index([user_id, status])
   @@index([symbol])
   @@index([open_timestamp, close_timestamp])
@@ -184,9 +184,9 @@ model LedgerTransaction {
   balance_after_cents BigInt   // Snapshot for audit
   trade_id            String?  // Reference if from trade
   created_at          DateTime @default(now())
-  
+
   user                User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
+
   @@index([user_id, created_at])
   @@index([type])
 }
@@ -205,9 +205,9 @@ model DepositRequest {
   confirmed_at    DateTime?
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
-  
+
   user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
+
   @@index([user_id, status])
   @@index([tx_hash])
 }
@@ -223,9 +223,9 @@ model WithdrawalRequest {
   completed_at    DateTime?
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
-  
+
   user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
+
   @@index([user_id, status])
   @@index([approved_by])
 }
@@ -245,10 +245,10 @@ model KycDocument {
   uploaded_at     DateTime @default(now())
   reviewed_at     DateTime?
   updated_at      DateTime @updatedAt
-  
+
   user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   reviewer        Staff?   @relation(fields: [reviewed_by], references: [id], onDelete: SetNull)
-  
+
   @@index([user_id, type])
   @@index([status])
 }
@@ -264,11 +264,11 @@ model Staff {
   status          String   @default("ACTIVE")  // ACTIVE, INACTIVE
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
-  
+
   // Relations
   users_managed   StaffManagedUser[]
   kyc_reviews     KycDocument[]
-  
+
   @@index([email])
   @@index([role])
 }
@@ -277,10 +277,10 @@ model StaffManagedUser {
   id        String   @id @default(cuid())
   staff_id  String
   user_id   String
-  
+
   staff     Staff    @relation(fields: [staff_id], references: [id], onDelete: Cascade)
   user      User     @relation("manages", fields: [user_id], references: [id], onDelete: Cascade)
-  
+
   @@unique([staff_id, user_id])
   @@index([user_id])
 }
@@ -293,10 +293,10 @@ model IbCommission {
   commission_cents BigInt  // = (trade_value * rate_bps) / BPS_SCALE
   paid             Boolean  @default(false)
   created_at      DateTime @default(now())
-  
+
   trade           Trade    @relation(fields: [trade_id], references: [id], onDelete: Cascade)
   ib_agent        Staff    @relation(fields: [ib_agent_id], references: [id], onDelete: Restrict)
-  
+
   @@index([ib_agent_id, paid])
   @@index([trade_id])
 }
@@ -311,16 +311,16 @@ model IbCommission {
 ```prisma
 model Trade {
   // ... fields ...
-  
+
   // User's trades for dashboard
   @@index([user_id, status])
-  
+
   // Price feed updates per symbol
   @@index([symbol])
-  
+
   // Margin call detection (margin_level calculation)
   @@index([user_id, status])  // Reuse above
-  
+
   // Transaction history
   @@index([open_timestamp])
   @@index([close_timestamp])
@@ -329,7 +329,7 @@ model Trade {
 model LedgerTransaction {
   // User balance queries
   @@index([user_id, created_at])
-  
+
   // Audit by type
   @@index([type])
 }
@@ -337,7 +337,7 @@ model LedgerTransaction {
 model User {
   // Auth lookups
   @@index([email])
-  
+
   // Referral tracking
   @@index([pool_code])
 }
@@ -418,6 +418,7 @@ model User {
 ## ✅ Schema Design Checklist
 
 ### Before Adding a Table
+
 - [ ] Does this entity belong in the DB (not in ephemeral cache)?
 - [ ] Do I have a primary key?
 - [ ] Are all monetary values BIGINT cents?
@@ -426,6 +427,7 @@ model User {
 - [ ] Are foreign keys properly defined?
 
 ### Before Adding a Column
+
 - [ ] Does this column contain unique identifiers (add @unique)?
 - [ ] Should this be indexed for queries?
 - [ ] Is this nullable, or should I set a @default?
@@ -433,6 +435,7 @@ model User {
 - [ ] If price: is this BIGINT scaled?
 
 ### Before the PR
+
 - [ ] Schema compiles (`pnpm db:generate` succeeds)
 - [ ] Migration file created (`pnpm db:migrate`)
 - [ ] No breaking changes to existing tables
@@ -443,16 +446,16 @@ model User {
 
 ## 🚨 Common Mistakes
 
-| ❌ Wrong | ✅ Correct |
-|---------|-----------|
-| Store balance in `user.balance` | Compute from `ledger_transactions` SUM |
-| Use `Decimal` for money | Use `BigInt` for BIGINT cents |
-| Store price as Float (1.085) | Store as `BigInt` scaled (108500n) |
-| No indexes on frequently queried fields | Index `user_id`, `symbol`, `created_at` |
-| Foreign key with no `onDelete` | `@relation(..., onDelete: Cascade)` |
-| Optional field with no @default | Add `@default(false)` or make non-optional |
-| Nested relations without limits | Use `select` to limit relational data |
-| No updated_at field | Always add `updated_at DateTime @updatedAt` |
+| ❌ Wrong                                | ✅ Correct                                  |
+| --------------------------------------- | ------------------------------------------- |
+| Store balance in `user.balance`         | Compute from `ledger_transactions` SUM      |
+| Use `Decimal` for money                 | Use `BigInt` for BIGINT cents               |
+| Store price as Float (1.085)            | Store as `BigInt` scaled (108500n)          |
+| No indexes on frequently queried fields | Index `user_id`, `symbol`, `created_at`     |
+| Foreign key with no `onDelete`          | `@relation(..., onDelete: Cascade)`         |
+| Optional field with no @default         | Add `@default(false)` or make non-optional  |
+| Nested relations without limits         | Use `select` to limit relational data       |
+| No updated_at field                     | Always add `updated_at DateTime @updatedAt` |
 
 ---
 

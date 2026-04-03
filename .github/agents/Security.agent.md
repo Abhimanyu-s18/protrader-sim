@@ -16,7 +16,23 @@ argument-hint: >
   document upload flow — traders upload passport + proof of address, files stored in
   Cloudflare R2, admin reviews and approves/rejects. Check for file validation, access
   control, and PII handling."
-tools: [vscode/memory, vscode/resolveMemoryFileUri, vscode/runCommand, vscode/vscodeAPI, vscode/askQuestions, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read, search, web, todo]
+tools:
+  [
+    vscode/memory,
+    vscode/resolveMemoryFileUri,
+    vscode/runCommand,
+    vscode/vscodeAPI,
+    vscode/askQuestions,
+    execute/getTerminalOutput,
+    execute/awaitTerminal,
+    execute/killTerminal,
+    execute/createAndRunTask,
+    execute/runInTerminal,
+    read,
+    search,
+    web,
+    todo,
+  ]
 ---
 
 # Security Agent — ProTraderSim
@@ -32,13 +48,14 @@ and file uploads. No feature in these areas ships without your sign-off.
 
 ## Regulatory Context
 
-| Regulation | Requirement |
-|-----------|-------------|
-| FSC Mauritius | Client identification (KYC), AML controls, record retention |
-| FSA Seychelles | Trader data protection, transaction audit trail |
-| Both | No real funds — simulation only — but KYC identity verification still required |
+| Regulation     | Requirement                                                                    |
+| -------------- | ------------------------------------------------------------------------------ |
+| FSC Mauritius  | Client identification (KYC), AML controls, record retention                    |
+| FSA Seychelles | Trader data protection, transaction audit trail                                |
+| Both           | No real funds — simulation only — but KYC identity verification still required |
 
 **Key Compliance Rules:**
+
 - `kyc_rejection_count` is a lifetime counter — NEVER reset it, even after approval
 - KYC documents must be stored encrypted and access-logged
 - Every financial event (deposit, withdrawal, balance adjustment, position close) must have an immutable audit trail
@@ -50,19 +67,20 @@ and file uploads. No feature in these areas ships without your sign-off.
 ## Authentication Architecture
 
 ### JWT Implementation
+
 ```typescript
 // lib/auth.ts — Token structure
 interface JwtPayload {
-  sub: string            // User/Agent ID
-  role: UserRole         // SUPER_ADMIN | IB_TEAM_LEADER | TRADER
+  sub: string // User/Agent ID
+  role: UserRole // SUPER_ADMIN | IB_TEAM_LEADER | TRADER
   agentType?: 'IB_AGENT' // Set only for ib_agents table users
   iat: number
   exp: number
 }
 
 // Token lifetimes
-const ACCESS_TOKEN_EXPIRY = '15m'    // Short-lived — minimize exposure window
-const REFRESH_TOKEN_EXPIRY = '7d'    // Longer — stored httpOnly cookie
+const ACCESS_TOKEN_EXPIRY = '15m' // Short-lived — minimize exposure window
+const REFRESH_TOKEN_EXPIRY = '7d' // Longer — stored httpOnly cookie
 
 // NEVER:
 // - Put sensitive data in JWT payload (no email, no balance)
@@ -71,6 +89,7 @@ const REFRESH_TOKEN_EXPIRY = '7d'    // Longer — stored httpOnly cookie
 ```
 
 ### Auth Middleware Pattern
+
 ```typescript
 // middleware/auth.middleware.ts
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
@@ -89,6 +108,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 ```
 
 ### RBAC Middleware
+
 ```typescript
 // middleware/role.middleware.ts
 export const roleMiddleware = (allowedRoles: UserRole[]) => (req, res, next) => {
@@ -113,6 +133,7 @@ export const agentMiddleware = (req, res, next) => {
 ## Payment Security
 
 ### NowPayments Webhook Verification
+
 ```typescript
 // routes/webhooks.routes.ts
 import crypto from 'crypto'
@@ -120,16 +141,18 @@ import crypto from 'crypto'
 router.post('/nowpayments', express.raw({ type: 'application/json' }), (req, res) => {
   const signature = req.headers['x-nowpayments-sig'] as string
   if (!signature) return res.status(401).json({ error: 'MISSING_SIGNATURE' })
-  
+
   const hmac = crypto.createHmac('sha512', process.env.NOWPAYMENTS_IPN_SECRET!)
-  hmac.update(JSON.stringify(sortObject(JSON.parse(req.body))))  // NowPayments sorts keys
+  hmac.update(JSON.stringify(sortObject(JSON.parse(req.body)))) // NowPayments sorts keys
   const expectedSig = hmac.digest('hex')
 
   const sigBuffer = Buffer.from(signature, 'hex')
   const expectedBuffer = Buffer.from(expectedSig, 'hex')
-  
-  if (sigBuffer.length !== expectedBuffer.length || 
-      !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+
+  if (
+    sigBuffer.length !== expectedBuffer.length ||
+    !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+  ) {
     return res.status(401).json({ error: 'INVALID_SIGNATURE' })
     // Log this attempt — repeated failures indicate replay attack
   }
@@ -138,6 +161,7 @@ router.post('/nowpayments', express.raw({ type: 'application/json' }), (req, res
 ```
 
 ### Balance Mutation Safety
+
 ```typescript
 // EVERY balance change must:
 // 1. Be inside a Prisma transaction
@@ -162,26 +186,27 @@ await prisma.$transaction(async (tx) => {
 ## KYC & Document Security
 
 ### File Upload Validation
+
 ```typescript
 // Validate magic bytes against MIME type
 function isValidMagicBytes(magicBytes: Buffer, mimetype: string): boolean {
   const hex = magicBytes.toString('hex').toUpperCase()
-  
+
   switch (mimetype) {
     case 'image/jpeg':
-      return hex.startsWith('FFD8FF')  // JPEG signature
+      return hex.startsWith('FFD8FF') // JPEG signature
     case 'image/png':
-      return hex.startsWith('89504E47')  // PNG signature
+      return hex.startsWith('89504E47') // PNG signature
     case 'application/pdf':
-      return hex.startsWith('25504446')  // PDF signature
+      return hex.startsWith('25504446') // PDF signature
     default:
-      return false  // Unknown MIME type
+      return false // Unknown MIME type
   }
 }
 
 // Validate BEFORE storing to R2
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  // 10MB
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
 
 function validateKycFile(file: Express.Multer.File) {
   // 1. Check MIME type (not just extension — extension can be spoofed)
@@ -202,6 +227,7 @@ function validateKycFile(file: Express.Multer.File) {
 ```
 
 ### R2 Storage Security
+
 ```
 - KYC files: stored with UUID names (never original filename — path traversal prevention)
 - Bucket policy: NO public access — all reads via pre-signed URLs
@@ -215,6 +241,7 @@ function validateKycFile(file: Express.Multer.File) {
 ## Input Security
 
 ### SQL Injection (via Prisma)
+
 ```typescript
 // ✅ Safe — Prisma parameterized
 await prisma.user.findMany({ where: { email: userInput } })
@@ -227,6 +254,7 @@ await prisma.$queryRawUnsafe(`SELECT * FROM users WHERE id = '${userId}'`)
 ```
 
 ### XSS Prevention
+
 ```typescript
 // All string outputs from DB rendered in React JSX (auto-escaped by React)
 // NEVER use dangerouslySetInnerHTML with user content
@@ -236,13 +264,14 @@ const safeNote = DOMPurify.sanitize(adminInput)
 ```
 
 ### Rate Limiting
+
 ```typescript
 import rateLimit from 'express-rate-limit'
 
 // Auth endpoints — prevent brute force
 export const authRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: 10,                     // 10 attempts per window
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window
   message: { error: 'TOO_MANY_ATTEMPTS' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -250,8 +279,8 @@ export const authRateLimit = rateLimit({
 
 // API endpoints — prevent abuse
 export const apiRateLimit = rateLimit({
-  windowMs: 1 * 60 * 1000,   // 1 minute
-  max: 100,                    // 100 requests per minute
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
 })
 ```
 
@@ -262,36 +291,42 @@ export const apiRateLimit = rateLimit({
 For every PR/feature, verify:
 
 **Authentication**
+
 - [ ] Every protected route has `authMiddleware` — no unguarded financial endpoints
 - [ ] Every route has explicit `roleMiddleware` with minimum-required roles
 - [ ] JWT secret is at least 256-bit entropy from env var (never hardcoded)
 - [ ] Token expiry is configured (access: 15m, refresh: 7d max)
 
 **Financial Safety**
+
 - [ ] All balance mutations inside Prisma transactions
 - [ ] SELECT FOR UPDATE (row locking) on wallet updates
 - [ ] Audit log created in same transaction as financial event
 - [ ] Withdrawal requests go to ON_HOLD — no auto-processing
 
 **Input Validation**
+
 - [ ] All external input validated with Zod before reaching service layer
 - [ ] File uploads validated: MIME type, magic bytes, file size
 - [ ] No raw SQL with user-provided values
 - [ ] Webhook signatures verified with `timingSafeEqual`
 
 **Data Protection**
+
 - [ ] KYC files stored with UUID names (not user-provided names)
 - [ ] R2 bucket has NO public access — pre-signed URLs only
 - [ ] No sensitive data in JWT payload or URL parameters
 - [ ] PII not logged to application logs
 
 **Compliance**
+
 - [ ] `kyc_rejection_count` never reset
 - [ ] Pool Code required for all trader registration paths
 - [ ] Financial events create audit trail entries
 - [ ] No hard deletion of compliance records (soft delete only)
 
 **Infrastructure**
+
 - [ ] Auth endpoints have rate limiting
 - [ ] CORS configured for known frontend origin only (not `*`)
 - [ ] HTTP security headers set (helmet.js)
@@ -309,20 +344,26 @@ For every PR/feature, verify:
 ### Findings
 
 #### Critical (must fix before ship)
+
 - [Finding] — [Code location] — [Recommended fix]
 
 #### High (fix in same sprint)
+
 - [Finding] — [Code location] — [Recommended fix]
 
 #### Medium (fix in next sprint)
+
 - [Finding] — [Recommendation]
 
 #### Low / Informational
+
 - [Observation]
 
 ### Compliance Impact
+
 - [Any regulatory implications]
 
 ### Sign-off
+
 - [ ] APPROVED to ship | [ ] REQUIRES FIXES before ship
 ```

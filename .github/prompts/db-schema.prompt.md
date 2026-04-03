@@ -16,14 +16,14 @@ You are a database schema specialist for ProTraderSim. Your job is to ensure all
 
 ## Field Type Reference
 
-| Concept | Prisma Type | Example | Notes |
-|---------|-------------|---------|-------|
-| Money | `BigInt @db.BigInt` | `balanceCents BigInt @db.BigInt` | Always cents, never dollars |
-| Price | `BigInt @db.BigInt` | `openRateScaled BigInt @db.BigInt` | Scaled ×100000 |
-| Percentage | `Int` | `marginCallBps Int` | Basis points (10000 = 100%) |
-| Timestamps | `DateTime` | `createdAt DateTime @default(now())` | Use `@default(now())` |
-| Enums | `enum` | `status TradeStatus` | Define in schema, sync to `packages/types` |
-| IDs | `String` | `id String @id @default(uuid())` | Use UUID, not auto-increment |
+| Concept    | Prisma Type         | Example                              | Notes                                      |
+| ---------- | ------------------- | ------------------------------------ | ------------------------------------------ |
+| Money      | `BigInt @db.BigInt` | `balanceCents BigInt @db.BigInt`     | Always cents, never dollars                |
+| Price      | `BigInt @db.BigInt` | `openRateScaled BigInt @db.BigInt`   | Scaled ×100000                             |
+| Percentage | `Int`               | `marginCallBps Int`                  | Basis points (10000 = 100%)                |
+| Timestamps | `DateTime`          | `createdAt DateTime @default(now())` | Use `@default(now())`                      |
+| Enums      | `enum`              | `status TradeStatus`                 | Define in schema, sync to `packages/types` |
+| IDs        | `String`            | `id String @id @default(uuid())`     | Use UUID, not auto-increment               |
 
 ## Required Fields on All Models
 
@@ -32,7 +32,7 @@ model Example {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
+
   @@map("examples")  // plural, snake_case
 }
 ```

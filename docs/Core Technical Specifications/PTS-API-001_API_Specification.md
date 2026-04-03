@@ -1,42 +1,44 @@
 # ProTraderSim
+
 ## PTS-API-001 — API Specification
+
 **Version 1.0 | March 2026 | CONFIDENTIAL**
 
 ---
 
 ## 1. Global API Standards
 
-| Standard | Rule |
-|---|---|
-| Base URL | `https://api.protrader.com/v1` |
-| Versioning | `/v1/` prefix on all endpoints. Breaking changes increment to `/v2/`. |
-| Auth | `Authorization: Bearer {access_token}` header on all protected endpoints. |
-| Content Type | `application/json` for all request and response bodies. |
-| Pagination | Cursor-based: `?cursor={last_id}&limit={n}` (default 50, max 200). Response includes `next_cursor`. |
-| Rate Limiting | Per-user: 100 req/min standard. 10 req/min for auth endpoints. Returns 429 on breach. |
-| Timestamps | ISO 8601 UTC: `2026-03-25T10:30:00.000Z` |
-| Money in responses | Return BIGINT cents AND formatted string: `{cents: 10050, formatted: '$100.50'}` |
-| Error format | `{error_code: 'INSUFFICIENT_MARGIN', message: 'Human readable', details: {...}}` |
-| CORS | Allow-Origin: specific app domains only. Never `*`. |
+| Standard           | Rule                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------- |
+| Base URL           | `https://api.protrader.com/v1`                                                                      |
+| Versioning         | `/v1/` prefix on all endpoints. Breaking changes increment to `/v2/`.                               |
+| Auth               | `Authorization: Bearer {access_token}` header on all protected endpoints.                           |
+| Content Type       | `application/json` for all request and response bodies.                                             |
+| Pagination         | Cursor-based: `?cursor={last_id}&limit={n}` (default 50, max 200). Response includes `next_cursor`. |
+| Rate Limiting      | Per-user: 100 req/min standard. 10 req/min for auth endpoints. Returns 429 on breach.               |
+| Timestamps         | ISO 8601 UTC: `2026-03-25T10:30:00.000Z`                                                            |
+| Money in responses | Return BIGINT cents AND formatted string: `{cents: 10050, formatted: '$100.50'}`                    |
+| Error format       | `{error_code: 'INSUFFICIENT_MARGIN', message: 'Human readable', details: {...}}`                    |
+| CORS               | Allow-Origin: specific app domains only. Never `*`.                                                 |
 
 ---
 
 ## 2. Standard Error Codes
 
-| HTTP | Error Code | Meaning |
-|---|---|---|
-| 400 | VALIDATION_ERROR | Request body failed validation. Details contain field errors. |
-| 401 | UNAUTHORIZED | Missing or expired JWT token. |
-| 403 | FORBIDDEN | Valid token but insufficient role/permission. |
-| 403 | KYC_REQUIRED | Trading action blocked — KYC not approved. |
-| 404 | NOT_FOUND | Resource does not exist or does not belong to user. |
-| 409 | DUPLICATE | Duplicate unique constraint (e.g. email already exists). |
-| 409 | INSUFFICIENT_FUNDS | Not enough available balance. |
-| 409 | INSUFFICIENT_MARGIN | Not enough available margin for this trade. |
-| 409 | MARKET_CLOSED | Instrument not tradable at current time. |
-| 422 | INVALID_RATE | Entry order rate fails validation rules. |
-| 429 | RATE_LIMITED | Too many requests. Retry-After header indicates wait time. |
-| 500 | INTERNAL_ERROR | Unexpected server error. Incident logged automatically. |
+| HTTP | Error Code          | Meaning                                                       |
+| ---- | ------------------- | ------------------------------------------------------------- |
+| 400  | VALIDATION_ERROR    | Request body failed validation. Details contain field errors. |
+| 401  | UNAUTHORIZED        | Missing or expired JWT token.                                 |
+| 403  | FORBIDDEN           | Valid token but insufficient role/permission.                 |
+| 403  | KYC_REQUIRED        | Trading action blocked — KYC not approved.                    |
+| 404  | NOT_FOUND           | Resource does not exist or does not belong to user.           |
+| 409  | DUPLICATE           | Duplicate unique constraint (e.g. email already exists).      |
+| 409  | INSUFFICIENT_FUNDS  | Not enough available balance.                                 |
+| 409  | INSUFFICIENT_MARGIN | Not enough available margin for this trade.                   |
+| 409  | MARKET_CLOSED       | Instrument not tradable at current time.                      |
+| 422  | INVALID_RATE        | Entry order rate fails validation rules.                      |
+| 429  | RATE_LIMITED        | Too many requests. Retry-After header indicates wait time.    |
+| 500  | INTERNAL_ERROR      | Unexpected server error. Incident logged automatically.       |
 
 ---
 
@@ -44,21 +46,22 @@
 
 ### Authentication — /v1/auth
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | /v1/auth/register | Public | Register new trader. Returns user + tokens. |
-| POST | /v1/auth/login | Public | Login with email+password. Returns access+refresh tokens. |
-| POST | /v1/auth/logout | Required | Invalidate refresh token. |
-| POST | /v1/auth/refresh | Public | Exchange refresh token for new access token. |
-| POST | /v1/auth/forgot-password | Public | Send password reset email with 1-hour token. |
-| POST | /v1/auth/reset-password | Public | Reset password using token from email. |
-| POST | /v1/auth/change-password | Required | Change password (requires current password). |
-| POST | /v1/auth/verify-email | Public | Verify email address using token from email. |
-| POST | /v1/auth/oauth | Public | Social login (Google/Facebook). Exchange code for tokens. |
-| GET | /v1/auth/sessions | Required | List all active sessions for current user. |
-| DELETE | /v1/auth/sessions/:id | Required | Terminate a specific session. |
+| Method | Endpoint                 | Auth     | Description                                               |
+| ------ | ------------------------ | -------- | --------------------------------------------------------- |
+| POST   | /v1/auth/register        | Public   | Register new trader. Returns user + tokens.               |
+| POST   | /v1/auth/login           | Public   | Login with email+password. Returns access+refresh tokens. |
+| POST   | /v1/auth/logout          | Required | Invalidate refresh token.                                 |
+| POST   | /v1/auth/refresh         | Public   | Exchange refresh token for new access token.              |
+| POST   | /v1/auth/forgot-password | Public   | Send password reset email with 1-hour token.              |
+| POST   | /v1/auth/reset-password  | Public   | Reset password using token from email.                    |
+| POST   | /v1/auth/change-password | Required | Change password (requires current password).              |
+| POST   | /v1/auth/verify-email    | Public   | Verify email address using token from email.              |
+| POST   | /v1/auth/oauth           | Public   | Social login (Google/Facebook). Exchange code for tokens. |
+| GET    | /v1/auth/sessions        | Required | List all active sessions for current user.                |
+| DELETE | /v1/auth/sessions/:id    | Required | Terminate a specific session.                             |
 
 **Register request body:**
+
 ```json
 {
   "email": "trader@example.com",
@@ -77,15 +80,16 @@
 
 ### Users — /v1/users
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /v1/users/me | Get current user profile. |
-| PUT | /v1/users/me | Update profile fields (name, phone, language, preferences). |
-| GET | /v1/users/me/account-metrics | Returns all computed financial metrics (balance, equity, etc.). |
-| GET | /v1/users/me/financial-summary | Returns all Financial Summary tab data (current + lifetime). |
-| GET | /v1/users/me/ledger | Paginated transaction history. Filter by type and date range. |
+| Method | Endpoint                       | Description                                                     |
+| ------ | ------------------------------ | --------------------------------------------------------------- |
+| GET    | /v1/users/me                   | Get current user profile.                                       |
+| PUT    | /v1/users/me                   | Update profile fields (name, phone, language, preferences).     |
+| GET    | /v1/users/me/account-metrics   | Returns all computed financial metrics (balance, equity, etc.). |
+| GET    | /v1/users/me/financial-summary | Returns all Financial Summary tab data (current + lifetime).    |
+| GET    | /v1/users/me/ledger            | Paginated transaction history. Filter by type and date range.   |
 
 **account-metrics response:**
+
 ```json
 {
   "balance": { "cents": 100000, "formatted": "$1,000.00" },
@@ -102,30 +106,31 @@
 
 ### Instruments — /v1/instruments
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /v1/instruments | List all active instruments. Filter by ?asset_class=FOREX |
-| GET | /v1/instruments/:symbol | Get instrument details (spread, leverage, hours, commission). |
-| GET | /v1/instruments/:symbol/price | Get current bid/ask/mid from Redis cache. |
-| GET | /v1/instruments/:symbol/ohlcv | Get OHLCV candles. Params: interval, from, to, limit. |
+| Method | Endpoint                      | Description                                                   |
+| ------ | ----------------------------- | ------------------------------------------------------------- |
+| GET    | /v1/instruments               | List all active instruments. Filter by ?asset_class=FOREX     |
+| GET    | /v1/instruments/:symbol       | Get instrument details (spread, leverage, hours, commission). |
+| GET    | /v1/instruments/:symbol/price | Get current bid/ask/mid from Redis cache.                     |
+| GET    | /v1/instruments/:symbol/ohlcv | Get OHLCV candles. Params: interval, from, to, limit.         |
 
 ---
 
 ### Trades — /v1/trades
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | /v1/trades | Open a new trade (market or entry order). Returns trade object. |
-| GET | /v1/trades | List trades. Filter: ?status=OPEN\|CLOSED\|PENDING. Paginated. |
-| GET | /v1/trades/:id | Get single trade with full details. |
-| POST | /v1/trades/:id/close | Close an open trade at current market price. |
-| PUT | /v1/trades/:id/sl-tp | Update stop loss and/or take profit on open trade. |
-| PUT | /v1/trades/:id/trailing-stop | Set or update trailing stop distance in pips. |
-| POST | /v1/trades/:id/partial-close | Close a partial number of units on open trade. |
-| DELETE | /v1/trades/:id | Cancel a PENDING entry order. |
-| GET | /v1/trades/activity-log | User activity log: all account events paginated. |
+| Method | Endpoint                     | Description                                                     |
+| ------ | ---------------------------- | --------------------------------------------------------------- |
+| POST   | /v1/trades                   | Open a new trade (market or entry order). Returns trade object. |
+| GET    | /v1/trades                   | List trades. Filter: ?status=OPEN\|CLOSED\|PENDING. Paginated.  |
+| GET    | /v1/trades/:id               | Get single trade with full details.                             |
+| POST   | /v1/trades/:id/close         | Close an open trade at current market price.                    |
+| PUT    | /v1/trades/:id/sl-tp         | Update stop loss and/or take profit on open trade.              |
+| PUT    | /v1/trades/:id/trailing-stop | Set or update trailing stop distance in pips.                   |
+| POST   | /v1/trades/:id/partial-close | Close a partial number of units on open trade.                  |
+| DELETE | /v1/trades/:id               | Cancel a PENDING entry order.                                   |
+| GET    | /v1/trades/activity-log      | User activity log: all account events paginated.                |
 
 **Open trade request body:**
+
 ```json
 {
   "instrument_id": 1,
@@ -139,6 +144,7 @@
 ```
 
 **Trade execution flow (CRITICAL: race condition mitigation):**
+
 1. requireAuth + requireKYC middleware
 2. Fetch instrument (check is_active, trading hours, contract_size, leverage)
 3. Fetch current price from Redis: `GET prices:{symbol}`
@@ -147,7 +153,7 @@
 6. **VALIDATION BEFORE TRANSACTION:** Validate SL/TP placement (min_stop_distance enforced)
 7. **BEGIN DB TRANSACTION (with row-level lock):**
    - `SELECT balance_cents, unrealized_pnl_cents, used_margin_cents FROM account_state WHERE user_id = $1 FOR UPDATE` (acquire lock on user row)
-   - Recalculate available_cents = (balance_cents + unrealized_pnl_cents) - used_margin_cents *UNDER LOCK*
+   - Recalculate available_cents = (balance_cents + unrealized_pnl_cents) - used_margin_cents _UNDER LOCK_
    - Validate: available_cents >= margin_cents → else 409 INSUFFICIENT_MARGIN
    - INSERT trades record (order_type, direction, units, open_rate_scaled, etc.)
    - INSERT ib_commissions if agent assigned
@@ -164,17 +170,18 @@
 
 ### Deposits & Withdrawals
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | /v1/deposits | Create deposit request. Returns NowPayments invoice URL + QR code. |
-| GET | /v1/deposits | List user's deposits paginated. |
-| GET | /v1/deposits/:id | Get deposit status. |
-| POST | /v1/withdrawals | Submit withdrawal request. |
-| GET | /v1/withdrawals | List user's withdrawals paginated. |
-| GET | /v1/withdrawals/:id | Get withdrawal status. |
-| POST | /v1/webhooks/nowpayments | NowPayments webhook receiver. HMAC-SHA512 verified. Public endpoint. |
+| Method | Endpoint                 | Description                                                          |
+| ------ | ------------------------ | -------------------------------------------------------------------- |
+| POST   | /v1/deposits             | Create deposit request. Returns NowPayments invoice URL + QR code.   |
+| GET    | /v1/deposits             | List user's deposits paginated.                                      |
+| GET    | /v1/deposits/:id         | Get deposit status.                                                  |
+| POST   | /v1/withdrawals          | Submit withdrawal request.                                           |
+| GET    | /v1/withdrawals          | List user's withdrawals paginated.                                   |
+| GET    | /v1/withdrawals/:id      | Get withdrawal status.                                               |
+| POST   | /v1/webhooks/nowpayments | NowPayments webhook receiver. HMAC-SHA512 verified. Public endpoint. |
 
 **Deposit flow:**
+
 1. POST /v1/deposits with { amount_cents, crypto_currency }
 2. Server calls NowPayments API: create_invoice
 3. NowPayments returns invoice_id + payment_url
@@ -191,6 +198,7 @@
    - `expired`: Invoice not paid within 60 minutes. UPDATE deposits status=EXPIRED, no ledger entry (no funds received).
 
 **Withdrawal flow:**
+
 1. POST /v1/withdrawals with { amount_cents, crypto_currency, wallet_address, reason }
 2. Validate: amount <= available_cents, KYC approved (kyc_level >= 2), no pending withdrawals
 3. INSERT withdrawals record (status=PENDING, reason, wallet_address)
@@ -199,18 +207,21 @@
 6. Admin reviews and approves/rejects: PUT /v1/admin/withdrawals/:id with { status, admin_reason (if rejecting) }
 
 **Admin Approval Path:**
+
 - PUT /v1/admin/withdrawals/:id → { status='APPROVED' }: System calls NowPayments Payout API; UPDATE withdrawals status=PROCESSING
 - On payout webhook: UPDATE withdrawals status=COMPLETED, send email "Withdrawal processed"
 
 **Admin Rejection Path:**
-- PUT /v1/admin/withdrawals/:id → { status='REJECTED', admin_reason='...' }: 
+
+- PUT /v1/admin/withdrawals/:id → { status='REJECTED', admin_reason='...' }:
   - INSERT ledger_transactions (transaction_type='WITHDRAWAL_REFUND', amount_cents=+original_amount) to restore funds
   - UPDATE withdrawals (status='REJECTED', rejection_reason=admin_reason)
   - Emit account:metrics to user (balance restored)
   - Send email "Your withdrawal request was rejected: [admin_reason]"
 
 **Payout Failure/Error Handling:**
-- If NowPayments payout API call fails or webhook indicates payout failure (failed, expired, etc.):  
+
+- If NowPayments payout API call fails or webhook indicates payout failure (failed, expired, etc.):
   - INSERT ledger_transactions (transaction_type='WITHDRAWAL_REFUND', amount_cents=+original_amount)
   - UPDATE withdrawals (status='FAILED', failure_reason='NowPayments payout failed: [reason]')
   - Emit account:metrics to user (balance restored)
@@ -220,14 +231,15 @@
 
 ### KYC — /v1/kyc
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /v1/kyc/status | Get current KYC status, level, and document list. |
-| POST | /v1/kyc/documents | Upload KYC document. Multipart form. Server uploads to R2. |
-| GET | /v1/kyc/documents | List all uploaded documents with status and review notes. |
+| Method | Endpoint              | Description                                                     |
+| ------ | --------------------- | --------------------------------------------------------------- |
+| GET    | /v1/kyc/status        | Get current KYC status, level, and document list.               |
+| POST   | /v1/kyc/documents     | Upload KYC document. Multipart form. Server uploads to R2.      |
+| GET    | /v1/kyc/documents     | List all uploaded documents with status and review notes.       |
 | DELETE | /v1/kyc/documents/:id | Delete document (only if status=UPLOADED and not yet reviewed). |
 
 **Document upload flow:**
+
 1. Client POSTs multipart form to /v1/kyc/documents
 2. Server validates: file type (MIME from bytes), size (max 10MB), minimum resolution
 3. Generate R2 key: `kyc/{user_id}/{category}/{uuid}.{ext}`
@@ -241,63 +253,63 @@
 
 ### Alerts & Watchlist — /v1/alerts, /v1/watchlist
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /v1/alerts | List active price alerts for current user. |
-| POST | /v1/alerts | Create price alert. |
-| PUT | /v1/alerts/:id | Update alert trigger or channels. |
-| DELETE | /v1/alerts/:id | Delete alert. |
-| GET | /v1/watchlist | Get user's watchlist with current prices. |
-| POST | /v1/watchlist | Add instrument to watchlist. |
-| DELETE | /v1/watchlist/:instrument_id | Remove from watchlist. |
-| PUT | /v1/watchlist/reorder | Update sort_order of watchlist items. |
+| Method | Endpoint                     | Description                                |
+| ------ | ---------------------------- | ------------------------------------------ |
+| GET    | /v1/alerts                   | List active price alerts for current user. |
+| POST   | /v1/alerts                   | Create price alert.                        |
+| PUT    | /v1/alerts/:id               | Update alert trigger or channels.          |
+| DELETE | /v1/alerts/:id               | Delete alert.                              |
+| GET    | /v1/watchlist                | Get user's watchlist with current prices.  |
+| POST   | /v1/watchlist                | Add instrument to watchlist.               |
+| DELETE | /v1/watchlist/:instrument_id | Remove from watchlist.                     |
+| PUT    | /v1/watchlist/reorder        | Update sort_order of watchlist items.      |
 
 ---
 
 ### Signals & Notifications
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /v1/signals | Get trading signals. Filter by ?asset_class=FOREX |
-| GET | /v1/notifications | List notifications. Filter by ?is_read=false. Paginated. |
-| PUT | /v1/notifications/:id/read | Mark notification as read. |
-| PUT | /v1/notifications/read-all | Mark all notifications as read. |
+| Method | Endpoint                   | Description                                              |
+| ------ | -------------------------- | -------------------------------------------------------- |
+| GET    | /v1/signals                | Get trading signals. Filter by ?asset_class=FOREX        |
+| GET    | /v1/notifications          | List notifications. Filter by ?is_read=false. Paginated. |
+| PUT    | /v1/notifications/:id/read | Mark notification as read.                               |
+| PUT    | /v1/notifications/read-all | Mark all notifications as read.                          |
 
 ---
 
 ### Admin — /v1/admin (requires SUPER_ADMIN or ADMIN role)
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /v1/admin/users | List all traders. Filter/search by name, email, status. Paginated. |
-| GET | /v1/admin/users/:id | Get full trader profile, metrics, and trade history. |
-| PUT | /v1/admin/users/:id/status | Activate / suspend / deactivate trader account. |
-| POST | /v1/admin/users/:id/adjustment | Manual balance adjustment with reason and audit trail. |
-| POST | /v1/admin/users/:id/trades/:tid/close | Force-close a trader's open position. |
-| GET | /v1/admin/kyc | List all KYC submissions. Filter by status. |
-| PUT | /v1/admin/kyc/:doc_id | Approve / reject KYC document with reason code. |
-| GET | /v1/admin/deposits | List all deposits. Filter/sort/paginate. |
-| PUT | /v1/admin/deposits/:id | Approve / reject deposit. Optionally add bonus_cents. |
-| GET | /v1/admin/withdrawals | List all withdrawals. Filter/sort/paginate. |
-| PUT | /v1/admin/withdrawals/:id | Approve / reject / process withdrawal. |
-| GET | /v1/admin/leads | List all leads with Lead IDs. Filter by status, agent. |
-| GET | /v1/admin/instruments | List all instruments with full configuration. |
-| PUT | /v1/admin/instruments/:id | Update instrument configuration (spread, leverage, active). |
-| GET | /v1/admin/reports | Generate reports. Params: type, from, to. |
+| Method | Endpoint                              | Description                                                        |
+| ------ | ------------------------------------- | ------------------------------------------------------------------ |
+| GET    | /v1/admin/users                       | List all traders. Filter/search by name, email, status. Paginated. |
+| GET    | /v1/admin/users/:id                   | Get full trader profile, metrics, and trade history.               |
+| PUT    | /v1/admin/users/:id/status            | Activate / suspend / deactivate trader account.                    |
+| POST   | /v1/admin/users/:id/adjustment        | Manual balance adjustment with reason and audit trail.             |
+| POST   | /v1/admin/users/:id/trades/:tid/close | Force-close a trader's open position.                              |
+| GET    | /v1/admin/kyc                         | List all KYC submissions. Filter by status.                        |
+| PUT    | /v1/admin/kyc/:doc_id                 | Approve / reject KYC document with reason code.                    |
+| GET    | /v1/admin/deposits                    | List all deposits. Filter/sort/paginate.                           |
+| PUT    | /v1/admin/deposits/:id                | Approve / reject deposit. Optionally add bonus_cents.              |
+| GET    | /v1/admin/withdrawals                 | List all withdrawals. Filter/sort/paginate.                        |
+| PUT    | /v1/admin/withdrawals/:id             | Approve / reject / process withdrawal.                             |
+| GET    | /v1/admin/leads                       | List all leads with Lead IDs. Filter by status, agent.             |
+| GET    | /v1/admin/instruments                 | List all instruments with full configuration.                      |
+| PUT    | /v1/admin/instruments/:id             | Update instrument configuration (spread, leverage, active).        |
+| GET    | /v1/admin/reports                     | Generate reports. Params: type, from, to.                          |
 
 ---
 
 ### IB Portal — /v1/ib (requires IB_TEAM_LEADER or AGENT role)
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /v1/ib/traders | List traders assigned to this agent (or entire network for TL). |
-| GET | /v1/ib/traders/:id | Get trader summary: volume, P&L, last activity. |
-| GET | /v1/ib/commissions | List commissions earned. Filter by date range, status. |
-| GET | /v1/ib/commissions/summary | Aggregate: total earned, pending payout, paid lifetime. |
-| GET | /v1/ib/agents | (Team Leader only) List agents in team with their stats. |
-| GET | /v1/ib/agents/:id | (Team Leader only) Agent detail with their trader list. |
-| GET | /v1/ib/network-stats | Total network volume, active traders, commission summary. |
+| Method | Endpoint                   | Description                                                     |
+| ------ | -------------------------- | --------------------------------------------------------------- |
+| GET    | /v1/ib/traders             | List traders assigned to this agent (or entire network for TL). |
+| GET    | /v1/ib/traders/:id         | Get trader summary: volume, P&L, last activity.                 |
+| GET    | /v1/ib/commissions         | List commissions earned. Filter by date range, status.          |
+| GET    | /v1/ib/commissions/summary | Aggregate: total earned, pending payout, paid lifetime.         |
+| GET    | /v1/ib/agents              | (Team Leader only) List agents in team with their stats.        |
+| GET    | /v1/ib/agents/:id          | (Team Leader only) Agent detail with their trader list.         |
+| GET    | /v1/ib/network-stats       | Total network volume, active traders, commission summary.       |
 
 ---
 
@@ -314,37 +326,39 @@ admin:deposits       // New deposit notifications to admin panel
 
 ### Server → Client Events
 
-| Event | Payload | Trigger |
-|---|---|---|
-| price:update | `{symbol, bid, ask, mid, change_bps, ts}` | Every price tick from Twelve Data |
-| trade:opened | `{trade_id, symbol, direction, units, open_rate}` | Trade successfully opened |
-| trade:closed | `{trade_id, realized_pnl_cents, closed_by}` | Trade closed by any mechanism |
-| trade:pnl_update | `{trade_id, unrealized_pnl_cents}` | Every price tick for open positions |
-| account:metrics | `{balance, equity, used_margin, available, margin_level}` | After any account-changing event |
-| account:kyc_approved | `{kyc_status, kyc_level}` | KYC approved by admin |
-| margin:call | `{margin_level_bps, equity_cents, used_margin_cents}` | Margin level drops to/below 100% |
-| margin:stop_out | `{positions_closed: [...], final_balance_cents}` | Stop-out sequence completed |
-| alert:triggered | `{alert_id, symbol, trigger_price, current_price}` | Alert condition met |
-| notification:new | `{id, type, title, message}` | Any new notification for user |
-| order:triggered | `{trade_id, symbol, open_rate}` | Entry order activated |
+| Event                | Payload                                                   | Trigger                             |
+| -------------------- | --------------------------------------------------------- | ----------------------------------- |
+| price:update         | `{symbol, bid, ask, mid, change_bps, ts}`                 | Every price tick from Twelve Data   |
+| trade:opened         | `{trade_id, symbol, direction, units, open_rate}`         | Trade successfully opened           |
+| trade:closed         | `{trade_id, realized_pnl_cents, closed_by}`               | Trade closed by any mechanism       |
+| trade:pnl_update     | `{trade_id, unrealized_pnl_cents}`                        | Every price tick for open positions |
+| account:metrics      | `{balance, equity, used_margin, available, margin_level}` | After any account-changing event    |
+| account:kyc_approved | `{kyc_status, kyc_level}`                                 | KYC approved by admin               |
+| margin:call          | `{margin_level_bps, equity_cents, used_margin_cents}`     | Margin level drops to/below 100%    |
+| margin:stop_out      | `{positions_closed: [...], final_balance_cents}`          | Stop-out sequence completed         |
+| alert:triggered      | `{alert_id, symbol, trigger_price, current_price}`        | Alert condition met                 |
+| notification:new     | `{id, type, title, message}`                              | Any new notification for user       |
+| order:triggered      | `{trade_id, symbol, open_rate}`                           | Entry order activated               |
 
 ### Client → Server Events
 
-| Event | Payload & Behavior |
-|---|---|
-| subscribe:prices | `{symbols: ['EURUSD', 'GBPUSD']}` — joins prices:SYMBOL rooms |
-| unsubscribe:prices | `{symbols: ['EURUSD']}` — leaves prices:SYMBOL rooms |
+| Event              | Payload & Behavior                                            |
+| ------------------ | ------------------------------------------------------------- |
+| subscribe:prices   | `{symbols: ['EURUSD', 'GBPUSD']}` — joins prices:SYMBOL rooms |
+| unsubscribe:prices | `{symbols: ['EURUSD']}` — leaves prices:SYMBOL rooms          |
 
 ---
 
 ## 4.1. Margin Formula
 
 The margin required to open a trade depends on:
+
 - **Units:** number of units being traded
 - **Price:** current market price of the instrument (in scaled format: price × 100000)
 - **Leverage:** specified leverage multiplier for the instrument
 
 **Formula:**
+
 ```
 margin_cents = (units × open_rate_scaled × 100) / (leverage × PRICE_SCALE)
 ```
@@ -352,6 +366,7 @@ margin_cents = (units × open_rate_scaled × 100) / (leverage × PRICE_SCALE)
 Where `PRICE_SCALE = 100000`.
 
 **Worked Example:** BUY 10,000 units EURUSD at 1.08500 (open_rate_scaled = 108500), leverage 500:
+
 ```
 margin_cents = (10000 × 108500 × 100) / (500 × 100000)
              = 1,085,000,000 / 50,000,000
@@ -366,16 +381,16 @@ margin_cents = (10000 × 108500 × 100) / (500 × 100000)
 
 ### JWT Specification
 
-| Parameter | Value |
-|---|---|
-| Algorithm | RS256 (asymmetric RSA). Private key signs, public key verifies. |
-| Access Token Expiry | 15 minutes. Short-lived. |
-| Refresh Token Expiry | 7 days standard. 30 days with 'remember me'. |
-| Access Token Claims | user_id, email, role, kyc_status, kyc_level, iat, exp, jti |
-| Refresh Token Storage | HttpOnly Secure cookie (not localStorage). |
-| Token Rotation | Each refresh issues new refresh token. Old token invalidated. |
-| Revocation | Refresh tokens stored in sessions table. Logout deletes record. |
-| Password Change | All sessions for user deleted. All refresh tokens invalidated. |
+| Parameter             | Value                                                           |
+| --------------------- | --------------------------------------------------------------- |
+| Algorithm             | RS256 (asymmetric RSA). Private key signs, public key verifies. |
+| Access Token Expiry   | 15 minutes. Short-lived.                                        |
+| Refresh Token Expiry  | 7 days standard. 30 days with 'remember me'.                    |
+| Access Token Claims   | user_id, email, role, kyc_status, kyc_level, iat, exp, jti      |
+| Refresh Token Storage | HttpOnly Secure cookie (not localStorage).                      |
+| Token Rotation        | Each refresh issues new refresh token. Old token invalidated.   |
+| Revocation            | Refresh tokens stored in sessions table. Logout deletes record. |
+| Password Change       | All sessions for user deleted. All refresh tokens invalidated.  |
 
 ### Registration Flow
 
@@ -405,24 +420,26 @@ margin_cents = (10000 × 108500 × 100) / (500 × 100000)
 ### Password Requirements
 
 **All passwords must satisfy the following criteria:**
+
 - **Minimum length:** 12 characters
-- **Character composition:** At least one uppercase letter (A–Z), one lowercase letter (a–z), one digit (0–9), and one special symbol (!@#$%^&*-_=+)
+- **Character composition:** At least one uppercase letter (A–Z), one lowercase letter (a–z), one digit (0–9), and one special symbol (!@#$%^&\*-\_=+)
 - **Banned passwords:** Any password matching a common dictionary word or appearing in a known public breach list (checked against a maintained blacklist)
 - **Password history:** Users cannot reuse any of their last 5 passwords when changing their password
 - **Enforcement:** Server-side validation only. Client may implement real-time hints but must not rely on client-side validation.
 
 **Examples:**
+
 - ✓ Valid: `MyP@ssw0rd!`, `Tr@ding2026Key`, `SecureXyz#12`
 - ✗ Invalid: `password123` (no uppercase), `PASSWORD123` (no lowercase), `MyPassword` (no digit/symbol), `password` (less than 12 chars), `admin123456` (common word)
 
 ### RBAC Middleware
 
-| Middleware | Logic |
-|---|---|
-| requireAuth | Validates JWT. Attaches req.user. Returns 401 if missing/expired. |
-| requireKYC | Checks req.user.kyc_status === 'APPROVED'. Returns 403 KYC_REQUIRED if not. |
-| requireRole(roles) | Checks req.user.role in allowed roles array. Returns 403 FORBIDDEN if not. |
-| requireSelf | For user-specific resources: checks resource.user_id === req.user.id. |
+| Middleware         | Logic                                                                       |
+| ------------------ | --------------------------------------------------------------------------- |
+| requireAuth        | Validates JWT. Attaches req.user. Returns 401 if missing/expired.           |
+| requireKYC         | Checks req.user.kyc_status === 'APPROVED'. Returns 403 KYC_REQUIRED if not. |
+| requireRole(roles) | Checks req.user.role in allowed roles array. Returns 403 FORBIDDEN if not.  |
+| requireSelf        | For user-specific resources: checks resource.user_id === req.user.id.       |
 
 ---
 
@@ -461,6 +478,7 @@ tl_commission_cents    = trade_notional_cents × tl.override_rate_bps / 10000
 ```
 
 **Worked Example:** BUY 0.1 lot (10,000 units) EURUSD at 1.08500 (open_rate_scaled = 108500, contract_size = 100000), agent commission rate = 20 bps (0.20%):
+
 ```
 // Step 1: Calculate notional value in cents
 // Formula: (units × contract_size × open_rate_scaled × CENTS) / PRICE_SCALE
@@ -476,6 +494,7 @@ agent_commission_cents = 1,085,000,000 × 20 / 10000
 ```
 
 **Realistic Retail Example:** BUY 0.01 lot (1,000 units) EURUSD at 1.08500, agent rate = 10 bps (0.10%):
+
 ```
 trade_notional_cents = (1000 × 100000 × 108500 × 100) / 100000
                      = 10,850,000,000 / 100000
@@ -488,6 +507,7 @@ agent_commission_cents = 108,500,000 × 10 / 10000
 **Note:** The above examples demonstrate the formula but result in high commissions due to the contract_size multiplier. For a typical retail forex trade of 0.01 lot (1,000 units), the expected commission range is $1–$10. The formula in `calcIbCommissionCents()` correctly implements this calculation per PTS-CALC-001.
 
 **Commission trigger:**
+
 1. Trade is OPENED (market order) or ENTRY ORDER is triggered
 2. System calculates commission using agent's rate from staff.commission_rate_bps
 3. INSERT ib_commissions (agent_id, trader_id, trade_id, amount_cents, rate_bps, status='PENDING')
@@ -502,18 +522,21 @@ agent_commission_cents = 108,500,000 × 10 / 10000
 
 ```javascript
 // Connect to Twelve Data WebSocket
-const ws = new WebSocket('wss://ws.twelvedata.com/v1/quotes/price?apikey=KEY');
+const ws = new WebSocket('wss://ws.twelvedata.com/v1/quotes/price?apikey=KEY')
 
 // Subscribe to all 60 instruments on connect
 ws.on('open', () => {
-  ws.send(JSON.stringify({
-    action: 'subscribe',
-    params: { symbols: ALL_INSTRUMENT_SYMBOLS.join(',') }
-  }));
-});
+  ws.send(
+    JSON.stringify({
+      action: 'subscribe',
+      params: { symbols: ALL_INSTRUMENT_SYMBOLS.join(',') },
+    }),
+  )
+})
 ```
 
 **Price tick processing pipeline:**
+
 1. Receive tick: `{symbol, price, timestamp}` from Twelve Data
 2. Calculate bid/ask using spread from instruments table
 3. Update Redis: `SET prices:{symbol} {bid, ask, mid, change_bps, ts} EX 60`
@@ -527,32 +550,32 @@ ws.on('open', () => {
 
 ### Redis Data Structures
 
-| Key Pattern | Type | Contents |
-|---|---|---|
-| `prices:{SYMBOL}` | Hash | bid, ask, mid, change_bps, timestamp |
-| `margin_watch:{SYMBOL}` | Set | user_id values for all users with open positions |
-| `session:{refresh_token}` | String | user_id, expires (fast session validation) |
-| `rate_limit:{user_id}` | String | Request count with TTL |
-| `email_verify:{token}` | String | user_id, email — 24h TTL |
-| `pwd_reset:{token}` | String | user_id — 1h TTL |
-| `alert_index:{SYMBOL}` | Sorted Set | alert_id scored by trigger_price for range queries |
-| `logo:{symbol}` | String | Resolved logo URL — 24h TTL |
-| `base_rate_pct` | String | US Fed Funds Rate for stock swap calculation |
+| Key Pattern               | Type       | Contents                                           |
+| ------------------------- | ---------- | -------------------------------------------------- |
+| `prices:{SYMBOL}`         | Hash       | bid, ask, mid, change_bps, timestamp               |
+| `margin_watch:{SYMBOL}`   | Set        | user_id values for all users with open positions   |
+| `session:{refresh_token}` | String     | user_id, expires (fast session validation)         |
+| `rate_limit:{user_id}`    | String     | Request count with TTL                             |
+| `email_verify:{token}`    | String     | user_id, email — 24h TTL                           |
+| `pwd_reset:{token}`       | String     | user_id — 1h TTL                                   |
+| `alert_index:{SYMBOL}`    | Sorted Set | alert_id scored by trigger_price for range queries |
+| `logo:{symbol}`           | String     | Resolved logo URL — 24h TTL                        |
+| `base_rate_pct`           | String     | US Fed Funds Rate for stock swap calculation       |
 
 ### BullMQ Scheduled Jobs
 
-| Queue | Schedule | Function |
-|---|---|---|
-| rollover-daily | Cron: `0 22 * * 1,2,4,5` (22:00 UTC Mon–Tue, Thu–Fri; Wed excluded) | Apply overnight swap fees to all open positions |
-| wednesday-triple | Cron: `0 22 * * 3` (22:00 UTC Wed only) | Apply 3× rollover for Wednesday triple swap |
-| alert-monitor | Event-driven (every price tick) | Check active alerts against new price |
-| entry-order-expiry | Delayed job (per order expiry_at) | Cancel expired pending orders |
-| kyc-reminder | Cron: `0 9 * * *` (09:00 UTC daily) | Email users with KYC NOT_STARTED after 3 days |
-| deposit-confirm | Event-driven (NowPayments webhook) | Process confirmed deposits |
-| pnl-snapshot | Cron: `0 0 * * *` (midnight UTC) | Store daily equity snapshot for performance charts |
-| report-generator | On-demand (admin trigger) | Generate CSV/Excel reports and email download link |
-| inactivity-check | Cron: `1 0 1 * *` (00:01 UTC 1st of month) | Charge inactivity fee ($25.00 USD) to qualifying accounts; send pre-charge notification 7 days prior |
+| Queue              | Schedule                                                            | Function                                                                                             |
+| ------------------ | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| rollover-daily     | Cron: `0 22 * * 1,2,4,5` (22:00 UTC Mon–Tue, Thu–Fri; Wed excluded) | Apply overnight swap fees to all open positions                                                      |
+| wednesday-triple   | Cron: `0 22 * * 3` (22:00 UTC Wed only)                             | Apply 3× rollover for Wednesday triple swap                                                          |
+| alert-monitor      | Event-driven (every price tick)                                     | Check active alerts against new price                                                                |
+| entry-order-expiry | Delayed job (per order expiry_at)                                   | Cancel expired pending orders                                                                        |
+| kyc-reminder       | Cron: `0 9 * * *` (09:00 UTC daily)                                 | Email users with KYC NOT_STARTED after 3 days                                                        |
+| deposit-confirm    | Event-driven (NowPayments webhook)                                  | Process confirmed deposits                                                                           |
+| pnl-snapshot       | Cron: `0 0 * * *` (midnight UTC)                                    | Store daily equity snapshot for performance charts                                                   |
+| report-generator   | On-demand (admin trigger)                                           | Generate CSV/Excel reports and email download link                                                   |
+| inactivity-check   | Cron: `1 0 1 * *` (00:01 UTC 1st of month)                          | Charge inactivity fee ($25.00 USD) to qualifying accounts; send pre-charge notification 7 days prior |
 
 ---
 
-*ProTraderSim — PTS-API-001 — API Specification — v1.0 — March 2026*
+_ProTraderSim — PTS-API-001 — API Specification — v1.0 — March 2026_

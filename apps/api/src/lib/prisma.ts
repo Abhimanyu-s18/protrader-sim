@@ -9,9 +9,7 @@ declare global {
 export const prisma: PrismaClient =
   global.__prisma ??
   new PrismaClient({
-    log: process.env['NODE_ENV'] === 'development'
-      ? ['query', 'error', 'warn']
-      : ['error'],
+    log: process.env['NODE_ENV'] === 'development' ? ['query', 'error', 'warn'] : ['error'],
   })
 
 if (process.env['NODE_ENV'] !== 'production') {
@@ -25,10 +23,7 @@ if (process.env['NODE_ENV'] !== 'production') {
  * - PostgreSQL error code: 40001
  * This function retries the transaction with exponential backoff up to maxRetries times.
  */
-export async function withSerializableRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3,
-): Promise<T> {
+export async function withSerializableRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: Error | null = null
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {

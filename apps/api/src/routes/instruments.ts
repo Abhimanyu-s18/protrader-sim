@@ -18,7 +18,9 @@ instrumentsRouter.get('/', async (req, res, next) => {
       orderBy: [{ assetClass: 'asc' }, { symbol: 'asc' }],
     })
     res.json(serializeBigInt(instruments))
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // GET /v1/instruments/:symbol — instrument detail
@@ -27,9 +29,14 @@ instrumentsRouter.get('/:symbol', async (req, res, next) => {
     const instrument = await prisma.instrument.findUnique({
       where: { symbol: req.params['symbol']?.toUpperCase() },
     })
-    if (!instrument) { next(Errors.notFound('Instrument')); return }
+    if (!instrument) {
+      next(Errors.notFound('Instrument'))
+      return
+    }
     res.json(serializeBigInt(instrument))
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // GET /v1/instruments/:symbol/price — live price from Redis cache
@@ -40,11 +47,20 @@ instrumentsRouter.get('/:symbol/price', async (req, res, next) => {
       where: { symbol },
       select: { id: true, spreadPips: true, pipDecimalPlaces: true, isActive: true },
     })
-    if (!instrument || !instrument.isActive) { next(Errors.notFound('Instrument')); return }
+    if (!instrument || !instrument.isActive) {
+      next(Errors.notFound('Instrument'))
+      return
+    }
 
     const cached = await getCachedPrice(symbol)
     if (!cached) {
-      res.json({ symbol, bid_scaled: null, ask_scaled: null, mid_scaled: null, message: 'Price not yet available' })
+      res.json({
+        symbol,
+        bid_scaled: null,
+        ask_scaled: null,
+        mid_scaled: null,
+        message: 'Price not yet available',
+      })
       return
     }
 
@@ -58,7 +74,9 @@ instrumentsRouter.get('/:symbol/price', async (req, res, next) => {
       change_bps: cached.change_bps,
       ts: cached.ts,
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // GET /v1/instruments/:symbol/ohlcv — candle history for TradingView
@@ -67,20 +85,32 @@ instrumentsRouter.get('/:symbol/ohlcv', async (req, res, next) => {
     const symbol = req.params['symbol']?.toUpperCase() ?? ''
     const { interval = '1h', limit = '300' } = req.query
 
-    const instrument = await prisma.instrument.findUnique({ where: { symbol }, select: { id: true } })
-    if (!instrument) { next(Errors.notFound('Instrument')); return }
+    const instrument = await prisma.instrument.findUnique({
+      where: { symbol },
+      select: { id: true },
+    })
+    if (!instrument) {
+      next(Errors.notFound('Instrument'))
+      return
+    }
 
     const candles = await prisma.ohlcvCandle.findMany({
       where: { instrumentId: instrument.id, interval: interval as string },
       orderBy: { candleTime: 'desc' },
       take: Math.min(parseInt(limit as string, 10), 2000),
       select: {
-        openScaled: true, highScaled: true, lowScaled: true,
-        closeScaled: true, volume: true, candleTime: true,
+        openScaled: true,
+        highScaled: true,
+        lowScaled: true,
+        closeScaled: true,
+        volume: true,
+        candleTime: true,
       },
     })
 
     // Return in chronological order for TradingView
     res.json(serializeBigInt(candles.reverse()))
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })

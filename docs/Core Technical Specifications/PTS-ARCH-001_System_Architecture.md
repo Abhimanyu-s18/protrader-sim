@@ -1,7 +1,9 @@
 # ProTraderSim
+
 ## PTS-ARCH-001 — System Architecture & Deployment
+
 **Version 1.0 | March 2026 | CONFIDENTIAL**
-*Multi-Asset Offshore CFD Simulation Trading Platform*
+_Multi-Asset Offshore CFD Simulation Trading Platform_
 
 ---
 
@@ -9,38 +11,38 @@
 
 All decisions below are permanently locked. Changes require CTO sign-off and full impact assessment.
 
-| Domain | Decision | Rationale |
-|---|---|---|
-| Frontend | Next.js 15 (App Router) + TypeScript | SSR, file-based routing, ISR for public pages |
-| Backend | Node.js + Express.js | Lightweight, rich middleware ecosystem |
-| ORM | Prisma | Type-safe queries, migration management, PostgreSQL support |
-| Database | PostgreSQL 16+ | ACID compliance, JSONB, full-text search, proven at scale |
-| Monetary Storage | BIGINT (cents) for money; BIGINT scaled integers for prices | Eliminates floating-point rounding errors |
-| Primary Keys | BIGINT auto-increment (GENERATED ALWAYS AS IDENTITY) | 8-byte integer vs 16-byte UUID on high-frequency joins |
-| Cache | Redis 7+ (ElastiCache in production) | Price cache, session store, BullMQ backend, pub/sub |
-| Message Queue | BullMQ (Redis-backed) | Rollover jobs, alert monitoring, KYC notifications |
-| Real-time | Socket.io 4+ | Rooms per symbol, per user, proven scaling pattern |
-| Market Data | Twelve Data (production only) | Licensed, covers all 60 instruments, WebSocket + REST |
-| File Storage | Cloudflare R2 | S3-compatible, zero egress fees, private bucket for KYC |
-| Email | Resend | Modern API, React Email templates, excellent deliverability |
-| Monorepo | Turborepo + pnpm workspaces | Shared packages, build caching, independent deployments |
-| State Management | Zustand (client) + TanStack Query (server) | Minimal boilerplate, correct separation of concerns |
-| Dev/Staging | Railway | Zero-config deployments, environment management |
-| Production | AWS ECS (Fargate) + RDS + ElastiCache (eu-west-1) | Regulatory data residency in EU |
-| Charts | TradingView Charting Library (self-hosted) | Industry standard, 100+ indicators, drawing tools |
-| Payments | NowPayments.io | Crypto-only deposits/withdrawals, webhook support |
+| Domain           | Decision                                                    | Rationale                                                   |
+| ---------------- | ----------------------------------------------------------- | ----------------------------------------------------------- |
+| Frontend         | Next.js 15 (App Router) + TypeScript                        | SSR, file-based routing, ISR for public pages               |
+| Backend          | Node.js + Express.js                                        | Lightweight, rich middleware ecosystem                      |
+| ORM              | Prisma                                                      | Type-safe queries, migration management, PostgreSQL support |
+| Database         | PostgreSQL 16+                                              | ACID compliance, JSONB, full-text search, proven at scale   |
+| Monetary Storage | BIGINT (cents) for money; BIGINT scaled integers for prices | Eliminates floating-point rounding errors                   |
+| Primary Keys     | BIGINT auto-increment (GENERATED ALWAYS AS IDENTITY)        | 8-byte integer vs 16-byte UUID on high-frequency joins      |
+| Cache            | Redis 7+ (ElastiCache in production)                        | Price cache, session store, BullMQ backend, pub/sub         |
+| Message Queue    | BullMQ (Redis-backed)                                       | Rollover jobs, alert monitoring, KYC notifications          |
+| Real-time        | Socket.io 4+                                                | Rooms per symbol, per user, proven scaling pattern          |
+| Market Data      | Twelve Data (production only)                               | Licensed, covers all 60 instruments, WebSocket + REST       |
+| File Storage     | Cloudflare R2                                               | S3-compatible, zero egress fees, private bucket for KYC     |
+| Email            | Resend                                                      | Modern API, React Email templates, excellent deliverability |
+| Monorepo         | Turborepo + pnpm workspaces                                 | Shared packages, build caching, independent deployments     |
+| State Management | Zustand (client) + TanStack Query (server)                  | Minimal boilerplate, correct separation of concerns         |
+| Dev/Staging      | Railway                                                     | Zero-config deployments, environment management             |
+| Production       | AWS ECS (Fargate) + RDS + ElastiCache (eu-west-1)           | Regulatory data residency in EU                             |
+| Charts           | TradingView Charting Library (self-hosted)                  | Industry standard, 100+ indicators, drawing tools           |
+| Payments         | NowPayments.io                                              | Crypto-only deposits/withdrawals, webhook support           |
 
 ### Prohibited Technologies (Never Use)
 
-| Prohibited | Reason |
-|---|---|
-| Finnhub | Insufficient coverage for all 60 instruments across 5 asset classes |
-| YFinance / Yahoo Finance | Scraping library; not a licensed data provider; Terms of Service prohibit commercial financial use |
-| Supabase Edge Functions (as backend) | Cannot maintain persistent WebSocket connections or long-running BullMQ workers |
-| Fastify | Different middleware model from Express; PTS is Express throughout |
-| Python services | Separate runtime requiring its own Docker image and pipeline; all services run Node.js |
-| DECIMAL / FLOAT / DOUBLE / NUMERIC | Floating-point produces rounding errors on financial calculations |
-| Vite + React 18 (as frontend framework) | PTS uses Next.js 15 App Router with SSR and multi-domain middleware |
+| Prohibited                              | Reason                                                                                             |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Finnhub                                 | Insufficient coverage for all 60 instruments across 5 asset classes                                |
+| YFinance / Yahoo Finance                | Scraping library; not a licensed data provider; Terms of Service prohibit commercial financial use |
+| Supabase Edge Functions (as backend)    | Cannot maintain persistent WebSocket connections or long-running BullMQ workers                    |
+| Fastify                                 | Different middleware model from Express; PTS is Express throughout                                 |
+| Python services                         | Separate runtime requiring its own Docker image and pipeline; all services run Node.js             |
+| DECIMAL / FLOAT / DOUBLE / NUMERIC      | Floating-point produces rounding errors on financial calculations                                  |
+| Vite + React 18 (as frontend framework) | PTS uses Next.js 15 App Router with SSR and multi-domain middleware                                |
 
 ---
 
@@ -69,25 +71,25 @@ protrader-sim/
 
 ## 3. Application Routing Architecture
 
-| App | Domain | Purpose & Auth |
-|---|---|---|
-| web | www.protrader.com | Public. No auth. Landing page, legal pages, asset info, register/login CTAs. |
-| auth | auth.protrader.com | Public + Auth flows. Login, Register, Forgot Password, KYC Wizard. Issues JWT. |
-| platform | app.protrader.com | Protected. Requires valid JWT + KYC approved. Trading dashboard. |
-| admin | admin.protrader.com | Protected. Requires admin JWT with role: SUPER_ADMIN or ADMIN. |
-| ib-portal | ib.protrader.com | Protected. Requires IB JWT with role: IB_TEAM_LEADER or AGENT. |
-| api | api.protrader.com | All REST endpoints + Socket.io. JWT validated on every request. |
+| App       | Domain              | Purpose & Auth                                                                 |
+| --------- | ------------------- | ------------------------------------------------------------------------------ |
+| web       | www.protrader.com   | Public. No auth. Landing page, legal pages, asset info, register/login CTAs.   |
+| auth      | auth.protrader.com  | Public + Auth flows. Login, Register, Forgot Password, KYC Wizard. Issues JWT. |
+| platform  | app.protrader.com   | Protected. Requires valid JWT + KYC approved. Trading dashboard.               |
+| admin     | admin.protrader.com | Protected. Requires admin JWT with role: SUPER_ADMIN or ADMIN.                 |
+| ib-portal | ib.protrader.com    | Protected. Requires IB JWT with role: IB_TEAM_LEADER or AGENT.                 |
+| api       | api.protrader.com   | All REST endpoints + Socket.io. JWT validated on every request.                |
 
 ---
 
 ## 4. Four-Role Staff Hierarchy
 
-| Role | DB Enum | Capabilities |
-|---|---|---|
-| Super Admin | SUPER_ADMIN | Full system access. System settings. Instrument configuration. Creates Admins and IB Team Leaders. |
-| Admin | ADMIN | User management. KYC review. Deposit/withdrawal processing. Reporting. Cannot change system settings. |
+| Role           | DB Enum        | Capabilities                                                                                            |
+| -------------- | -------------- | ------------------------------------------------------------------------------------------------------- |
+| Super Admin    | SUPER_ADMIN    | Full system access. System settings. Instrument configuration. Creates Admins and IB Team Leaders.      |
+| Admin          | ADMIN          | User management. KYC review. Deposit/withdrawal processing. Reporting. Cannot change system settings.   |
 | IB Team Leader | IB_TEAM_LEADER | Manages Agent network. Views team commissions. Assigns traders to agents. Views aggregated network P&L. |
-| Agent | AGENT | Manages own trader clients. Views trader list and activity. Earns per-trade commissions. |
+| Agent          | AGENT          | Manages own trader clients. Views trader list and activity. Earns per-trade commissions.                |
 
 Traders are not staff. Traders have their own `users` table with role='TRADER' in the JWT.
 
@@ -123,14 +125,14 @@ Traders are not staff. Traders have their own `users` table with role='TRADER' i
 
 ### ECS Service Specifications
 
-| Service | vCPU | RAM | Min Tasks | Max Tasks | Scale Trigger |
-|---|---|---|---|---|---|
-| api | 1 vCPU | 2 GB | 2 | 8 | 70% CPU |
-| web | 0.5 vCPU | 1 GB | 1 | 3 | 80% CPU |
-| auth | 0.5 vCPU | 1 GB | 1 | 3 | 80% CPU |
-| platform | 0.5 vCPU | 1 GB | 1 | 4 | 70% CPU |
-| admin | 0.5 vCPU | 1 GB | 1 | 2 | 80% CPU |
-| ib-portal | 0.5 vCPU | 1 GB | 1 | 2 | 80% CPU |
+| Service   | vCPU     | RAM  | Min Tasks | Max Tasks | Scale Trigger |
+| --------- | -------- | ---- | --------- | --------- | ------------- |
+| api       | 1 vCPU   | 2 GB | 2         | 8         | 70% CPU       |
+| web       | 0.5 vCPU | 1 GB | 1         | 3         | 80% CPU       |
+| auth      | 0.5 vCPU | 1 GB | 1         | 3         | 80% CPU       |
+| platform  | 0.5 vCPU | 1 GB | 1         | 4         | 70% CPU       |
+| admin     | 0.5 vCPU | 1 GB | 1         | 2         | 80% CPU       |
+| ib-portal | 0.5 vCPU | 1 GB | 1         | 2         | 80% CPU       |
 
 ### Supporting Services
 
@@ -173,22 +175,22 @@ Traders are not staff. Traders have their own `users` table with role='TRADER' i
 
 ### 6.4 Rate Limiting
 
-| Endpoint Group | Limit | Window |
-|---|---|---|
-| POST /v1/auth/login | 5 attempts | 15 minutes per IP |
-| POST /v1/auth/register | 10 attempts | 1 hour per IP |
-| POST /v1/auth/forgot-password | 3 attempts | 1 hour per IP |
-| POST /v1/trades | 30 per minute | Per user |
-| GET /v1/instruments/:symbol/price | 120 per minute | Per user (use WebSocket instead) |
-| POST /v1/webhooks/nowpayments | Unlimited | IP whitelist: NowPayments IPs only |
-| All other authenticated endpoints | 100 per minute | Per user |
+| Endpoint Group                    | Limit          | Window                             |
+| --------------------------------- | -------------- | ---------------------------------- |
+| POST /v1/auth/login               | 5 attempts     | 15 minutes per IP                  |
+| POST /v1/auth/register            | 10 attempts    | 1 hour per IP                      |
+| POST /v1/auth/forgot-password     | 3 attempts     | 1 hour per IP                      |
+| POST /v1/trades                   | 30 per minute  | Per user                           |
+| GET /v1/instruments/:symbol/price | 120 per minute | Per user (use WebSocket instead)   |
+| POST /v1/webhooks/nowpayments     | Unlimited      | IP whitelist: NowPayments IPs only |
+| All other authenticated endpoints | 100 per minute | Per user                           |
 
 ### 6.5 Data Protection
 
 - KYC documents: stored in Cloudflare R2 private bucket — never publicly accessible
 - Signed URLs for document access: 15-minute expiry, generated per admin request
 - Sensitive fields in logs: `password_hash`, `refresh_token`, `wallet_address` redacted
-- PII in logs: email and phone masked (first 3 chars + *** + domain)
+- PII in logs: email and phone masked (first 3 chars + \*\*\* + domain)
 - Database encryption at rest: AWS RDS AES-256
 - Database encryption in transit: all connections require SSL
 - API keys: stored in AWS Secrets Manager
@@ -207,11 +209,11 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 ## 7. Environment Strategy
 
-| Environment | Platform | Purpose |
-|---|---|---|
-| Development | Local Docker Compose | Full stack local. Seeded test data. No real crypto. |
-| Staging | Railway | Production mirror. Real Twelve Data. NowPayments sandbox. |
-| Production | AWS ECS (eu-west-1) | Live. Real payments. Monitored. Auto-scaling. |
+| Environment | Platform             | Purpose                                                   |
+| ----------- | -------------------- | --------------------------------------------------------- |
+| Development | Local Docker Compose | Full stack local. Seeded test data. No real crypto.       |
+| Staging     | Railway              | Production mirror. Real Twelve Data. NowPayments sandbox. |
+| Production  | AWS ECS (eu-west-1)  | Live. Real payments. Monitored. Auto-scaling.             |
 
 ---
 
@@ -230,16 +232,16 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 **Deploy-blocking criteria (any failure blocks production deploy):**
 
-| Metric | Critical Threshold |
-|---|---|
-| First Contentful Paint (FCP) | > 3000ms |
-| Largest Contentful Paint (LCP) | > 4000ms |
-| First Input Delay (FID) | > 300ms |
-| Cumulative Layout Shift (CLS) | > 0.25 |
-| Chart initial render | > 1000ms |
-| WebSocket latency (end-to-end) | > 150ms |
-| Order execution (UI to confirmation) | > 500ms |
-| Error rate (5xx / total requests) | > 1% |
+| Metric                               | Critical Threshold |
+| ------------------------------------ | ------------------ |
+| First Contentful Paint (FCP)         | > 3000ms           |
+| Largest Contentful Paint (LCP)       | > 4000ms           |
+| First Input Delay (FID)              | > 300ms            |
+| Cumulative Layout Shift (CLS)        | > 0.25             |
+| Chart initial render                 | > 1000ms           |
+| WebSocket latency (end-to-end)       | > 150ms            |
+| Order execution (UI to confirmation) | > 500ms            |
+| Error rate (5xx / total requests)    | > 1%               |
 
 ---
 
@@ -283,4 +285,4 @@ NODE_ENV=production                               # development | staging | prod
 
 ---
 
-*ProTraderSim — PTS-ARCH-001 — System Architecture & Deployment — v1.0 — March 2026*
+_ProTraderSim — PTS-ARCH-001 — System Architecture & Deployment — v1.0 — March 2026_

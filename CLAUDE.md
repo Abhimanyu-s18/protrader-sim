@@ -45,14 +45,14 @@ docker compose up -d   # Starts PostgreSQL 17, Redis 7, Mailhog, Redis Commander
 
 ### Apps
 
-| App | Port | Description |
-|-----|------|-------------|
-| `web` | 3000 | Public marketing site |
-| `auth` | 3001 | Login/Register/KYC |
-| `platform` | 3002 | Trading dashboard |
-| `admin` | 3003 | Back-office admin panel |
-| `ib-portal` | 3004 | IB Agent/Team Leader portal |
-| `api` | 4000 | Express.js REST API + Socket.io |
+| App         | Port | Description                     |
+| ----------- | ---- | ------------------------------- |
+| `web`       | 3000 | Public marketing site           |
+| `auth`      | 3001 | Login/Register/KYC              |
+| `platform`  | 3002 | Trading dashboard               |
+| `admin`     | 3003 | Back-office admin panel         |
+| `ib-portal` | 3004 | IB Agent/Team Leader portal     |
+| `api`       | 4000 | Express.js REST API + Socket.io |
 
 All Next.js apps run on separate ports and consume the API at port 4000.
 
@@ -68,6 +68,7 @@ All Next.js apps run on separate ports and consume the API at port 4000.
 ### API Structure (`apps/api`)
 
 Routes organized by domain under `src/routes/`:
+
 - `auth.ts`, `users.ts` — Authentication and user management
 - `trades.ts`, `instruments.ts` — Core trading functionality
 - `deposits.ts`, `withdrawals.ts` — Crypto payments via NowPayments
@@ -87,6 +88,7 @@ Core services: `socket.ts` (real-time price/trade updates), `redis.ts`, `prisma.
 Authentication via `socket.handshake.auth.token` (RS256 JWT).
 
 Room naming conventions:
+
 - `user:{userId}` — private user events (trade updates, account metrics)
 - `prices:{symbol}` — price feed (max 20 subscriptions per connection)
 - `admin:panel` — admin broadcast channel
@@ -96,12 +98,14 @@ Client events: `subscribe:prices` / `unsubscribe:prices` with `{ symbols: string
 Server emit helpers: `emitPriceUpdate(io, symbol, data)`, `emitToUser(io, userId, event, data)`, `emitToAdmin(io, event, data)`.
 
 Key payload shapes:
+
 - **PriceUpdate**: `{ symbol, bid_scaled, ask_scaled, mid_scaled, change_bps, ts }` (all strings)
 - **AccountMetrics**: `{ balance_cents, unrealized_pnl_cents, equity_cents, used_margin_cents, available_cents, margin_level_bps }` (all strings)
 
 ### Database (`packages/db`)
 
 PostgreSQL 17 with Prisma ORM. Key design principles:
+
 - **All monetary values**: BIGINT cents (never Decimal/Float)
 - **All prices**: BIGINT scaled ×100000 (5 decimal places)
 - **Balance**: NOT stored — computed from `ledger_transactions` table (`balanceAfterCents` is a snapshot for audit, not the source of truth)
@@ -117,12 +121,14 @@ Core tables: `users`, `staff`, `sessions`, `instruments`, `trades`, `ledger_tran
 ### Calculation Engine (`apps/api/src/lib/calculations.ts`)
 
 All BigInt. Key constants:
+
 ```typescript
-PRICE_SCALE = 100000n   // price storage multiplier
-BPS_SCALE   = 10000n    // 10000 bps = 100%
+PRICE_SCALE = 100000n // price storage multiplier
+BPS_SCALE = 10000n // 10000 bps = 100%
 ```
 
 Key formulas:
+
 - **Margin** = `(units × contractSize × openRateScaled × 100) / (leverage × 100000)`
 - **P&L BUY** = `(currentBidScaled - openRateScaled) × units × contractSize × 100 / 100000`
 - **P&L SELL** = `(openRateScaled - currentAskScaled) × units × contractSize × 100 / 100000`
@@ -131,6 +137,7 @@ Key formulas:
 ### Redis Cache (`apps/api/src/lib/redis.ts`)
 
 Key patterns:
+
 - `prices:{symbol}` — latest mid/bid/ask, TTL 60s
 - `margin_watch:{instrumentId}` — sorted set of userIds with open positions (for margin call sweeps)
 
@@ -155,6 +162,7 @@ Key patterns:
    ```
 
 **Critical env vars**:
+
 - `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` — RSA key pair (RS256), not symmetric
 - `DATABASE_URL` — connection pooler URL (for Prisma queries)
 - `DIRECT_URL` — direct connection (for migrations only)

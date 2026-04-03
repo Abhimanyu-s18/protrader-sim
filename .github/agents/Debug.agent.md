@@ -18,7 +18,32 @@ argument-hint: >
   when trader tries to open a position. Works in local but fails in staging. Wallet exists
   in DB."
 tools:
-  [vscode/memory, vscode/resolveMemoryFileUri, vscode/runCommand, vscode/vscodeAPI, vscode/askQuestions, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/viewImage, read/terminalSelection, read/terminalLastCommand, edit/createDirectory, edit/createFile, edit/editFiles, edit/rename, search, web, 'io.github.chromedevtools/chrome-devtools-mcp/*', todo]
+  [
+    vscode/memory,
+    vscode/resolveMemoryFileUri,
+    vscode/runCommand,
+    vscode/vscodeAPI,
+    vscode/askQuestions,
+    execute/testFailure,
+    execute/getTerminalOutput,
+    execute/awaitTerminal,
+    execute/killTerminal,
+    execute/createAndRunTask,
+    execute/runInTerminal,
+    read/problems,
+    read/readFile,
+    read/viewImage,
+    read/terminalSelection,
+    read/terminalLastCommand,
+    edit/createDirectory,
+    edit/createFile,
+    edit/editFiles,
+    edit/rename,
+    search,
+    web,
+    'io.github.chromedevtools/chrome-devtools-mcp/*',
+    todo,
+  ]
 ---
 
 # Debug Agent — ProTraderSim
@@ -104,6 +129,7 @@ Category: [Logic Error | Type Error | Race Condition | Missing Validation | Conf
 ### Phase 6: FIX — Targeted and Minimal
 
 Apply the smallest possible fix that addresses the root cause:
+
 - Never refactor while fixing a bug — separate concerns
 - Fix should be verifiable by a test
 - Document why the fix works, not just what it does
@@ -122,24 +148,28 @@ Verification:
 ## Common ProTraderSim Bug Patterns
 
 ### BigInt Type Errors
+
 **Symptom**: `TypeError: Cannot mix BigInt and other types`
 **Root cause**: Arithmetic between BigInt (DB value) and regular number (JS constant)
+
 ```typescript
 // ❌ BUG
-const margin = wallet.balance / 100  // BigInt / number = TypeError
+const margin = wallet.balance / 100 // BigInt / number = TypeError
 
 // ✅ FIX
-const margin = wallet.balance / 100n  // Both BigInt
+const margin = wallet.balance / 100n // Both BigInt
 // or
-const margin = Number(wallet.balance) / 100  // Convert first, then calculate
+const margin = Number(wallet.balance) / 100 // Convert first, then calculate
 ```
 
 ### BigInt JSON Serialization Failure
+
 **Symptom**: `TypeError: Do not know how to serialize a BigInt`
 **Root cause**: BigInt returned from service function and passed directly to `res.json()`
+
 ```typescript
 // ❌ BUG
-res.json({ balance: wallet.balance })  // BigInt can't be JSON serialized
+res.json({ balance: wallet.balance }) // BigInt can't be JSON serialized
 
 // ✅ FIX
 res.json({ balance: Number(wallet.balance) })
@@ -148,8 +178,10 @@ res.json({ balance: wallet.balance.toString() })
 ```
 
 ### Prisma N+1 Query
+
 **Symptom**: Slow endpoint, Prisma query log shows 100s of queries for a list request
 **Root cause**: Fetching related data in a loop instead of using `include`
+
 ```typescript
 // ❌ BUG (N+1)
 const positions = await prisma.position.findMany({ where: { trader_id } })
@@ -160,13 +192,15 @@ for (const pos of positions) {
 // ✅ FIX
 const positions = await prisma.position.findMany({
   where: { trader_id },
-  include: { instrument: true }  // Single query with JOIN
+  include: { instrument: true }, // Single query with JOIN
 })
 ```
 
 ### JWT Auth Failure in Staging/Production
+
 **Symptom**: 401 on all requests in staging/prod, works locally
 **Root cause**: `JWT_SECRET` env var not set in Railway/ECS environment
+
 ```bash
 # Verify env var is present
 railway variables  # or check ECS task definition environment
@@ -174,8 +208,10 @@ railway variables  # or check ECS task definition environment
 ```
 
 ### Socket.io Disconnects in Multi-Instance Setup
+
 **Symptom**: Price updates received inconsistently, clients sometimes don't get broadcasts
 **Root cause**: Redis pub/sub adapter not configured — Socket.io only broadcasts to local instance
+
 ```typescript
 // ✅ FIX — socket/index.ts
 import { createAdapter } from '@socket.io/redis-adapter'
@@ -186,8 +222,10 @@ io.adapter(createAdapter(redis, redisSubscriber))
 ```
 
 ### Prisma Migration Failure
+
 **Symptom**: `migrate deploy` fails with "column already exists" or "relation does not exist"
 **Root cause**: Migration applied partially (schema changed in prod before migration completed) or migration history mismatch
+
 ```bash
 # 1. Check migration status
 npx prisma migrate status
@@ -201,15 +239,17 @@ npx prisma migrate resolve --applied <migration-name>
 ```
 
 ### BullMQ Job Stuck in Active State
+
 **Symptom**: Job shows as "active" in Bull Board but never completes
 **Root cause**: Job processor threw an error but didn't re-throw it (swallowed silently)
+
 ```typescript
 // ❌ BUG
 export async function processJob(job: Job) {
   try {
     // ...
   } catch (err) {
-    console.error(err)  // Error swallowed — job stays "active" forever
+    console.error(err) // Error swallowed — job stays "active" forever
   }
 }
 
@@ -219,14 +259,16 @@ export async function processJob(job: Job) {
     // ...
   } catch (err) {
     console.error(err)
-    throw err  // Re-throw so BullMQ can mark as failed and retry
+    throw err // Re-throw so BullMQ can mark as failed and retry
   }
 }
 ```
 
 ### Wrong P&L / Balance After Position Close
+
 **Symptom**: Trader balance doesn't update correctly after closing a position
 **Root cause**: Wallet update not in same Prisma transaction as position close
+
 ```typescript
 // ✅ CORRECT — atomicity ensures consistency
 await prisma.$transaction(async (tx) => {
@@ -234,13 +276,17 @@ await prisma.$transaction(async (tx) => {
   await tx.traderWallet.update({
     where: { trader_id },
     data: {
-      balance: { increment: pnl },      // Add P&L to balance
+      balance: { increment: pnl }, // Add P&L to balance
       margin_used: { decrement: margin }, // Release margin
       equity: { increment: pnl },
-      free_margin: { increment: margin + pnl }
-    }
+      free_margin: { increment: margin + pnl },
+    },
   })
-  await tx.auditLog.create({ data: { /* ... */ } })
+  await tx.auditLog.create({
+    data: {
+      /* ... */
+    },
+  })
 })
 ```
 
@@ -248,18 +294,21 @@ await prisma.$transaction(async (tx) => {
 
 ## Debug Report Format
 
-```markdown
+````markdown
 ## Debug Report: [Error Name / Ticket ID]
 
 ### Symptom
+
 [Exact error message + context]
 
 ### Environment
+
 - Affected: local | staging | production
 - Reproducible: always | intermittent (X% of the time)
 - First seen: [timestamp or commit]
 
 ### Evidence Collected
+
 - [Log output / stack trace]
 - [DB query result]
 - [Recent relevant commits]
@@ -273,19 +322,25 @@ await prisma.$transaction(async (tx) => {
 **Category**: [Logic Error | Type Error | Race Condition | Config Error | etc.]
 
 ### Fix Applied
+
 ```typescript
 // Location: [file path]
 // Before:
-[code]
-// After:
-[code]
+;// After:
+[code][code]
 ```
+````
 
 ### Verification
+
 - [ ] Manual test confirms resolution
 - [ ] Test case added to prevent regression
 - [ ] Related code checked for same pattern
 
 ### Prevention
+
 [What coding pattern or check would have caught this earlier?]
+
+```
+
 ```

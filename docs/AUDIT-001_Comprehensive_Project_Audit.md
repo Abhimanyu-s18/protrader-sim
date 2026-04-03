@@ -24,7 +24,7 @@
 
 ## 1. Executive Summary
 
-ProTraderSim is a multi-asset offshore CFD simulation trading platform with an IB (Introducing Broker) business model. The project has **excellent foundational infrastructure** — a well-architected Express API with 41 endpoints, a comprehensive 17-model Prisma schema, and a production-quality BigInt financial calculation engine. However, the project is approximately **40% complete overall**.
+ProTraderSim is a multi-asset offshore CFD simulation trading platform with an IB (Introducing Broker) business model. The project has **excellent foundational infrastructure** — a well-architected Express API with 47 endpoints, a comprehensive 17-model Prisma schema, and a production-quality BigInt financial calculation engine. Based on the detailed completion breakdown below, the project is approximately **40% complete overall** — backend infrastructure is largely complete (Database 100%, API 95%, Financial Engine 100%), but all 5 frontend applications remain empty shells (0-2%) and several critical subsystems (email templates, payment integration, background workers) are partially implemented.
 
 ### Completion Breakdown (Updated 2026-04-03 v3.0)
 
@@ -58,7 +58,13 @@ ProTraderSim is a multi-asset offshore CFD simulation trading platform with an I
 6. ~~No graceful shutdown~~ — **FIXED**: SIGTERM/SIGINT handlers implemented
 7. ~~No structured logging~~ — **FIXED**: Pino logger implemented throughout
 
-**REMAINING:** 8. **Test coverage not in CI** — Tests exist (4 files, ~1776 LOC) but CI uses `--passWithNoTests`, no coverage thresholds 9. **All 5 frontend apps empty** — No UI components, no pages, 0% complete 10. **No email templates** — 0 of 21 templates implemented 11. **NowPayments API not called** — Deposit creation TODO, webhook handler only 12. **Forex swap rates incomplete** — 6 pairs have placeholder values
+**REMAINING:**
+
+8. ~~**Test coverage not in CI**~~ — **FIXED**: Tests integrated into CI (4 files, ~1776 LOC), coverage thresholds enforced (80% global, 100% financial calculations)
+9. **All 5 frontend apps empty** — No UI components, no pages, 0% complete
+10. **No email templates** — 0 of 21 templates implemented
+11. **NowPayments API not called** — Deposit creation TODO, webhook handler only
+12. **Forex swap rates incomplete** — 6 pairs have placeholder values
 
 ---
 
@@ -73,7 +79,7 @@ ProTraderSim is a multi-asset offshore CFD simulation trading platform with an I
 │  web │ auth │platform│  admin   │ ib-portal │      api      │
 │ :3000│ :3005│ :3002  │ :3003    │  :3004    │    :4000      │
 │NEXT  │NEXT  │ NEXT   │ NEXT     │  NEXT     │   Express     │
-│EMPTY │EMPTY │ EMPTY  │ EMPTY    │  EMPTY    │  41 endpoints │
+│EMPTY │EMPTY │ EMPTY  │ EMPTY    │  EMPTY    │  47 endpoints │
 └──────┴──────┴───────┴──────────┴───────────┴───────┬───────┘
                                                       │
                               ┌────────────────────────┤
@@ -106,16 +112,16 @@ ProTraderSim is a multi-asset offshore CFD simulation trading platform with an I
 
 ### 2.3 Bug Inventory (Updated 2026-04-03 v3.0)
 
-| #   | Severity         | Location                                              | Description                                                                 | Status                                                                |
-| --- | ---------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| 1   | ~~**Critical**~~ | ~~`apps/api/src/routes/auth.ts:163`~~                 | ~~Login error uses `.constructor()`~~                                       | **✅ RESOLVED** — Uses `new AppError('INVALID_CREDENTIALS', ...)`     |
-| 2   | ~~**Critical**~~ | ~~`apps/api/src/routes/auth.ts:168`~~                 | ~~Same `.constructor` bug for ACCOUNT_SUSPENDED~~                           | **✅ RESOLVED** — Uses `new AppError('ACCOUNT_SUSPENDED', ...)`       |
-| 3   | ~~**High**~~     | ~~`apps/api/src/routes/trades.ts`~~                   | ~~`balanceAfterCents` set to `0n` then updated in second query~~            | **✅ RESOLVED** — Uses `withSerializableRetry` + `FOR UPDATE` + SSI   |
-| 4   | ~~**Medium**~~   | ~~`apps/api/src/routes/withdrawals.ts`~~              | ~~Balance calculation doesn't account for ledger entry~~                    | **✅ RESOLVED** — Balance computed in-transaction before ledger entry |
-| 5   | ~~**Medium**~~   | ~~`apps/api/src/routes/trades.ts`, `withdrawals.ts`~~ | ~~Duplicate `prisma as db` import~~                                         | **✅ RESOLVED** — Single `prisma` import per file                     |
-| 6   | ~~**Low**~~      | ~~`apps/api/src/index.ts`~~                           | ~~No graceful shutdown~~                                                    | **✅ RESOLVED** — Full graceful shutdown with timeouts                |
-| 7   | ~~**Low**~~      | ~~Throughout `apps/api/`~~                            | ~~`console.log` used instead of structured logging~~                        | **✅ RESOLVED** — Pino structured logger used throughout              |
-| 8   | **High**         | `apps/api/package.json`, `jest.config.cjs`            | Test script uses `--passWithNoTests`, no coverage thresholds in Jest config | **❌ OPEN**                                                           |
+| #   | Severity         | Location                                              | Description                                                                     | Status                                                                      |
+| --- | ---------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 1   | ~~**Critical**~~ | ~~`apps/api/src/routes/auth.ts:163`~~                 | ~~Login error uses `.constructor()`~~                                           | **✅ RESOLVED** — Uses `new AppError('INVALID_CREDENTIALS', ...)`           |
+| 2   | ~~**Critical**~~ | ~~`apps/api/src/routes/auth.ts:168`~~                 | ~~Same `.constructor` bug for ACCOUNT_SUSPENDED~~                               | **✅ RESOLVED** — Uses `new AppError('ACCOUNT_SUSPENDED', ...)`             |
+| 3   | ~~**High**~~     | ~~`apps/api/src/routes/trades.ts`~~                   | ~~`balanceAfterCents` set to `0n` then updated in second query~~                | **✅ RESOLVED** — Uses `withSerializableRetry` + `FOR UPDATE` + SSI         |
+| 4   | ~~**Medium**~~   | ~~`apps/api/src/routes/withdrawals.ts`~~              | ~~Balance calculation doesn't account for ledger entry~~                        | **✅ RESOLVED** — Balance computed in-transaction before ledger entry       |
+| 5   | ~~**Medium**~~   | ~~`apps/api/src/routes/trades.ts`, `withdrawals.ts`~~ | ~~Duplicate `prisma as db` import~~                                             | **✅ RESOLVED** — Single `prisma` import per file                           |
+| 6   | ~~**Low**~~      | ~~`apps/api/src/index.ts`~~                           | ~~No graceful shutdown~~                                                        | **✅ RESOLVED** — Full graceful shutdown with timeouts                      |
+| 7   | ~~**Low**~~      | ~~Throughout `apps/api/`~~                            | ~~`console.log` used instead of structured logging~~                            | **✅ RESOLVED** — Pino structured logger used throughout                    |
+| 8   | ~~**High**~~     | ~~`apps/api/package.json`, `jest.config.cjs`~~        | ~~Test script uses `--passWithNoTests`, no coverage thresholds in Jest config~~ | **✅ RESOLVED** — Coverage thresholds enforced, `--passWithNoTests` removed |
 
 ### 2.4 Implemented API Endpoints (47 total, Updated 2026-04-03 v3.0)
 
@@ -210,7 +216,7 @@ ProTraderSim is a multi-asset offshore CFD simulation trading platform with an I
 
 ---
 
-## 4.5 P0 CRITICAL TASKS — DETAILED STEP-BY-STEP INSTRUCTIONS
+## 4.5 P0 CRITICAL TASKS — RESOLUTIONS AND NOTES
 
 All tasks in this section must be completed BEFORE starting any other sprint work. Each task includes acceptance criteria and precise implementation guidelines to ensure consistency across the codebase.
 
@@ -302,179 +308,15 @@ The same pattern is also applied to the partial-close endpoint.
 
 **Severity:** HIGH — Financial calculations unverified in deployment
 **Location:** `apps/api` test files + CI configuration
-**Status:** PARTIAL (tests exist, not integrated)
-**Estimated Effort:** 2 hours
+**Status:** ✅ RESOLVED (2026-04-03 v3.0)
+**Estimated Effort:** 2 hours (completed)
 
-#### Problem
+#### Resolution
 
-- Financial calculation tests are written (`calculations.test.ts`) but not running in CI
-- Current test command uses `--passWithNoTests` flag, so pipeline passes with zero coverage
-- This is a deployment blocker per spec (financial calculations must be verified before deploy)
-
-#### Step-by-Step Instructions
-
-1. **Verify test files exist:**
-
-   ```bash
-   ls -la apps/api/src/**/*.test.ts
-   ```
-
-   Should show:
-   - `apps/api/src/lib/calculations.test.ts` (14 test cases per spec)
-   - `apps/api/src/routes/auth.test.ts` (authentication tests)
-   - `apps/api/src/routes/trades.test.ts` (trade operations tests)
-
-2. **Update `apps/api/package.json` test script:**
-
-   **Current:**
-
-   ```json
-   "test": "jest --passWithNoTests"
-   ```
-
-   **Change to:**
-
-   ```json
-   "test": "jest --coverage --collectCoverageFrom='src/**/*.ts' --collectCoverageFrom='!src/**/*.d.ts'"
-   ```
-
-3. **Update `apps/api/jest.config.cjs` to enforce minimum coverage:**
-
-   ```javascript
-   /** @type {import('jest').Config} */
-   module.exports = {
-     preset: 'ts-jest/presets/default-esm',
-     testEnvironment: 'node',
-     roots: ['<rootDir>/src'],
-     testMatch: ['**/*.test.ts'],
-     extensionsToTreatAsEsm: ['.ts'],
-     moduleNameMapper: {
-       '^(\\.{1,2}/.*)\\.js$': '$1',
-     },
-     transform: {
-       '^.+\\.ts$': ['ts-jest', { useESM: true }],
-     },
-     snapshotSerializers: ['<rootDir>/jest-bigint-serializer.js'],
-     // ADD COVERAGE THRESHOLDS
-     collectCoverageFrom: [
-       'src/**/*.ts',
-       '!src/**/*.d.ts',
-       '!src/index.ts', // Main entry point may not have full coverage
-     ],
-     coverageThreshold: {
-       global: {
-         branches: 75,
-         functions: 75,
-         lines: 75,
-         statements: 75,
-       },
-       // Financial calculations MUST have 100% coverage
-       'src/lib/calculations.ts': {
-         branches: 100,
-         functions: 100,
-         lines: 100,
-         statements: 100,
-       },
-     },
-     testTimeout: 10000, // 10 second timeout for integration tests
-   }
-   ```
-
-4. **Run tests locally to verify:**
-
-   ```bash
-   pnpm --filter @protrader/api test
-   ```
-
-   Should output coverage summary and show:
-   - `results` field: "X passed, Y failed" (all should pass)
-   - `coverage` section with thresholds met
-   - For `calculations.ts`: 100% coverage required
-
-5. **Verify GitHub Actions CI file** — `.github/workflows/ci.yml`
-
-   The test job should:
-
-   ```yaml
-   - name: Run tests
-     run: pnpm turbo test
-     env:
-       DATABASE_URL: postgresql://...
-       REDIS_URL: redis://...
-       NODE_ENV: test
-       JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY_TEST }}
-       JWT_PUBLIC_KEY: ${{ secrets.JWT_PUBLIC_KEY_TEST }}
-   ```
-
-   Ensure `--passWithNoTests` is removed from the script above.
-
-6. **Set up GitHub Actions secrets** (if not already done):
-
-   ```bash
-   # Repository Settings → Secrets and variables → Actions
-   # Add:
-   # - JWT_PRIVATE_KEY_TEST (RSA private key for testing)
-   # - JWT_PUBLIC_KEY_TEST (RSA public key for testing)
-   # - DATABASE_URL (test database connection string)
-   # - DIRECT_URL (direct connection for migrations)
-   ```
-
-7. **Create a test setup file** if database/Redis isn't mocked:
-
-   Create `apps/api/src/test-setup.ts`:
-
-   ```typescript
-   /**
-    * Jest global setup for integration tests
-    * Initializes test database and cleans up after tests
-    */
-   import { PrismaClient } from '@prisma/client'
-
-   const prisma = new PrismaClient()
-
-   beforeAll(async () => {
-     // Run migrations on test database
-     // (CI already does this, but useful for local testing)
-   })
-
-   afterAll(async () => {
-     // Clean up test data
-     await prisma.$disconnect()
-   })
-   ```
-
-   Update `jest.config.cjs` to use this:
-
-   ```javascript
-   globalSetup: '<rootDir>/src/test-setup.ts',
-   ```
-
-8. **Test the CI pipeline locally** using GitHub Actions runner (optional):
-
-   ```bash
-   # Install act (local GitHub Actions runner)
-   brew install act
-
-   # Run the CI workflow locally
-   act -j test -e events.json
-   ```
-
-#### Acceptance Criteria
-
-- ✅ `pnpm --filter @protrader/api test` runs all tests and reports results
-- ✅ Financial calculation tests have 100% coverage
-- ✅ Overall coverage meets ≥75% threshold
-- ✅ CI pipeline no longer uses `--passWithNoTests`
-- ✅ GitHub Actions test job reports coverage metrics
-- ✅ Tests fail deployment if any test fails or coverage drops below threshold
-
-#### Key Test Files to Maintain
-
-| Test File                      | Coverage Target | Purpose                                        |
-| ------------------------------ | --------------- | ---------------------------------------------- |
-| `src/lib/calculations.test.ts` | 100%            | Financial calculations (P&L, margin, rollover) |
-| `src/routes/auth.test.ts`      | 90%             | Authentication flows                           |
-| `src/routes/trades.test.ts`    | 90%             | Trade operations                               |
+- Test files exist: `calculations.test.ts`, `auth.test.ts`, `trades.test.ts` (4 files, ~1776 LOC)
+- `jest.config.cjs` enforces coverage thresholds: 80% global (branches/functions/lines/statements), 100% for `src/lib/calculations.ts`
+- `--passWithNoTests` removed from test script
+- Coverage collection enabled via `collectCoverageFrom`
 
 ---
 
@@ -532,31 +374,33 @@ CORS configuration now includes all 6 frontend app URLs:
 
 ---
 
+## 5. Gap Analysis
+
 ### 5.1 Critical Path Gaps (Blocking Launch)
 
-| #   | Gap                                  | Impact                                                                      | Effort    |
-| --- | ------------------------------------ | --------------------------------------------------------------------------- | --------- |
-| 1   | No Twelve Data WebSocket integration | No live prices — entire platform non-functional                             | High      |
-| 2   | No BullMQ workers                    | No rollover, margin calls, stop-outs, alert triggers, entry order execution | High      |
-| 3   | All 5 frontend apps are empty        | No user-facing interface exists                                             | Very High |
-| 4   | No email templates                   | No transactional emails sent (welcome, KYC, deposits, etc.)                 | Medium    |
-| 5   | NowPayments API not called           | Deposits cannot be created                                                  | Medium    |
-| 6   | Zero test coverage                   | Financial calculations unverified — deployment-blocking                     | High      |
-| 7   | No Dockerfile                        | CI/CD pipeline broken                                                       | Low       |
-| 8   | Login route bug                      | Authentication broken at runtime                                            | Low       |
+| #   | Gap                                  | Impact                                                                      | Effort    | Status   |
+| --- | ------------------------------------ | --------------------------------------------------------------------------- | --------- | -------- |
+| 1   | No Twelve Data WebSocket integration | No live prices — entire platform non-functional                             | High      | OPEN     |
+| 2   | No BullMQ workers                    | No rollover, margin calls, stop-outs, alert triggers, entry order execution | High      | OPEN     |
+| 3   | All 5 frontend apps are empty        | No user-facing interface exists                                             | Very High | OPEN     |
+| 4   | No email templates                   | No transactional emails sent (welcome, KYC, deposits, etc.)                 | Medium    | OPEN     |
+| 5   | NowPayments API not called           | Deposits cannot be created                                                  | Medium    | OPEN     |
+| 6   | ~~Zero test coverage~~               | ~~Financial calculations unverified — deployment-blocking~~                 | ~~High~~  | RESOLVED |
+| 7   | ~~No Dockerfile~~                    | ~~CI/CD pipeline broken~~                                                   | ~~Low~~   | RESOLVED |
+| 8   | ~~Login route bug~~                  | ~~Authentication broken at runtime~~                                        | ~~Low~~   | RESOLVED |
 
 ### 5.2 High-Priority Gaps (Needed for MVP)
 
-| #   | Gap                                       | Impact                                 | Effort |
-| --- | ----------------------------------------- | -------------------------------------- | ------ |
-| 9   | No TradingView chart datafeed integration | Charts won't display data              | Medium |
-| 10  | No graceful shutdown                      | Data loss on deploy/restart            | Low    |
-| 11  | No structured logging                     | Debugging production issues impossible | Low    |
-| 12  | No partial close implementation           | Traders cannot reduce position size    | Medium |
-| 13  | No MFA implementation                     | Withdrawals not protected              | Medium |
-| 14  | No negative balance protection            | Users could go negative on stop-out    | Medium |
-| 15  | No Socket.io price broadcast pipeline     | Real-time updates don't reach clients  | Medium |
-| 16  | Forex swap rates incomplete               | 6 pairs have placeholder values        | Low    |
+| #   | Gap                                       | Impact                                     | Effort  | Status   |
+| --- | ----------------------------------------- | ------------------------------------------ | ------- | -------- |
+| 9   | No TradingView chart datafeed integration | Charts won't display data                  | Medium  | OPEN     |
+| 10  | ~~No graceful shutdown~~                  | ~~Data loss on deploy/restart~~            | ~~Low~~ | RESOLVED |
+| 11  | ~~No structured logging~~                 | ~~Debugging production issues impossible~~ | ~~Low~~ | RESOLVED |
+| 12  | No partial close implementation           | Traders cannot reduce position size        | Medium  | OPEN     |
+| 13  | No MFA implementation                     | Withdrawals not protected                  | Medium  | OPEN     |
+| 14  | No negative balance protection            | Users could go negative on stop-out        | Medium  | OPEN     |
+| 15  | No Socket.io price broadcast pipeline     | Real-time updates don't reach clients      | Medium  | OPEN     |
+| 16  | Forex swap rates incomplete               | 6 pairs have placeholder values            | Low     | OPEN     |
 
 ### 5.3 Medium-Priority Gaps (Needed for Full Launch)
 
@@ -1073,7 +917,11 @@ const pnlCents = ((currentBidScaled - openRateScaled) / PRICE_SCALE) * units * c
 
 **Prisma Schema Rules:**
 
-- Use `GENERATED ALWAYS AS IDENTITY` for primary keys (not UUID)
+- Prefer `GENERATED ALWAYS AS IDENTITY` for single-database deployments; consider UUID/ULID or other distributed ID schemes for multi-region, sharded, offline-first, or replication scenarios
+  - **Scalability**: IDENTITY sequences are single-database bound; UUID/ULID work across distributed systems without coordination
+  - **Collision/Coordination**: IDENTITY requires central DB coordination; UUID v4 has negligible collision risk; ULID needs monotonic generation guarantees
+  - **Replication/Merging**: IDENTITY conflicts in multi-writer replication; UUID/ULID are globally unique and merge-safe
+  - **Ordering**: IDENTITY provides natural insertion order; UUID v4 is random (poor index locality); ULID is time-sorted (good index locality)
 - BIGINT for all monetary fields (cents)
 - BIGINT for all price fields (scaled × 100000)
 - Add indexes on frequently queried fields: user_id, created_at, status
@@ -1097,7 +945,7 @@ const pnlCents = ((currentBidScaled - openRateScaled) / PRICE_SCALE) * units * c
 
 **Unit Tests (Jest):**
 
-- Target: ≥90% coverage overall, 100% for financial calculations
+- Target: ≥80% coverage overall (matches `jest.config.cjs` coverageThreshold.global), 100% for financial calculations
 - Test location: `src/**/*.test.ts` (co-located with source)
 - Name convention: describe what the function does
 
@@ -1105,16 +953,16 @@ const pnlCents = ((currentBidScaled - openRateScaled) / PRICE_SCALE) * units * c
   describe('calcMarginCents', () => {
     it('should calculate margin correctly for leverage 500 EURUSD', () => {
       // Arrange
-      const units = 10000n
+      const units = 1n
       const contractSize = 100000n // Forex
       const rateScaled = 108500n
-      const leverage = 500n
+      const leverage = 500
 
       // Act
       const margin = calcMarginCents(units, contractSize, rateScaled, leverage)
 
       // Assert
-      expect(margin).toBe(2170n) // $21.70 in cents
+      expect(margin).toBe(21700n) // $217.00 in cents
     })
   })
   ```
@@ -1258,7 +1106,11 @@ docs: update trading calculations spec for swap rates
 - Feature branches: `feature/FEATURE-NAME` (e.g., `feature/margin-monitor-worker`)
 - Bug fixes: `fix/BUG-NAME` (e.g., `fix/trade-close-race-condition`)
 - Documentation: `docs/DOC-NAME` (e.g., `docs/api-spec-update`)
-- Never commit directly to `main`
+- Exception for small fixes:
+  - Only the sole maintainer (Krishan) may commit directly to `main`
+  - Commit message must reference this decision
+  - All changes must pass lint and typecheck before commit
+  - Safe because there are no parallel development conflicts
 
 **Code Review:**
 
@@ -1391,16 +1243,17 @@ Sprint 3 (Market Data & Workers) ──→ Sprint 4 (Margin & Email)
 
 ### D. Key Metrics to Track
 
-| Metric                   | Target                          | Measurement             |
-| ------------------------ | ------------------------------- | ----------------------- |
-| API test coverage        | ≥90% for financial calculations | Jest coverage report    |
-| E2E test coverage        | All critical user journeys      | Playwright test results |
-| Order execution latency  | P99 < 100ms                     | APM / CloudWatch        |
-| Price update → broadcast | P99 < 500ms                     | Custom metrics          |
-| Frontend FCP             | < 1800ms                        | Lighthouse              |
-| Frontend LCP             | < 2500ms                        | Lighthouse              |
-| Error rate (5xx)         | < 0.5%                          | CloudWatch              |
-| Financial discrepancies  | 0                               | Audit scripts           |
+| Metric                          | Target                     | Measurement             |
+| ------------------------------- | -------------------------- | ----------------------- |
+| API test coverage               | ≥80% overall               | Jest coverage report    |
+| Financial calculations coverage | 100%                       | Jest coverage report    |
+| E2E test coverage               | All critical user journeys | Playwright test results |
+| Order execution latency         | P99 < 100ms                | APM / CloudWatch        |
+| Price update → broadcast        | P99 < 500ms                | Custom metrics          |
+| Frontend FCP                    | < 1800ms                   | Lighthouse              |
+| Frontend LCP                    | < 2500ms                   | Lighthouse              |
+| Error rate (5xx)                | < 0.5%                     | CloudWatch              |
+| Financial discrepancies         | 0                          | Audit scripts           |
 
 ---
 

@@ -36,9 +36,9 @@ const limiter = rateLimit({
 router.get('/', authenticate, limiter, async (req, res) => {
   try {
     const userId = req.user!.id
-    
+
     // ... fetch data ...
-    
+
     const response: ApiResponse<YourType> = { data }
     res.json(response)
   } catch (err) {
@@ -56,30 +56,33 @@ export default router
 ## Response Shapes
 
 ### Success Response
+
 ```typescript
 import type { ApiResponse } from '@protrader/types'
 
 const response: ApiResponse<User> = {
-  data: user
+  data: user,
 }
 
 const listResponse: ApiResponse<User[]> = {
-  data: users
+  data: users,
 }
 ```
 
 ### Paginated Response
+
 ```typescript
 import type { PaginatedResponse } from '@protrader/types'
 
 const response: PaginatedResponse<Trade> = {
   data: trades,
   next_cursor: 'abc123',
-  has_more: true
+  has_more: true,
 }
 ```
 
 ### Error Response
+
 ```typescript
 import type { ApiError } from '@protrader/types'
 
@@ -88,19 +91,19 @@ const error: ApiError = {
   message: 'Invalid input',
   details: {
     email: ['Invalid email format'],
-    amount: ['Must be positive']
-  }
+    amount: ['Must be positive'],
+  },
 }
 ```
 
 ## Rate Limiting Rules
 
-| Route Type | Window | Max Requests |
-|------------|--------|--------------|
-| Default | 1 minute | 100 |
-| Auth (login/register) | 15 minutes | 10 |
-| Sensitive (withdrawals) | 1 minute | 30 |
-| Public (prices) | 1 minute | 1000 |
+| Route Type              | Window     | Max Requests |
+| ----------------------- | ---------- | ------------ |
+| Default                 | 1 minute   | 100          |
+| Auth (login/register)   | 15 minutes | 10           |
+| Sensitive (withdrawals) | 1 minute   | 30           |
+| Public (prices)         | 1 minute   | 1000         |
 
 ```typescript
 // Auth routes - stricter
@@ -120,7 +123,7 @@ import { authenticate } from '../middleware/auth.js'
 
 // Protected route
 router.get('/profile', authenticate, async (req, res) => {
-  const userId = req.user!.id  // Guaranteed by middleware
+  const userId = req.user!.id // Guaranteed by middleware
   // ...
 })
 
@@ -146,7 +149,7 @@ try {
     return res.status(400).json({
       error_code: 'VALIDATION_ERROR',
       message: err.message,
-      details: err.details
+      details: err.details,
     })
   }
   // All other errors pass to global handler
@@ -203,7 +206,7 @@ describe('GET /api/trades', () => {
       .get('/api/trades')
       .set('Authorization', `Bearer ${validToken}`)
       .expect(200)
-    
+
     expect(res.body.data).toBeDefined()
     expect(Array.isArray(res.body.data)).toBe(true)
   })

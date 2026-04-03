@@ -41,16 +41,19 @@ Each skill is **350-500 lines** of comprehensive documentation, checklists, code
 ## ✨ Key Features
 
 ### ✅ Financial Precision
+
 - 6 core formulas (Margin, P&L BUY/SELL, Equity, Swap, Margin Level)
 - BigInt-only arithmetic (no Float rounding errors)
 - Tested edge cases (zero, negative, billions)
 
 ### ✅ Money Safety
+
 - BIGINT cents architecture (never Decimal)
 - Ledger-based balance (never stored balance field)
 - Atomic transactions with validation
 
 ### ✅ API Architecture
+
 - Strict layering (Routes → Services → Database)
 - JWT RS256 authentication
 - RBAC authorization with proper cascades
@@ -58,6 +61,7 @@ Each skill is **350-500 lines** of comprehensive documentation, checklists, code
 - Comprehensive error handling
 
 ### ✅ Database Excellence
+
 - 11-table schema covering full platform
 - Proper indexes (no over-indexing)
 - Foreign key cascades
@@ -70,26 +74,28 @@ Each skill is **350-500 lines** of comprehensive documentation, checklists, code
 
 **All 14 agents immediately enhanced:**
 
-| Tier | Agents | Primary Skills |
-|------|--------|----------------|
-| **Core** | Coding, Schema | All 4 skills |
-| **Strong** | Architecture, Security, Test, Debug | All 4 or specialized |
-| **Supported** | Orchestrator, Code-Review, Documentation | All 4 for context |
-| **Contextual** | Frontend, Performance, DevOps, Research, UI/UX | 2-3 skills relevant |
+| Tier           | Agents                                         | Primary Skills       |
+| -------------- | ---------------------------------------------- | -------------------- |
+| **Core**       | Coding, Schema                                 | All 4 skills         |
+| **Strong**     | Architecture, Security, Test, Debug            | All 4 or specialized |
+| **Supported**  | Orchestrator, Code-Review, Documentation       | All 4 for context    |
+| **Contextual** | Frontend, Performance, DevOps, Research, UI/UX | 2-3 skills relevant  |
 
 ---
 
 ## 📊 Comprehensive Coverage
 
 ### Formulas & Guarantees ✅
+
 - ✅ Margin calculation (with leverage)
 - ✅ P&L calculation (BUY direction)
 - ✅ P&L calculation (SELL direction)
 - ✅ Margin level calculation (basis points)
-- ✅ Equity calculation  
+- ✅ Equity calculation
 - ✅ Swap fee calculation
 
 ### Patterns & Standards ✅
+
 - ✅ Money conversion (dollars ↔ cents ↔ ledger)
 - ✅ Price scaling (×100000)
 - ✅ Input validation (Zod schemas)
@@ -100,6 +106,7 @@ Each skill is **350-500 lines** of comprehensive documentation, checklists, code
 - ✅ Rate limiting (per-endpoint)
 
 ### Tables & Relationships ✅
+
 - ✅ User (auth, roles, KYC status)
 - ✅ Trade (position lifecycle)
 - ✅ Instrument (market data)
@@ -113,6 +120,7 @@ Each skill is **350-500 lines** of comprehensive documentation, checklists, code
 - ✅ OhlcvCandles (market history)
 
 ### Checklists & Validation ✅
+
 - ✅ Route creation checklist (8 items)
 - ✅ Schema design checklist (15 items)
 - ✅ Money handling checklist (10 items)
@@ -125,52 +133,55 @@ Each skill is **350-500 lines** of comprehensive documentation, checklists, code
 ### Scenarios Now Covered
 
 **Scenario 1: Build Deposit Endpoint**
+
 ```
 @schema Use database-schema-design
   → Design DepositRequest table
-    
+
 @coding Use api-route-creation + bigint-money-handling
   → POST /api/deposits
   → Validate amount with Zod
   → Call depositService
-  
+
 @coding Use bigint-money-handling + financial-calculations
   → depositService.createDeposit()
   → "100.50" → 10050n cents
   → Add to ledger
-  
+
 Result: ✅ Safe, tested, production-ready
 ```
 
 **Scenario 2: Build Trading with Leverage**
+
 ```
 @architect Use financial-calculations
   → Understand margin requirements
-    
+
 @coding Use financial-calculations + api-route-creation
   → POST /api/positions (with auth)
   → Calculate margin: (units × contract × price × CENTS) / (leverage × SCALE)
   → Validate sufficient balance
-  
+
 @test Use financial-calculations + bigint-money-handling
   → Test margin = $1,000 with 1.5 lots, 500:1 leverage
   → Test insufficient margin rejection
   → Test extreme prices
-  
+
 Result: ✅ Mathematically correct, properly tested
 ```
 
 **Scenario 3: Debug Margin Calculation Bug**
+
 ```
 @debug Use financial-calculations
   → Trace margin formula
   → Check PRICE_SCALE application
   → Verify BigInt usage
-  
+
 @test Use bigint-money-handling
   → Validate inputs as cents
   → Check ledger entries
-  
+
 Result: ✅ Root cause identified, fix verified
 ```
 
@@ -179,6 +190,7 @@ Result: ✅ Root cause identified, fix verified
 ## 💡 How to Use
 
 ### In Chat
+
 ```
 Question: "How do I structure API routes?"
 Answer: @coding Use the api-route-creation skill
@@ -191,6 +203,7 @@ Answer: @security Use the bigint-money-handling skill
 ```
 
 ### Agent Prompts
+
 ```
 @coding Build POST /api/positions
 → Automatically loads relevant skills:
@@ -201,6 +214,7 @@ Answer: @security Use the bigint-money-handling skill
 ```
 
 ### Code Review
+
 ```
 @code-review Check this trading endpoint
 → Validates against:
@@ -215,6 +229,7 @@ Answer: @security Use the bigint-money-handling skill
 ## 🎓 Learning Resources Included
 
 Each skill provides:
+
 - **Theory** — Why the pattern exists
 - **Code Examples** — Copy-paste ready
 - **Checklists** — Completion verification
@@ -257,18 +272,18 @@ Ready to build when you are. 8 additional skills:
 
 ## 📈 Metrics
 
-| Metric | Value |
-|--------|-------|
-| Skills Created | 4 |
-| Total Documentation | 43.4 KB |
-| Total Lines of Content | 1,685 |
-| Average Skill Size | 10.85 KB |
-| Code Examples | 25+ |
-| Implemented Checklists | 8 |
-| Documented Common Mistakes | 16 |
-| Database Schema Tables | 11 |
-| Agents Enhanced | 14/14 (100%) |
-| Completion | ✅ 100% Phase 1 |
+| Metric                     | Value           |
+| -------------------------- | --------------- |
+| Skills Created             | 4               |
+| Total Documentation        | 43.4 KB         |
+| Total Lines of Content     | 1,685           |
+| Average Skill Size         | 10.85 KB        |
+| Code Examples              | 25+             |
+| Implemented Checklists     | 8               |
+| Documented Common Mistakes | 16              |
+| Database Schema Tables     | 11              |
+| Agents Enhanced            | 14/14 (100%)    |
+| Completion                 | ✅ 100% Phase 1 |
 
 ---
 
@@ -277,12 +292,14 @@ Ready to build when you are. 8 additional skills:
 ### Choose Your Path
 
 **Path A: Deep Dive into Phase 1**
+
 ```
 Start using these skills immediately to build actual features.
 Test the patterns, refine documentation based on real usage.
 ```
 
 **Path B: Build Phase 2 Skills**
+
 ```
 @orchestrator Generate Phase 2 skills for:
 - Role-based access control
@@ -292,6 +309,7 @@ Test the patterns, refine documentation based on real usage.
 ```
 
 **Path C: Optimize Phase 1**
+
 ```
 Provide feedback on any skill:
 - Missing examples?
@@ -313,7 +331,7 @@ This Phase 1 foundation enables:
 ✅ **Solid Database Design** — Well-normalized, properly indexed  
 ✅ **Team Alignment** — All 14 agents operating from same knowledge base  
 ✅ **Production Readiness** — Code review proven patterns  
-✅ **Scalability Foundation** — Techniques work from $1 to $1M+ transactions  
+✅ **Scalability Foundation** — Techniques work from $1 to $1M+ transactions
 
 ---
 
@@ -340,6 +358,7 @@ All files are **immediately available** to the development team.
 **Phase 1 is complete and production-ready.**
 
 Reply with:
+
 - `proceed` — Start Phase 2 skills
 - `feedback` — Suggestions for Phase 1 improvements
 - `deep-dive` — Use Phase 1 skills to build actual features

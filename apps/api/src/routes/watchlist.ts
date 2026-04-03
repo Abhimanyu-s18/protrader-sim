@@ -19,26 +19,34 @@ watchlistRouter.get('/', async (req, res, next) => {
     })
 
     // Enrich with live prices
-    const enriched = await Promise.all(items.map(async (item) => {
-      const cached = await getCachedPrice(item.instrument.symbol)
-      let live_price = null
-      if (cached) {
-        const mid = BigInt(cached.mid_scaled)
-        const { bidScaled, askScaled } = calcBidAsk(mid, item.instrument.spreadPips, item.instrument.pipDecimalPlaces)
-        live_price = {
-          bid_scaled: bidScaled.toString(),
-          ask_scaled: askScaled.toString(),
-          bid_display: formatScaledPrice(bidScaled, item.instrument.pipDecimalPlaces),
-          ask_display: formatScaledPrice(askScaled, item.instrument.pipDecimalPlaces),
-          change_bps: cached.change_bps,
-          ts: cached.ts,
+    const enriched = await Promise.all(
+      items.map(async (item) => {
+        const cached = await getCachedPrice(item.instrument.symbol)
+        let live_price = null
+        if (cached) {
+          const mid = BigInt(cached.mid_scaled)
+          const { bidScaled, askScaled } = calcBidAsk(
+            mid,
+            item.instrument.spreadPips,
+            item.instrument.pipDecimalPlaces,
+          )
+          live_price = {
+            bid_scaled: bidScaled.toString(),
+            ask_scaled: askScaled.toString(),
+            bid_display: formatScaledPrice(bidScaled, item.instrument.pipDecimalPlaces),
+            ask_display: formatScaledPrice(askScaled, item.instrument.pipDecimalPlaces),
+            change_bps: cached.change_bps,
+            ts: cached.ts,
+          }
         }
-      }
-      return serializeBigInt({ ...item, live_price })
-    }))
+        return serializeBigInt({ ...item, live_price })
+      }),
+    )
 
     res.json(enriched)
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // POST /v1/watchlist
@@ -46,26 +54,41 @@ watchlistRouter.post('/', async (req, res, next) => {
   try {
     const { instrument_id } = z.object({ instrument_id: z.string() }).parse(req.body)
     const instrument = await prisma.instrument.findUnique({ where: { id: BigInt(instrument_id) } })
-    if (!instrument) { next(Errors.notFound('Instrument')); return }
+    if (!instrument) {
+      next(Errors.notFound('Instrument'))
+      return
+    }
 
     const item = await prisma.watchlistItem.upsert({
-      where: { userId_instrumentId: { userId: BigInt(req.user!.user_id), instrumentId: BigInt(instrument_id) } },
+      where: {
+        userId_instrumentId: {
+          userId: BigInt(req.user!.user_id),
+          instrumentId: BigInt(instrument_id),
+        },
+      },
       update: {},
       create: { userId: BigInt(req.user!.user_id), instrumentId: BigInt(instrument_id) },
       include: { instrument: { select: { symbol: true, displayName: true } } },
     })
     res.status(201).json(serializeBigInt(item))
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // DELETE /v1/watchlist/:instrument_id
 watchlistRouter.delete('/:instrument_id', async (req, res, next) => {
   try {
     await prisma.watchlistItem.deleteMany({
-      where: { userId: BigInt(req.user!.user_id), instrumentId: BigInt(req.params['instrument_id']!) },
+      where: {
+        userId: BigInt(req.user!.user_id),
+        instrumentId: BigInt(req.params['instrument_id']!),
+      },
     })
     res.json({ success: true })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // PUT /v1/watchlist/reorder
@@ -73,9 +96,16 @@ watchlistRouter.put('/reorder', async (req, res, next) => {
   try {
     const { order } = z.object({ order: z.array(z.string()) }).parse(req.body)
     const userId = BigInt(req.user!.user_id)
-    await prisma.$transaction(order.map((id, index) =>
-      prisma.watchlistItem.updateMany({ where: { id: BigInt(id), userId }, data: { sortOrder: index } })
-    ))
+    await prisma.$transaction(
+      order.map((id, index) =>
+        prisma.watchlistItem.updateMany({
+          where: { id: BigInt(id), userId },
+          data: { sortOrder: index },
+        }),
+      ),
+    )
     res.json({ success: true })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })

@@ -4,15 +4,15 @@ This directory contains specialized Copilot agents for different domains of the 
 
 ## Quick Reference
 
-| Agent | File | Purpose | When to Use |
-|-------|------|---------|-------------|
-| **Financial Calculation** | `financial-calc.prompt.md` | BigInt money/price calculations | Any math involving money, prices, margin, P&L |
-| **Database Schema** | `db-schema.prompt.md` | Prisma schema changes | Adding tables, fields, enums, indexes |
-| **Socket.io Events** | `socket-events.prompt.md` | Real-time events | WebSocket events, room management, price feeds |
-| **API Routes** | `api-route.prompt.md` | Express endpoints | New REST endpoints, route handlers |
-| **UI Components** | `ui-component.prompt.md` | React components | Shared UI components with CVA variants |
-| **KYC Compliance** | `kyc-compliance.prompt.md` | KYC document handling | File uploads, document review, compliance |
-| **Trade Lifecycle** | `trade-lifecycle.prompt.md` | Trade operations | Open, modify, close trades, margin calls |
+| Agent                     | File                        | Purpose                         | When to Use                                    |
+| ------------------------- | --------------------------- | ------------------------------- | ---------------------------------------------- |
+| **Financial Calculation** | `financial-calc.prompt.md`  | BigInt money/price calculations | Any math involving money, prices, margin, P&L  |
+| **Database Schema**       | `db-schema.prompt.md`       | Prisma schema changes           | Adding tables, fields, enums, indexes          |
+| **Socket.io Events**      | `socket-events.prompt.md`   | Real-time events                | WebSocket events, room management, price feeds |
+| **API Routes**            | `api-route.prompt.md`       | Express endpoints               | New REST endpoints, route handlers             |
+| **UI Components**         | `ui-component.prompt.md`    | React components                | Shared UI components with CVA variants         |
+| **KYC Compliance**        | `kyc-compliance.prompt.md`  | KYC document handling           | File uploads, document review, compliance      |
+| **Trade Lifecycle**       | `trade-lifecycle.prompt.md` | Trade operations                | Open, modify, close trades, margin calls       |
 
 ## Agent Selection Guide
 
@@ -64,21 +64,25 @@ Each agent follows this structure:
 ---
 name: Agent Name
 description: What this agent does
-applyTo: "glob/pattern/**/*.ts"
+applyTo: 'glob/pattern/**/*.ts'
 ---
 
 # Agent Name
 
 ## Critical Rules
+
 - Non-negotiable requirements
 
 ## Patterns
+
 - Code templates and examples
 
 ## Anti-Patterns
+
 - What to reject
 
 ## Reference
+
 - Tables, formulas, quick lookup
 ```
 
@@ -102,17 +106,20 @@ To add a new agent:
 ## Troubleshooting
 
 **Agent not activating?**
+
 - Check `applyTo` glob pattern matches your file
 - Ensure file is saved (agents trigger on file open)
 - Try explicitly mentioning the agent name in your prompt
 
 **Conflicting agents?**
 When multiple agents could handle a task, the following precedence applies:
+
 1. **Domain-specific precedence**: Agent with the most specific domain match (e.g., Security agent overrides General agent for auth tasks)
 2. **`applyTo` specificity**: Among agents with equal domain priority, the agent with the most specific `applyTo` glob pattern is selected (e.g., `**/auth/**/*.ts` is more specific than `**/*.ts`)
 3. **Alphabetical tie-breaker**: If multiple agents have equal domain priority and equal `applyTo` specificity, agents are applied in alphabetical order by filename
 
 **Example**: For a financial calculation file:
+
 - Financial-Calculations agent (most specific domain) wins over General Coding agent
 - Within security checks, `security-auth.agent.md` (more specific pattern `**/auth/**`) wins over `security.agent.md` (pattern `**`)
 - Between `agent-a.md` and `agent-b.md` with identical specificity, `agent-a.md` runs first

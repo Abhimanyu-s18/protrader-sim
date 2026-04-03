@@ -1,7 +1,9 @@
 # ProTraderSim
+
 ## PTS-COMM-001 — Trader Communication Templates
+
 **Version 1.0 | March 2026 | CONFIDENTIAL**
-*All email and in-app notification copy for the platform*
+_All email and in-app notification copy for the platform_
 
 ---
 
@@ -20,6 +22,7 @@ This document contains the copy for every email template and in-app notification
 ---
 
 ### 1.1 Welcome + Email Verification
+
 **File:** `welcome.tsx`
 **Trigger:** Immediately on successful registration
 **Subject:** `Welcome to ProTraderSim — Please verify your email`
@@ -36,6 +39,7 @@ Before you can start trading, please verify your email address by clicking the b
 `{{verification_link}}`
 
 **Your account details:**
+
 - Account Number: {{account_number}}
 - Registered Email: {{email}}
 
@@ -48,6 +52,7 @@ ProTraderSim Support Team
 ---
 
 ### 1.2 Email Verification (Standalone Resend)
+
 **File:** `email-verify.tsx`
 **Trigger:** When trader requests a new verification email
 **Subject:** `Verify your ProTraderSim email address`
@@ -68,6 +73,7 @@ ProTraderSim Support Team
 ---
 
 ### 1.3 KYC Documents Received — Under Review
+
 **File:** `kyc-pending.tsx`
 **Trigger:** When trader uploads both mandatory KYC documents and kyc_status moves to PENDING
 **Subject:** `Your documents are under review — ProTraderSim`
@@ -97,6 +103,7 @@ ProTraderSim Support Team
 ---
 
 ### 2.1 KYC Approved — Start Trading
+
 **File:** `kyc-approved.tsx`
 **Trigger:** kyc_status updated to APPROVED (kyc_level reaches L2 or L3)
 **Subject:** `Your account is verified — You can now trade`
@@ -113,6 +120,7 @@ Great news — your identity has been verified and your ProTraderSim account is 
 `{{platform_url}}`
 
 **What's now available:**
+
 - Make your first deposit (minimum $200 USD)
 - Trade across 60+ instruments: Forex, Stocks, Indices, Commodities, and Crypto
 - Set price alerts and explore trading signals
@@ -128,6 +136,7 @@ ProTraderSim Support Team
 ---
 
 ### 2.2 KYC Rejected
+
 **File:** `kyc-rejected.tsx`
 **Trigger:** kyc_status updated to REJECTED
 **Subject:** `Action required — Document verification issue`
@@ -153,6 +162,7 @@ ProTraderSim Support Team
 ---
 
 ### 2.3 KYC — Additional Document Required
+
 **File:** `kyc-additional.tsx`
 **Trigger:** kyc_status updated to ADDITIONAL_REQUIRED
 **Subject:** `Additional document required for your ProTraderSim account`
@@ -177,6 +187,7 @@ ProTraderSim Support Team
 ---
 
 ### 2.4 KYC — Resubmission Required
+
 **File:** `kyc-resubmit.tsx`
 **Trigger:** kyc_status updated to REQUIRES_RESUBMIT
 **Subject:** `Please resubmit your verification document`
@@ -205,6 +216,7 @@ ProTraderSim Support Team
 ---
 
 ### 3.1 Deposit Confirmed
+
 **File:** `deposit-confirmed.tsx`
 **Trigger:** Deposit status moves to COMPLETED (NowPayments webhook confirmed)
 **Subject:** `Deposit confirmed — {{formatted_amount}} added to your account`
@@ -216,6 +228,7 @@ Hi {{first_name}},
 Your deposit has been confirmed and credited to your account.
 
 **Deposit Summary:**
+
 - Amount: {{formatted_amount}}
 - Currency: {{crypto_currency}}
 - Reference: {{deposit_id}}
@@ -231,6 +244,7 @@ ProTraderSim Support Team
 ---
 
 ### 3.2 Deposit Rejected
+
 **File:** `deposit-rejected.tsx`
 **Trigger:** Deposit status set to REJECTED by admin
 **Subject:** `Deposit could not be processed — ProTraderSim`
@@ -242,6 +256,7 @@ Hi {{first_name}},
 Unfortunately, we were unable to process your recent deposit.
 
 **Deposit Details:**
+
 - Amount: {{formatted_amount}}
 - Reference: {{deposit_id}}
 - Date: {{created_at}}
@@ -255,6 +270,7 @@ ProTraderSim Support Team
 ---
 
 ### 3.3 Withdrawal Processing
+
 **File:** `withdrawal-processing.tsx`
 **Trigger:** Withdrawal request submitted and accepted
 **Subject:** `Withdrawal request received — {{formatted_amount}}`
@@ -266,6 +282,7 @@ Hi {{first_name}},
 We have received your withdrawal request and it is now being processed.
 
 **Withdrawal Summary:**
+
 - Amount: {{formatted_amount}}
 - Currency: {{crypto_currency}}
 - Wallet Address: {{masked_wallet_address}}
@@ -281,6 +298,7 @@ ProTraderSim Support Team
 ---
 
 ### 3.4 Withdrawal Completed
+
 **File:** `withdrawal-completed.tsx`
 **Trigger:** NowPayments payout confirmed
 **Subject:** `Withdrawal sent — {{formatted_amount}} has been transferred`
@@ -292,6 +310,7 @@ Hi {{first_name}},
 Your withdrawal has been processed and the funds have been sent to your wallet.
 
 **Transfer Summary:**
+
 - Amount: {{formatted_amount}}
 - Currency: {{crypto_currency}}
 - Wallet Address: {{masked_wallet_address}}
@@ -305,6 +324,7 @@ ProTraderSim Support Team
 ---
 
 ### 3.5 Withdrawal Rejected
+
 **File:** `withdrawal-rejected.tsx`
 **Trigger:** Withdrawal rejected by admin
 **Subject:** `Withdrawal request declined — Action required`
@@ -316,6 +336,7 @@ Hi {{first_name}},
 Your withdrawal request could not be processed and has been cancelled.
 
 **Withdrawal Details:**
+
 - Amount: {{formatted_amount}}
 - Reference: {{withdrawal_id}}
 - Requested: {{created_at}}
@@ -335,6 +356,7 @@ ProTraderSim Support Team
 ---
 
 ### 4.1 Stop Loss Triggered
+
 **File:** `stop-loss-triggered.tsx`
 **Trigger:** Trade closed by stop-loss engine
 **Subject:** `Stop loss triggered — {{symbol}} position closed`
@@ -346,6 +368,7 @@ Hi {{first_name}},
 Your stop loss has been triggered and your position has been closed automatically.
 
 **Trade Summary:**
+
 - Instrument: {{symbol}} ({{direction}})
 - Units: {{units}}
 - Open Rate: {{open_rate}}
@@ -365,6 +388,7 @@ ProTraderSim Support Team
 ---
 
 ### 4.2 Take Profit Triggered
+
 **File:** `take-profit-triggered.tsx`
 **Trigger:** Trade closed by take-profit engine
 **Subject:** `Take profit hit — {{symbol}} position closed with profit`
@@ -376,6 +400,7 @@ Hi {{first_name}},
 Congratulations — your take profit target has been reached and your position has been closed.
 
 **Trade Summary:**
+
 - Instrument: {{symbol}} ({{direction}})
 - Units: {{units}}
 - Open Rate: {{open_rate}}
@@ -393,6 +418,7 @@ ProTraderSim Support Team
 ---
 
 ### 4.3 Margin Call Warning
+
 **File:** `margin-call.tsx`
 **Trigger:** Account margin level drops to or below 100%
 **Subject:** `URGENT: Margin call warning on your ProTraderSim account`
@@ -404,6 +430,7 @@ Hi {{first_name}},
 **Your account margin level has fallen below 100% and a margin call has been triggered.**
 
 **Current Account Status:**
+
 - Margin Level: {{margin_level}}%
 - Equity: {{equity}}
 - Used Margin: {{used_margin}}
@@ -412,6 +439,7 @@ Hi {{first_name}},
 If your margin level falls below 50%, your open positions will begin to be closed automatically, starting with the position with the largest unrealized loss.
 
 **What you can do:**
+
 1. Deposit additional funds to increase your equity
 2. Close one or more of your open positions to reduce margin usage
 3. Modify your open positions to reduce exposure
@@ -426,6 +454,7 @@ ProTraderSim Support Team
 ---
 
 ### 4.4 Stop-Out — Positions Closed
+
 **File:** `stop-out.tsx`
 **Trigger:** Stop-out sequence completed
 **Subject:** `Your positions have been closed — ProTraderSim account update`
@@ -437,18 +466,23 @@ Hi {{first_name}},
 Your account margin level fell below the stop-out threshold (50%) and one or more of your positions have been automatically closed to protect your account balance.
 
 **Stop-Out Summary:**
+
 - Positions Closed: {{positions_closed_count}}
 - Stop-Out Time: {{stopped_out_at}}
 - Final Balance: {{final_balance}}
 
 **Positions closed:**
+
 ```jsx
 // React Email TSX equivalent:
-{closed_positions.map(position => (
-  <Text key={position.id}>
-    {position.symbol} {position.direction} {position.units} units — Realized P&L: {position.realized_pnl}
-  </Text>
-))}
+{
+  closed_positions.map((position) => (
+    <Text key={position.id}>
+      {position.symbol} {position.direction} {position.units} units — Realized P&L:{' '}
+      {position.realized_pnl}
+    </Text>
+  ))
+}
 ```
 
 > **Note:** The Handlebars template above is pseudocode for documentation. In `.tsx` React Email components, convert Handlebars `{{#each}}` loops to `.map()` with JSX elements. Always use a unique key (e.g., `position.id`) for each mapped element.
@@ -470,6 +504,7 @@ ProTraderSim Support Team
 ---
 
 ### 5.1 Password Reset
+
 **File:** `password-reset.tsx`
 **Trigger:** Trader requests password reset
 **Subject:** `Reset your ProTraderSim password`
@@ -492,6 +527,7 @@ ProTraderSim Support Team
 ---
 
 ### 5.2 Password Changed Confirmation
+
 **File:** `password-changed.tsx`
 **Trigger:** Password successfully changed
 **Subject:** `Your ProTraderSim password has been changed`
@@ -515,6 +551,7 @@ ProTraderSim Support Team
 ---
 
 ### 6.1 Inactivity Fee Warning (7 Days Notice)
+
 **File:** `inactivity-warning.tsx`
 **Trigger:** 7 days before the first inactivity fee is applied (83 days of inactivity)
 **Subject:** `Account inactivity notice — action required`
@@ -542,6 +579,7 @@ ProTraderSim Support Team
 ---
 
 ### 6.2 Inactivity Fee Charged
+
 **File:** `inactivity-charged.tsx`
 **Trigger:** Monthly inactivity fee applied
 **Subject:** `Monthly inactivity fee charged — ProTraderSim`
@@ -553,6 +591,7 @@ Hi {{first_name}},
 A monthly inactivity fee of **{{fee_amount}}** has been deducted from your account balance. This fee applies to accounts that have had no trading activity for 90 or more consecutive days.
 
 **Fee Details:**
+
 - Fee Amount: {{fee_amount}}
 - Date Applied: {{fee_date}}
 - Account Balance After Fee: {{balance_after}}
@@ -571,6 +610,7 @@ ProTraderSim Support Team
 ---
 
 ### 7.1 KYC Not Started Reminder
+
 **File:** `kyc-reminder.tsx`
 **Trigger:** BullMQ job — sent 3 days after registration if kyc_status = NOT_STARTED
 **Subject:** `Complete your verification to start trading`
@@ -582,6 +622,7 @@ Hi {{first_name}},
 Your ProTraderSim account is set up, but your identity verification is not yet complete. You need to complete verification before you can deposit funds or start trading.
 
 **It only takes a few minutes.** You will need:
+
 - A government-issued photo ID (passport, national ID, or driving licence)
 - A proof of address (utility bill or bank statement dated within 3 months)
 
@@ -598,27 +639,27 @@ ProTraderSim Support Team
 
 These are short messages displayed inside the platform notification panel. They accompany the email templates for events that use both channels.
 
-| Event | Title | Message |
-|---|---|---|
-| Trade opened (market) | Trade opened | {{symbol}} {{direction}} {{units}} units opened at {{open_rate}} |
-| Trade opened (entry triggered) | Entry order triggered | Your entry order for {{symbol}} has been triggered at {{open_rate}} |
-| Trade closed (by user) | Trade closed | {{symbol}} {{direction}} closed. P&L: {{realized_pnl}} |
-| Stop loss triggered | Stop loss triggered | {{symbol}} {{direction}} closed at stop loss ({{close_rate}}). P&L: {{realized_pnl}} |
-| Take profit triggered | Take profit reached | {{symbol}} {{direction}} closed at take profit ({{close_rate}}). P&L: {{realized_pnl}} |
-| Trailing stop triggered | Trailing stop triggered | {{symbol}} {{direction}} closed by trailing stop ({{close_rate}}). P&L: {{realized_pnl}} |
-| Margin call | Margin call warning | Your margin level has dropped to {{margin_level}}%. Add funds or close positions immediately. |
-| Stop-out | Positions auto-closed | {{positions_count}} position(s) were closed due to margin stop-out. Balance: {{final_balance}} |
-| Deposit confirmed | Deposit received | {{formatted_amount}} has been credited to your account. New balance: {{new_balance}} |
-| Withdrawal processing | Withdrawal submitted | Your withdrawal of {{formatted_amount}} is being processed. |
-| Withdrawal completed | Withdrawal sent | Your withdrawal of {{formatted_amount}} has been sent to your wallet. |
-| Withdrawal rejected | Withdrawal declined | Your withdrawal of {{formatted_amount}} was declined. Reason: {{rejection_reason}} |
-| KYC approved | Account verified | Your identity has been verified. You can now deposit and trade. |
-| KYC rejected | Verification issue | There is an issue with your verification document. Please resubmit. |
-| KYC additional required | Document needed | Our team requires an additional document. Please check your email. |
-| Price alert triggered | Price alert | {{symbol}} has reached {{trigger_price}}. Your alert has been triggered. |
-| Inactivity warning | Inactivity notice | Your account has been inactive for 83 days. A $25 fee will be charged on {{fee_date}} if no trade is made. |
-| Inactivity fee charged | Inactivity fee deducted | A monthly inactivity fee of {{fee_amount}} has been deducted. New balance: {{balance_after}} |
-| Annual statement ready | Annual statement available | Your {{year}} annual trading statement is ready to download. |
+| Event                          | Title                      | Message                                                                                                    |
+| ------------------------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Trade opened (market)          | Trade opened               | {{symbol}} {{direction}} {{units}} units opened at {{open_rate}}                                           |
+| Trade opened (entry triggered) | Entry order triggered      | Your entry order for {{symbol}} has been triggered at {{open_rate}}                                        |
+| Trade closed (by user)         | Trade closed               | {{symbol}} {{direction}} closed. P&L: {{realized_pnl}}                                                     |
+| Stop loss triggered            | Stop loss triggered        | {{symbol}} {{direction}} closed at stop loss ({{close_rate}}). P&L: {{realized_pnl}}                       |
+| Take profit triggered          | Take profit reached        | {{symbol}} {{direction}} closed at take profit ({{close_rate}}). P&L: {{realized_pnl}}                     |
+| Trailing stop triggered        | Trailing stop triggered    | {{symbol}} {{direction}} closed by trailing stop ({{close_rate}}). P&L: {{realized_pnl}}                   |
+| Margin call                    | Margin call warning        | Your margin level has dropped to {{margin_level}}%. Add funds or close positions immediately.              |
+| Stop-out                       | Positions auto-closed      | {{positions_count}} position(s) were closed due to margin stop-out. Balance: {{final_balance}}             |
+| Deposit confirmed              | Deposit received           | {{formatted_amount}} has been credited to your account. New balance: {{new_balance}}                       |
+| Withdrawal processing          | Withdrawal submitted       | Your withdrawal of {{formatted_amount}} is being processed.                                                |
+| Withdrawal completed           | Withdrawal sent            | Your withdrawal of {{formatted_amount}} has been sent to your wallet.                                      |
+| Withdrawal rejected            | Withdrawal declined        | Your withdrawal of {{formatted_amount}} was declined. Reason: {{rejection_reason}}                         |
+| KYC approved                   | Account verified           | Your identity has been verified. You can now deposit and trade.                                            |
+| KYC rejected                   | Verification issue         | There is an issue with your verification document. Please resubmit.                                        |
+| KYC additional required        | Document needed            | Our team requires an additional document. Please check your email.                                         |
+| Price alert triggered          | Price alert                | {{symbol}} has reached {{trigger_price}}. Your alert has been triggered.                                   |
+| Inactivity warning             | Inactivity notice          | Your account has been inactive for 83 days. A $25 fee will be charged on {{fee_date}} if no trade is made. |
+| Inactivity fee charged         | Inactivity fee deducted    | A monthly inactivity fee of {{fee_amount}} has been deducted. New balance: {{balance_after}}               |
+| Annual statement ready         | Annual statement available | Your {{year}} annual trading statement is ready to download.                                               |
 
 ---
 
@@ -626,24 +667,24 @@ These are short messages displayed inside the platform notification panel. They 
 
 Short feedback messages displayed as toast notifications immediately after a user action.
 
-| Action | Toast Text | Type |
-|---|---|---|
-| Trade opened successfully | Trade opened — {{symbol}} {{direction}} at {{open_rate}} | Success (green) |
-| Entry order placed | Entry order set for {{symbol}} at {{order_rate}} | Success (green) |
-| Trade closed | {{symbol}} closed — P&L: {{realized_pnl}} | Success (green) |
-| Entry order cancelled | Entry order for {{symbol}} cancelled | Info (blue) |
-| SL/TP updated | Stop loss and take profit updated | Success (green) |
-| Alert set | Price alert set for {{symbol}} at {{trigger_price}} | Success (green) |
-| Alert deleted | Alert removed | Info (blue) |
-| Instrument added to watchlist | {{symbol}} added to your watchlist | Success (green) |
-| Instrument removed from watchlist | {{symbol}} removed from your watchlist | Info (blue) |
-| Password changed | Password changed successfully | Success (green) |
-| Profile updated | Profile updated | Success (green) |
-| Withdrawal submitted | Withdrawal request submitted | Success (green) |
-| Insufficient margin | Insufficient margin to open this trade | Error (red) |
-| Market closed | {{symbol}} is not available for trading right now | Warning (amber) |
-| Session expired | Your session has expired. Please log in again. | Warning (amber) |
-| Copy to clipboard | Copied to clipboard | Info (blue) |
+| Action                            | Toast Text                                               | Type            |
+| --------------------------------- | -------------------------------------------------------- | --------------- |
+| Trade opened successfully         | Trade opened — {{symbol}} {{direction}} at {{open_rate}} | Success (green) |
+| Entry order placed                | Entry order set for {{symbol}} at {{order_rate}}         | Success (green) |
+| Trade closed                      | {{symbol}} closed — P&L: {{realized_pnl}}                | Success (green) |
+| Entry order cancelled             | Entry order for {{symbol}} cancelled                     | Info (blue)     |
+| SL/TP updated                     | Stop loss and take profit updated                        | Success (green) |
+| Alert set                         | Price alert set for {{symbol}} at {{trigger_price}}      | Success (green) |
+| Alert deleted                     | Alert removed                                            | Info (blue)     |
+| Instrument added to watchlist     | {{symbol}} added to your watchlist                       | Success (green) |
+| Instrument removed from watchlist | {{symbol}} removed from your watchlist                   | Info (blue)     |
+| Password changed                  | Password changed successfully                            | Success (green) |
+| Profile updated                   | Profile updated                                          | Success (green) |
+| Withdrawal submitted              | Withdrawal request submitted                             | Success (green) |
+| Insufficient margin               | Insufficient margin to open this trade                   | Error (red)     |
+| Market closed                     | {{symbol}} is not available for trading right now        | Warning (amber) |
+| Session expired                   | Your session has expired. Please log in again.           | Warning (amber) |
+| Copy to clipboard                 | Copied to clipboard                                      | Info (blue)     |
 
 ---
 
@@ -651,30 +692,30 @@ Short feedback messages displayed as toast notifications immediately after a use
 
 Messages shown inline in forms when validation fails.
 
-| Field / Context | Error Message |
-|---|---|
-| Email — invalid format | Please enter a valid email address |
-| Email — already registered | An account with this email already exists. Log in instead? |
-| Password — too short | Password must be at least 12 characters |
-| Password — missing uppercase | Password must include at least one uppercase letter |
-| Password — missing number | Password must include at least one number |
-| Password — missing special character | Password must include at least one special character |
-| Confirm password — mismatch | Passwords do not match |
-| Pool Code — invalid | This referral code is not valid. Please check and try again. |
-| Pool Code — missing | A pool code is required to register. Please contact your IB for your code. |
-| Terms — not accepted | You must accept the Terms and Conditions to create an account |
-| Units — below minimum | Minimum trade size for {{symbol}} is {{min_units}} units |
-| Units — above maximum | Maximum trade size for {{symbol}} is {{max_units}} units |
-| Stop loss — wrong side | Stop loss must be {{direction_instruction}} the entry price for a {{direction}} trade |
-| Take profit — wrong side | Take profit must be {{direction_instruction}} the entry price for a {{direction}} trade |
-| Entry order rate — invalid | Rate must be above {{above_rate}} or below {{below_rate}} for this instrument |
-| Withdrawal amount — below minimum | Minimum withdrawal amount is $50.00 |
-| Withdrawal amount — above maximum | Maximum withdrawal amount per transaction is $5,000.00 |
-| Withdrawal amount — exceeds balance | Withdrawal amount exceeds your available balance of {{available_balance}} |
-| KYC required | You need to complete identity verification before you can {{action}} |
-| Document — wrong format | Only PDF, JPEG, and PNG files are accepted |
-| Document — too large | Maximum file size is 10 MB. Your file is {{file_size}} MB. |
+| Field / Context                      | Error Message                                                                           |
+| ------------------------------------ | --------------------------------------------------------------------------------------- |
+| Email — invalid format               | Please enter a valid email address                                                      |
+| Email — already registered           | An account with this email already exists. Log in instead?                              |
+| Password — too short                 | Password must be at least 12 characters                                                 |
+| Password — missing uppercase         | Password must include at least one uppercase letter                                     |
+| Password — missing number            | Password must include at least one number                                               |
+| Password — missing special character | Password must include at least one special character                                    |
+| Confirm password — mismatch          | Passwords do not match                                                                  |
+| Pool Code — invalid                  | This referral code is not valid. Please check and try again.                            |
+| Pool Code — missing                  | A pool code is required to register. Please contact your IB for your code.              |
+| Terms — not accepted                 | You must accept the Terms and Conditions to create an account                           |
+| Units — below minimum                | Minimum trade size for {{symbol}} is {{min_units}} units                                |
+| Units — above maximum                | Maximum trade size for {{symbol}} is {{max_units}} units                                |
+| Stop loss — wrong side               | Stop loss must be {{direction_instruction}} the entry price for a {{direction}} trade   |
+| Take profit — wrong side             | Take profit must be {{direction_instruction}} the entry price for a {{direction}} trade |
+| Entry order rate — invalid           | Rate must be above {{above_rate}} or below {{below_rate}} for this instrument           |
+| Withdrawal amount — below minimum    | Minimum withdrawal amount is $50.00                                                     |
+| Withdrawal amount — above maximum    | Maximum withdrawal amount per transaction is $5,000.00                                  |
+| Withdrawal amount — exceeds balance  | Withdrawal amount exceeds your available balance of {{available_balance}}               |
+| KYC required                         | You need to complete identity verification before you can {{action}}                    |
+| Document — wrong format              | Only PDF, JPEG, and PNG files are accepted                                              |
+| Document — too large                 | Maximum file size is 10 MB. Your file is {{file_size}} MB.                              |
 
 ---
 
-*ProTraderSim — PTS-COMM-001 — Trader Communication Templates — v1.0 — March 2026*
+_ProTraderSim — PTS-COMM-001 — Trader Communication Templates — v1.0 — March 2026_

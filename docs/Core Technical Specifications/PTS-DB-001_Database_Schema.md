@@ -1,5 +1,7 @@
 # ProTraderSim
+
 ## PTS-DB-001 — Database Schema
+
 **Version 1.0 | March 2026 | CONFIDENTIAL**
 
 ---
@@ -143,15 +145,16 @@ CREATE TABLE instruments (
 
 ### Commission Type Reference
 
-| Asset Class | commission_type | commission_rate | Applied When | Rate Units |
-|---|---|---|---|---|
-| Forex (15 pairs) | `none` | 0 | Spread is the sole cost | N/A |
-| Indices (15) | `per_lot` | 100 | Open AND close separately | cents per lot (e.g., 100 = $1.00 per lot) |
-| Commodities (15) | `per_lot` | 150 | Open AND close separately | cents per lot (e.g., 150 = $1.50 per lot) |
-| Stocks (30) | `per_share` | 2 | Open AND close separately | cents per share (e.g., 2 = $0.02 per share) |
-| Crypto (12) | `percentage` | 10 | Open AND close separately | basis points (e.g., 10 = 0.10% of notional value) |
+| Asset Class      | commission_type | commission_rate | Applied When              | Rate Units                                        |
+| ---------------- | --------------- | --------------- | ------------------------- | ------------------------------------------------- |
+| Forex (15 pairs) | `none`          | 0               | Spread is the sole cost   | N/A                                               |
+| Indices (15)     | `per_lot`       | 100             | Open AND close separately | cents per lot (e.g., 100 = $1.00 per lot)         |
+| Commodities (15) | `per_lot`       | 150             | Open AND close separately | cents per lot (e.g., 150 = $1.50 per lot)         |
+| Stocks (30)      | `per_share`     | 2               | Open AND close separately | cents per share (e.g., 2 = $0.02 per share)       |
+| Crypto (12)      | `percentage`    | 10              | Open AND close separately | basis points (e.g., 10 = 0.10% of notional value) |
 
 **Rate Units Clarification:**
+
 - For `per_lot` and `per_share` commission types: commission_rate is stored in **cents** (e.g., 100 = $1.00, 2 = $0.02). To calculate commission, multiply the number of lots/shares by this rate in cents.
 - For `percentage` commission type: commission_rate is stored in **basis points** (e.g., 10 = 0.10%), following the RATE field convention. To calculate commission, multiply the notional value (in cents) by rate_bps / 10000.
 
@@ -337,16 +340,16 @@ CREATE TABLE kyc_documents (
 
 ### KYC Rejection Reason Codes
 
-| Code | Meaning | Action |
-|---|---|---|
-| DOC_QUALITY_POOR | Blurry or illegible scan | kyc_status → REQUIRES_RESUBMIT |
-| DOC_EXPIRED | Identity document has expired | kyc_status → REJECTED |
-| NAME_MISMATCH | Name on document does not match registration | kyc_status → REJECTED |
-| ADDRESS_MISMATCH | Address document does not match profile address | kyc_status → REQUIRES_RESUBMIT |
-| DOC_OUTDATED | Address document dated more than 3 months ago | kyc_status → REQUIRES_RESUBMIT |
-| PARTIAL_VISIBILITY | Document corners/edges not fully visible | kyc_status → REQUIRES_RESUBMIT |
-| UNSUPPORTED_TYPE | Document type not accepted for this category | kyc_status → REQUIRES_RESUBMIT |
-| PEP_MATCH | Name/nationality matches PEP/sanctions list | Immediate suspension, notify Legal |
+| Code               | Meaning                                         | Action                             |
+| ------------------ | ----------------------------------------------- | ---------------------------------- |
+| DOC_QUALITY_POOR   | Blurry or illegible scan                        | kyc_status → REQUIRES_RESUBMIT     |
+| DOC_EXPIRED        | Identity document has expired                   | kyc_status → REJECTED              |
+| NAME_MISMATCH      | Name on document does not match registration    | kyc_status → REJECTED              |
+| ADDRESS_MISMATCH   | Address document does not match profile address | kyc_status → REQUIRES_RESUBMIT     |
+| DOC_OUTDATED       | Address document dated more than 3 months ago   | kyc_status → REQUIRES_RESUBMIT     |
+| PARTIAL_VISIBILITY | Document corners/edges not fully visible        | kyc_status → REQUIRES_RESUBMIT     |
+| UNSUPPORTED_TYPE   | Document type not accepted for this category    | kyc_status → REQUIRES_RESUBMIT     |
+| PEP_MATCH          | Name/nationality matches PEP/sanctions list     | Immediate suspension, notify Legal |
 
 ---
 
@@ -501,120 +504,120 @@ This view is the canonical source of truth for account balances. The balance is 
 
 ### Forex — 15 Pairs
 
-| Symbol | Name | Leverage | Spread (pips) | Hours | Swap Long (annual %) | Swap Short (annual %) |
-|---|---|---|---|---|---|---|
-| EURUSD | Euro / USD | 1:500 | 1.5 | 24/5 | -2.45% | -0.95% |
-| GBPUSD | British Pound / USD | 1:500 | 1.8 | 24/5 | -4.15% | +1.25% |
-| USDJPY | USD / Japanese Yen | 1:500 | 1.5 | 24/5 | -3.20% | +0.85% |
-| AUDUSD | Australian Dollar / USD | 1:500 | 1.6 | 24/5 | -1.85% | -1.15% |
-| USDCAD | USD / Canadian Dollar | 1:500 | 2.0 | 24/5 | +0.75% | -3.45% |
-| USDCHF | USD / Swiss Franc | 1:500 | 1.8 | 24/5 | +1.25% | -4.15% |
-| NZDUSD | New Zealand Dollar / USD | 1:500 | 2.0 | 24/5 | -2.65% | -0.95% |
-| EURGBP | Euro / British Pound | 1:500 | 1.5 | 24/5 | -1.95% | -0.75% |
-| EURJPY | Euro / Japanese Yen | 1:500 | 2.0 | 24/5 | -2.85% | -0.65% |
-| GBPJPY | British Pound / JPY | 1:500 | 2.5 | 24/5 | -2.0% to -3.5% | -0.5% to +1.0% |
-| AUDJPY | Australian Dollar / JPY | 1:500 | 2.2 | 24/5 | -2.0% to -3.5% | -0.5% to +1.0% |
-| USDCNH | USD / Chinese Yuan | 1:500 | 3.0 | 24/5 | -2.0% to -3.5% | -0.5% to +1.0% |
-| EURAUD | Euro / Australian Dollar | 1:500 | 2.2 | 24/5 | -2.0% to -3.5% | -0.5% to +1.0% |
-| USDZAR | USD / South African Rand | 1:200 | 5.0 | 24/5 | -2.0% to -3.5% | -0.5% to +1.0% |
-| USDSGD | USD / Singapore Dollar | 1:200 | 3.0 | 24/5 | -2.0% to -3.5% | -0.5% to +1.0% |
+| Symbol | Name                     | Leverage | Spread (pips) | Hours | Swap Long (annual %) | Swap Short (annual %) |
+| ------ | ------------------------ | -------- | ------------- | ----- | -------------------- | --------------------- |
+| EURUSD | Euro / USD               | 1:500    | 1.5           | 24/5  | -2.45%               | -0.95%                |
+| GBPUSD | British Pound / USD      | 1:500    | 1.8           | 24/5  | -4.15%               | +1.25%                |
+| USDJPY | USD / Japanese Yen       | 1:500    | 1.5           | 24/5  | -3.20%               | +0.85%                |
+| AUDUSD | Australian Dollar / USD  | 1:500    | 1.6           | 24/5  | -1.85%               | -1.15%                |
+| USDCAD | USD / Canadian Dollar    | 1:500    | 2.0           | 24/5  | +0.75%               | -3.45%                |
+| USDCHF | USD / Swiss Franc        | 1:500    | 1.8           | 24/5  | +1.25%               | -4.15%                |
+| NZDUSD | New Zealand Dollar / USD | 1:500    | 2.0           | 24/5  | -2.65%               | -0.95%                |
+| EURGBP | Euro / British Pound     | 1:500    | 1.5           | 24/5  | -1.95%               | -0.75%                |
+| EURJPY | Euro / Japanese Yen      | 1:500    | 2.0           | 24/5  | -2.85%               | -0.65%                |
+| GBPJPY | British Pound / JPY      | 1:500    | 2.5           | 24/5  | -2.0% to -3.5%       | -0.5% to +1.0%        |
+| AUDJPY | Australian Dollar / JPY  | 1:500    | 2.2           | 24/5  | -2.0% to -3.5%       | -0.5% to +1.0%        |
+| USDCNH | USD / Chinese Yuan       | 1:500    | 3.0           | 24/5  | -2.0% to -3.5%       | -0.5% to +1.0%        |
+| EURAUD | Euro / Australian Dollar | 1:500    | 2.2           | 24/5  | -2.0% to -3.5%       | -0.5% to +1.0%        |
+| USDZAR | USD / South African Rand | 1:200    | 5.0           | 24/5  | -2.0% to -3.5%       | -0.5% to +1.0%        |
+| USDSGD | USD / Singapore Dollar   | 1:200    | 3.0           | 24/5  | -2.0% to -3.5%       | -0.5% to +1.0%        |
 
 **Swap Rates Resolution:** The ranges shown for GBPJPY, AUDJPY, USDCNH, EURAUD, USDZAR, USDSGD are **placeholder ranges** pending finalization with Victor (Operations) and IB Team Leaders. Before Phase 2 launch, each pair will be assigned a single canonical swap_buy_bps and swap_sell_bps value (recommended: use the midpoint of the range). [TICKET-TBD: Confirm swap rates for non-major crosses]
 
 ### Indices — 15 Instruments
 
-| Symbol | Name | Leverage | Spread | Hours (UTC) | Swap Long (annual %) | Swap Short (annual %) |
-|---|---|---|---|---|---|---|
-| US500 | S&P 500 | 1:100 | 0.4 | 23:00–22:00 Mon-Fri | -8.25% | +6.75% |
-| US100 | NASDAQ 100 | 1:100 | 1.0 | 23:00–22:00 Mon-Fri | -8.25% | +6.75% |
-| US30 | Dow Jones | 1:100 | 2.0 | 23:00–22:00 Mon-Fri | -8.25% | +6.75% |
-| UK100 | FTSE 100 | 1:100 | 1.0 | 07:00–16:30 | -6.50% | +4.25% |
-| DE40 | DAX 40 | 1:100 | 1.2 | 07:00–21:00 | -6.50% | +4.25% |
-| FR40 | CAC 40 | 1:100 | 1.5 | 07:00–21:00 | -6.50% | +4.25% |
-| EU50 | EuroStoxx 50 | 1:100 | 2.0 | 07:00–21:00 | -6.50% | +4.25% |
-| ES35 | IBEX 35 | 1:100 | 5.0 | 07:00–17:30 | -6.50% | +4.25% |
-| IT40 | FTSE MIB | 1:100 | 5.0 | 07:00–17:30 | -6.50% | +4.25% |
-| JP225 | Nikkei 225 | 1:100 | 10.0 | 00:00–21:00 | -7.75% | +5.50% |
-| HK50 | Hang Seng | 1:100 | 5.0 | 01:15–20:00 | -7.75% | +5.50% |
-| CN50 | China A50 | 1:100 | 6.0 | 01:00–09:00 | -7.75% | +5.50% |
-| KS200 | KOSPI 200 | 1:100 | 5.0 | 00:00–07:00 | -7.75% | +5.50% |
-| AUS200 | ASX 200 | 1:100 | 2.0 | 23:50–06:00 | -7.75% | +5.50% |
-| CA60 | S&P/TSX 60 | 1:100 | 5.0 | 13:30–20:00 | -7.75% | +5.50% |
+| Symbol | Name         | Leverage | Spread | Hours (UTC)         | Swap Long (annual %) | Swap Short (annual %) |
+| ------ | ------------ | -------- | ------ | ------------------- | -------------------- | --------------------- |
+| US500  | S&P 500      | 1:100    | 0.4    | 23:00–22:00 Mon-Fri | -8.25%               | +6.75%                |
+| US100  | NASDAQ 100   | 1:100    | 1.0    | 23:00–22:00 Mon-Fri | -8.25%               | +6.75%                |
+| US30   | Dow Jones    | 1:100    | 2.0    | 23:00–22:00 Mon-Fri | -8.25%               | +6.75%                |
+| UK100  | FTSE 100     | 1:100    | 1.0    | 07:00–16:30         | -6.50%               | +4.25%                |
+| DE40   | DAX 40       | 1:100    | 1.2    | 07:00–21:00         | -6.50%               | +4.25%                |
+| FR40   | CAC 40       | 1:100    | 1.5    | 07:00–21:00         | -6.50%               | +4.25%                |
+| EU50   | EuroStoxx 50 | 1:100    | 2.0    | 07:00–21:00         | -6.50%               | +4.25%                |
+| ES35   | IBEX 35      | 1:100    | 5.0    | 07:00–17:30         | -6.50%               | +4.25%                |
+| IT40   | FTSE MIB     | 1:100    | 5.0    | 07:00–17:30         | -6.50%               | +4.25%                |
+| JP225  | Nikkei 225   | 1:100    | 10.0   | 00:00–21:00         | -7.75%               | +5.50%                |
+| HK50   | Hang Seng    | 1:100    | 5.0    | 01:15–20:00         | -7.75%               | +5.50%                |
+| CN50   | China A50    | 1:100    | 6.0    | 01:00–09:00         | -7.75%               | +5.50%                |
+| KS200  | KOSPI 200    | 1:100    | 5.0    | 00:00–07:00         | -7.75%               | +5.50%                |
+| AUS200 | ASX 200      | 1:100    | 2.0    | 23:50–06:00         | -7.75%               | +5.50%                |
+| CA60   | S&P/TSX 60   | 1:100    | 5.0    | 13:30–20:00         | -7.75%               | +5.50%                |
 
 ### Commodities — 15 Instruments
 
-| Symbol | Name | Leverage | Spread | Contract | Swap Long (annual %) | Swap Short (annual %) |
-|---|---|---|---|---|---|---|
-| XAUUSD | Gold | 1:50 | 0.30 | 100 oz | -12.50% | +8.25% |
-| XAGUSD | Silver | 1:50 | 0.03 | 5000 oz | -12.50% | +8.25% |
-| XPTUSD | Platinum | 1:20 | 2.00 | 100 oz | -12.50% | +8.25% |
-| XPDUSD | Palladium | 1:20 | 3.00 | 100 oz | -12.50% | +8.25% |
-| COPPER | Copper | 1:20 | 0.02 | 25000 lbs | -12.50% | +8.25% |
-| USOIL | WTI Crude | 1:50 | 0.05 | 100 bbl | -15.75% | +11.50% |
-| UKOIL | Brent Crude | 1:50 | 0.06 | 100 bbl | -15.75% | +11.50% |
-| NG | Natural Gas | 1:20 | 0.005 | 10000 MMBtu | -15.75% | +11.50% |
-| COFFEE | Coffee | 1:10 | 0.50 | 37500 lbs | -18.25% | +14.75% |
-| SOYBN | Soybeans | 1:10 | 1.00 | 5000 bu | -18.25% | +14.75% |
-| CORN | Corn | 1:10 | 0.50 | 5000 bu | -18.25% | +14.75% |
-| WHEAT | Wheat | 1:10 | 0.50 | 5000 bu | -18.25% | +14.75% |
-| SUGAR | Sugar | 1:10 | 0.05 | 112000 lbs | -18.25% | +14.75% |
-| COCOA | Cocoa | 1:10 | 5.00 | 10000 lbs | -18.25% | +14.75% |
-| COTTON | Cotton | 1:10 | 0.05 | 50000 lbs | -18.25% | +14.75% |
+| Symbol | Name        | Leverage | Spread | Contract    | Swap Long (annual %) | Swap Short (annual %) |
+| ------ | ----------- | -------- | ------ | ----------- | -------------------- | --------------------- |
+| XAUUSD | Gold        | 1:50     | 0.30   | 100 oz      | -12.50%              | +8.25%                |
+| XAGUSD | Silver      | 1:50     | 0.03   | 5000 oz     | -12.50%              | +8.25%                |
+| XPTUSD | Platinum    | 1:20     | 2.00   | 100 oz      | -12.50%              | +8.25%                |
+| XPDUSD | Palladium   | 1:20     | 3.00   | 100 oz      | -12.50%              | +8.25%                |
+| COPPER | Copper      | 1:20     | 0.02   | 25000 lbs   | -12.50%              | +8.25%                |
+| USOIL  | WTI Crude   | 1:50     | 0.05   | 100 bbl     | -15.75%              | +11.50%               |
+| UKOIL  | Brent Crude | 1:50     | 0.06   | 100 bbl     | -15.75%              | +11.50%               |
+| NG     | Natural Gas | 1:20     | 0.005  | 10000 MMBtu | -15.75%              | +11.50%               |
+| COFFEE | Coffee      | 1:10     | 0.50   | 37500 lbs   | -18.25%              | +14.75%               |
+| SOYBN  | Soybeans    | 1:10     | 1.00   | 5000 bu     | -18.25%              | +14.75%               |
+| CORN   | Corn        | 1:10     | 0.50   | 5000 bu     | -18.25%              | +14.75%               |
+| WHEAT  | Wheat       | 1:10     | 0.50   | 5000 bu     | -18.25%              | +14.75%               |
+| SUGAR  | Sugar       | 1:10     | 0.05   | 112000 lbs  | -18.25%              | +14.75%               |
+| COCOA  | Cocoa       | 1:10     | 5.00   | 10000 lbs   | -18.25%              | +14.75%               |
+| COTTON | Cotton      | 1:10     | 0.05   | 50000 lbs   | -18.25%              | +14.75%               |
 
 ### Stocks — 30 Instruments
 
-| Symbol | Name | Exchange | Leverage | Hours (EST) | Swap Model |
-|---|---|---|---|---|---|
-| AAPL | Apple Inc | NASDAQ | 1:5 | 9:30–16:00 | Base rate + 2.5% / Base rate - 2.5% |
-| MSFT | Microsoft Corp | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| GOOGL | Alphabet Inc | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| AMZN | Amazon.com Inc | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| TSLA | Tesla Inc | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| META | Meta Platforms | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| NVDA | NVIDIA Corp | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| NFLX | Netflix Inc | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| AMD | Advanced Micro Devices | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| INTC | Intel Corp | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| PYPL | PayPal Holdings | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| ORCL | Oracle Corp | NYSE | 1:5 | 9:30–16:00 | Same |
-| JPM | JPMorgan Chase | NYSE | 1:5 | 9:30–16:00 | Same |
-| BAC | Bank of America | NYSE | 1:5 | 9:30–16:00 | Same |
-| V | Visa Inc | NYSE | 1:5 | 9:30–16:00 | Same |
-| MA | Mastercard | NYSE | 1:5 | 9:30–16:00 | Same |
-| JNJ | Johnson & Johnson | NYSE | 1:5 | 9:30–16:00 | Same |
-| WMT | Walmart Inc | NYSE | 1:5 | 9:30–16:00 | Same |
-| XOM | Exxon Mobil | NYSE | 1:5 | 9:30–16:00 | Same |
-| BRK.B | Berkshire Hathaway B | NYSE | 1:5 | 9:30–16:00 | Same |
-| DIS | Walt Disney Co | NYSE | 1:5 | 9:30–16:00 | Same |
-| KO | Coca-Cola Co | NYSE | 1:5 | 9:30–16:00 | Same |
-| PFE | Pfizer Inc | NYSE | 1:5 | 9:30–16:00 | Same |
-| T | AT&T Inc | NYSE | 1:5 | 9:30–16:00 | Same |
-| GS | Goldman Sachs | NYSE | 1:5 | 9:30–16:00 | Same |
-| BA | Boeing Co | NYSE | 1:5 | 9:30–16:00 | Same |
-| CVX | Chevron Corp | NYSE | 1:5 | 9:30–16:00 | Same |
-| MCD | McDonald's Corp | NYSE | 1:5 | 9:30–16:00 | Same |
-| SBUX | Starbucks Corp | NASDAQ | 1:5 | 9:30–16:00 | Same |
-| UBER | Uber Technologies | NYSE | 1:5 | 9:30–16:00 | Same |
+| Symbol | Name                   | Exchange | Leverage | Hours (EST) | Swap Model                          |
+| ------ | ---------------------- | -------- | -------- | ----------- | ----------------------------------- |
+| AAPL   | Apple Inc              | NASDAQ   | 1:5      | 9:30–16:00  | Base rate + 2.5% / Base rate - 2.5% |
+| MSFT   | Microsoft Corp         | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| GOOGL  | Alphabet Inc           | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| AMZN   | Amazon.com Inc         | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| TSLA   | Tesla Inc              | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| META   | Meta Platforms         | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| NVDA   | NVIDIA Corp            | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| NFLX   | Netflix Inc            | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| AMD    | Advanced Micro Devices | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| INTC   | Intel Corp             | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| PYPL   | PayPal Holdings        | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| ORCL   | Oracle Corp            | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| JPM    | JPMorgan Chase         | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| BAC    | Bank of America        | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| V      | Visa Inc               | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| MA     | Mastercard             | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| JNJ    | Johnson & Johnson      | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| WMT    | Walmart Inc            | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| XOM    | Exxon Mobil            | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| BRK.B  | Berkshire Hathaway B   | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| DIS    | Walt Disney Co         | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| KO     | Coca-Cola Co           | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| PFE    | Pfizer Inc             | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| T      | AT&T Inc               | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| GS     | Goldman Sachs          | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| BA     | Boeing Co              | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| CVX    | Chevron Corp           | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| MCD    | McDonald's Corp        | NYSE     | 1:5      | 9:30–16:00  | Same                                |
+| SBUX   | Starbucks Corp         | NASDAQ   | 1:5      | 9:30–16:00  | Same                                |
+| UBER   | Uber Technologies      | NYSE     | 1:5      | 9:30–16:00  | Same                                |
 
-*Stock swap = US Federal Funds Rate + 2.5% (long) / US Federal Funds Rate - 2.5% (short). Store base_rate_pct as platform-level configuration. BullMQ nightly job reads this config when calculating daily charge.*
+_Stock swap = US Federal Funds Rate + 2.5% (long) / US Federal Funds Rate - 2.5% (short). Store base_rate_pct as platform-level configuration. BullMQ nightly job reads this config when calculating daily charge._
 
 ### Crypto — 12 Instruments
 
-| Symbol | Name | Leverage | Spread | Hours | Swap Long (annual %) | Swap Short (annual %) |
-|---|---|---|---|---|---|---|
-| BTCUSD | Bitcoin / USD | 1:10 | 50.0 | 24/7 | -25.00% | +15.00% |
-| ETHUSD | Ethereum / USD | 1:10 | 5.0 | 24/7 | -25.00% | +15.00% |
-| BNBUSD | BNB / USD | 1:10 | 2.0 | 24/7 | -25.00% | +15.00% |
-| SOLUSD | Solana / USD | 1:10 | 0.5 | 24/7 | -25.00% | +15.00% |
-| XRPUSD | Ripple / USD | 1:10 | 0.002 | 24/7 | -25.00% | +15.00% |
-| ADAUSD | Cardano / USD | 1:10 | 0.001 | 24/7 | -25.00% | +15.00% |
-| DOTUSD | Polkadot / USD | 1:10 | 0.05 | 24/7 | -25.00% | +15.00% |
-| DOGEUSD | Dogecoin / USD | 1:10 | 0.001 | 24/7 | -25.00% | +15.00% |
-| MATICUSD | Polygon / USD | 1:10 | 0.002 | 24/7 | -25.00% | +15.00% |
-| AVAXUSD | Avalanche / USD | 1:10 | 0.1 | 24/7 | -25.00% | +15.00% |
-| LTCUSD | Litecoin / USD | 1:10 | 0.5 | 24/7 | -25.00% | +15.00% |
-| LINKUSD | Chainlink / USD | 1:10 | 0.01 | 24/7 | -25.00% | +15.00% |
+| Symbol   | Name            | Leverage | Spread | Hours | Swap Long (annual %) | Swap Short (annual %) |
+| -------- | --------------- | -------- | ------ | ----- | -------------------- | --------------------- |
+| BTCUSD   | Bitcoin / USD   | 1:10     | 50.0   | 24/7  | -25.00%              | +15.00%               |
+| ETHUSD   | Ethereum / USD  | 1:10     | 5.0    | 24/7  | -25.00%              | +15.00%               |
+| BNBUSD   | BNB / USD       | 1:10     | 2.0    | 24/7  | -25.00%              | +15.00%               |
+| SOLUSD   | Solana / USD    | 1:10     | 0.5    | 24/7  | -25.00%              | +15.00%               |
+| XRPUSD   | Ripple / USD    | 1:10     | 0.002  | 24/7  | -25.00%              | +15.00%               |
+| ADAUSD   | Cardano / USD   | 1:10     | 0.001  | 24/7  | -25.00%              | +15.00%               |
+| DOTUSD   | Polkadot / USD  | 1:10     | 0.05   | 24/7  | -25.00%              | +15.00%               |
+| DOGEUSD  | Dogecoin / USD  | 1:10     | 0.001  | 24/7  | -25.00%              | +15.00%               |
+| MATICUSD | Polygon / USD   | 1:10     | 0.002  | 24/7  | -25.00%              | +15.00%               |
+| AVAXUSD  | Avalanche / USD | 1:10     | 0.1    | 24/7  | -25.00%              | +15.00%               |
+| LTCUSD   | Litecoin / USD  | 1:10     | 0.5    | 24/7  | -25.00%              | +15.00%               |
+| LINKUSD  | Chainlink / USD | 1:10     | 0.01   | 24/7  | -25.00%              | +15.00%               |
 
 ---
 
-*ProTraderSim — PTS-DB-001 — Database Schema — v1.0 — March 2026*
+_ProTraderSim — PTS-DB-001 — Database Schema — v1.0 — March 2026_

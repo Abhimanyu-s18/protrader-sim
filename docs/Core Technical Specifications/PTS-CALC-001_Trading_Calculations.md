@@ -1,5 +1,7 @@
 # ProTraderSim
+
 ## PTS-CALC-001 — Trading Calculations & Business Rules
+
 **Version 1.0 | March 2026 | CONFIDENTIAL**
 
 ---
@@ -18,14 +20,14 @@
 
 ## 1. Instrument Precision Reference
 
-| Asset Class | Price Scale | Pip Decimal | Contract Size | Example |
-|---|---|---|---|---|
-| Forex (4-decimal) | ×100,000 | 4 | 100,000 | EURUSD: 1.08500 = 108500 |
-| Forex (2-decimal, JPY) | ×100,000 | 2 | 100,000 | USDJPY: 154.500 = 15450000 |
-| Stocks | ×100,000 | 2 | 1 | AAPL: 189.50 = 18950000 |
-| Indices | ×100,000 | 1 | 1 | US500: 5123.5 = 512350000 |
-| Commodities (Gold) | ×100,000 | 2 | 100 | XAUUSD: 2050.50 = 205050000 |
-| Crypto | ×100,000 | 2 | 1 | BTCUSD: 68500.00 = 6850000000 |
+| Asset Class            | Price Scale | Pip Decimal | Contract Size | Example                       |
+| ---------------------- | ----------- | ----------- | ------------- | ----------------------------- |
+| Forex (4-decimal)      | ×100,000    | 4           | 100,000       | EURUSD: 1.08500 = 108500      |
+| Forex (2-decimal, JPY) | ×100,000    | 2           | 100,000       | USDJPY: 154.500 = 15450000    |
+| Stocks                 | ×100,000    | 2           | 1             | AAPL: 189.50 = 18950000       |
+| Indices                | ×100,000    | 1           | 1             | US500: 5123.5 = 512350000     |
+| Commodities (Gold)     | ×100,000    | 2           | 100           | XAUUSD: 2050.50 = 205050000   |
+| Crypto                 | ×100,000    | 2           | 1             | BTCUSD: 68500.00 = 6850000000 |
 
 ---
 
@@ -43,6 +45,7 @@ ask_scaled  = mid_scaled + half_spread_scaled
 This is mandatory for correct P&L calculation.
 
 Example: EURUSD mid = 1.08500 (108500), spread = 2 pips
+
 ```
 half_spread_scaled = (2 × 10) / 2 = 10
 bid_scaled = 108500 - 10 = 108490  →  1.08490
@@ -58,12 +61,14 @@ margin_cents = (units × open_rate_scaled × 100) / (leverage × PRICE_SCALE)
 ```
 
 Where `PRICE_SCALE = 100000` for all instruments. The formula applies leverage reduction to the notional value:
+
 - `units × open_rate_scaled` = notional value in scaled price units
 - `× 100` converts to cents (standard US currency precision)
 - `/ PRICE_SCALE` removes the price scaling multiplier
 - `/ leverage` applies the leverage factor
 
 **Worked Example:** BUY 10,000 units EURUSD at 1.08500 (open_rate_scaled = 108500), leverage 500:
+
 ```
 margin_cents = (10000 × 108500 × 100) / (500 × 100000)
              = 1,085,000,000 / 50,000,000
@@ -71,11 +76,13 @@ margin_cents = (10000 × 108500 × 100) / (500 × 100000)
 ```
 
 **Additional Example (AUDCAD):** BUY 4000 units AUDCAD at 0.95770 (scaled: 95770), leverage 500, contract_size 100000:
+
 ```
 margin_cents = (4000 × 95770 × 100) / (500 × 100000)
              = 383,080,000 / 50,000,000
              = 766 cents  =  $7.66
 ```
+
 Note: contract_size does NOT appear in the margin formula. Margin depends only on units, price, and leverage.
 
 **Test case (mandatory):** BUY 10,000 units EURUSD at 1.08500, leverage 500 → margin = $21.70 (2170 cents) ✓
@@ -85,18 +92,23 @@ Note: contract_size does NOT appear in the margin formula. Margin depends only o
 ## 4. P&L Calculation
 
 **BUY position:**
+
 ```
 pnl_cents = (current_bid_scaled - open_rate_scaled) × units × 100 / 100000
 ```
+
 Subtract open rate from current bid (where the position can be closed). Note: contract_size does NOT multiply P&L; P&L is always in units of the base currency.
 
 **SELL position:**
+
 ```
 pnl_cents = (open_rate_scaled - current_ask_scaled) × units × 100 / 100000
 ```
+
 Subtract current ask (where the position can be closed) from open rate.
 
 **Cross-currency P&L conversion (non-USD quote currency):**
+
 ```
 If quote_currency != 'USD':
     pnl_usd_cents = pnl_in_quote × USDXXX_rate
@@ -104,6 +116,7 @@ If quote_currency != 'USD':
 ```
 
 **Test cases (mandatory):**
+
 - P&L BUY: opened at 1.08500, closed at 1.09000, 10,000 units = +$50.00 (+5000 cents)
 - P&L SELL: opened at 1.08500, closed at 1.08000, 10,000 units = +$50.00 (+5000 cents)
 
@@ -142,6 +155,7 @@ exposure_cents     = SUM(units × current_price_scaled × 100 / 100000) over ope
 ```
 
 **Test cases (mandatory):**
+
 - Margin level: equity = $1,000, used_margin = $500 → margin_level = 200.00% (20000 bps)
 - Balance: deposit $1,000, trade closed +$50, withdrawal -$200 → balance = $850
 
@@ -165,6 +179,7 @@ On Wednesday rollover: `daily_swap_cents × 3`
 This accounts for the weekend (Friday–Sunday) positions that remain open but for which rollover cannot be charged as markets are closed.
 
 **Rollover application (BullMQ job — 22:00 UTC Mon–Fri):**
+
 1. BullMQ job `rollover-daily` triggers at 22:00 UTC
 2. Query all trades WHERE status='OPEN'
 3. For each trade: calculate daily_swap_cents using current swap_rate from swap_rates table
@@ -173,6 +188,7 @@ This accounts for the weekend (Friday–Sunday) positions that remain open but f
 6. UPDATE trades: rollover_accumulated_cents += swap_cents, overnight_count += 1
 
 **Test case (mandatory):**
+
 - 10,000 units EURUSD, swap_rate_bps = -2 (buy rate), open_rate = 1.08500 → verify debit calculated correctly
 - Same calculation × 3 on Wednesday
 
@@ -242,14 +258,15 @@ Price tick received via Twelve Data WebSocket
 
 ## 8. Stop Loss & Take Profit Logic
 
-| Condition | Direction | Trigger | Action |
-|---|---|---|---|
-| Stop Loss | BUY (long) | current_price <= stop_loss_price | Close at current market price; insert ledger entry; emit notification |
-| Take Profit | BUY (long) | current_price >= take_profit_price | Close at current market price; insert ledger entry; emit notification |
-| Stop Loss | SELL (short) | current_price >= stop_loss_price | Close at current market price; same ledger/notification flow |
-| Take Profit | SELL (short) | current_price <= take_profit_price | Close at current market price; same ledger/notification flow |
+| Condition   | Direction    | Trigger                            | Action                                                                |
+| ----------- | ------------ | ---------------------------------- | --------------------------------------------------------------------- |
+| Stop Loss   | BUY (long)   | current_price <= stop_loss_price   | Close at current market price; insert ledger entry; emit notification |
+| Take Profit | BUY (long)   | current_price >= take_profit_price | Close at current market price; insert ledger entry; emit notification |
+| Stop Loss   | SELL (short) | current_price >= stop_loss_price   | Close at current market price; same ledger/notification flow          |
+| Take Profit | SELL (short) | current_price <= take_profit_price | Close at current market price; same ledger/notification flow          |
 
 **Validation at order creation:**
+
 - BUY SL: must be below entry price by at least min_stop_distance_pips
 - BUY TP: must be above entry price by at least min_stop_distance_pips
 - SELL SL: must be above entry price by at least min_stop_distance_pips
@@ -293,6 +310,7 @@ Trailing stop closure follows the same code path as stop-loss: `closed_by = 'TRA
 ## 10. Entry Order Engine
 
 **Validation at order creation:**
+
 ```
 BUY Entry:   trigger_price must be BELOW current ask_price - min_stop_distance
              OR ABOVE current ask_price + min_stop_distance
@@ -303,6 +321,7 @@ SELL Entry:  trigger_price must be ABOVE current bid_price + min_stop_distance
 `min_stop_distance_pips` is configurable per instrument.
 
 **Order monitoring (BullMQ + Redis):**
+
 1. On each price tick: check all PENDING orders for this instrument
 2. BUY Entry triggers: when ask_price reaches trigger_price
 3. SELL Entry triggers: when bid_price reaches trigger_price
@@ -315,11 +334,13 @@ SELL Entry:  trigger_price must be ABOVE current bid_price + min_stop_distance
 ## 11. Pip Value Calculation
 
 For USD-quoted pairs (EURUSD, GBPUSD, AUDUSD):
+
 ```
 pip_value_cents = pip_size_scaled × units × contract_size × 100 / 100000
 ```
 
 For non-USD quoted pairs (EURJPY, GBPJPY):
+
 ```
 pip_value_in_quote = pip_size × units × contract_size
 pip_value_cents    = pip_value_in_quote / JPYUSD_rate × 100
@@ -334,6 +355,7 @@ Pip value is displayed in the trading panel to help traders understand risk per 
 Commission is charged at trade open AND trade close separately. Inserted as a ledger transaction with `transaction_type = 'COMMISSION'`.
 
 **Key Definition:** A "lot" is one standard contract of the instrument, measured in units. For example:
+
 - 1 lot of EURUSD = 100,000 units (contract_size = 100,000)
 - 1 lot of a stock = 1 unit (contract_size = 1)
 - 1 lot of an index = 1 unit (contract_size = 1)
@@ -343,25 +365,32 @@ Commission is charged at trade open AND trade close separately. Inserted as a le
 The term "notional value" is used in different contexts with different definitions:
 
 **Variant 1: notional_for_commission (used for indices/commodities platform commission)**
+
 ```
 notional_for_commission = units × contract_size × price (in cents)
 ```
-Used by:** per-lot commission calculations (indices, commodities standard lot definitions)
+
+Used by:\*\* per-lot commission calculations (indices, commodities standard lot definitions)
 
 **Variant 2: notional_for_margin_pnl_rollover_crypto (used for margin, P&L, rollover, and crypto commission)**
+
 ```
 notional_for_margin_pnl_rollover_crypto = units × price (in cents)
 ```
-Used by:**
+
+Used by:\*\*
+
 - Margin calculations (Section 3)
 - P&L calculations (Section 4)
 - Rollover/swap fee calculations (Section 6)
 - Crypto commission (see crypto formula below)
 
 **IB Commissions:** IB commissions use Variant 1 (notional with contract_size) for forex, indices, and commodities:
+
 ```
 ib_commission_cents = (units × contract_size × price_scaled × 100 / PRICE_SCALE) × ib_rate_bps / 10000
 ```
+
 For crypto IB commissions, use Variant 2 (no contract_size): `units × price`.
 
 **Why the distinction?** Indices and commodities charge commission per-lot (a fixed count of contracts), while margin and P&L scale with units directly (base currency amount), not by contract size. Crypto commissions are percentage-based on USD value (no contract_size component). Always verify which variant applies to the formula you're implementing.
@@ -389,6 +418,7 @@ commission_cents = notional_cents × commission_rate / 10000  -- e.g., notional 
 ```
 
 **Test Case (Indices — US500):** 100 units at 5,123.50 (scaled: 512350000), commission_rate = 100 cents:
+
 ```
 standard_lots = 100 / 1 = 100 lots
 commission_cents = 100 × 100 = 10,000 cents = $100.00 per side (open + close = $200 total)
@@ -403,6 +433,7 @@ commission_cents = 100 × 100 = 10,000 cents = $100.00 per side (open + close = 
 **Fee:** $25.00 USD (2500 cents) per month, charged on the first calendar day of each month.
 
 **Application rules:**
+
 - Debit from real balance only (not bonus balance)
 - If balance < $25.00: charge full remaining balance (balance cannot go below $0 from inactivity fees)
 - Ledger entry: `transaction_type = 'INACTIVITY_FEE'`
@@ -410,6 +441,7 @@ commission_cents = 100 × 100 = 10,000 cents = $100.00 per side (open + close = 
 - Warning: send email notification 7 days before first inactivity fee is applied
 
 **BullMQ job (`inactivity-check`):** Runs at 00:01 UTC on the first day of each month.
+
 1. Query users WHERE last_active_at < NOW() - INTERVAL '90 days'
 2. For each inactive user with balance > 0: charge fee, insert ledger entry, update last notification sent
 
@@ -418,6 +450,7 @@ commission_cents = 100 × 100 = 10,000 cents = $100.00 per side (open + close = 
 ## 14. Financial Module Rules
 
 ### Deposit Rules
+
 - Minimum deposit: $200 USD (20,000 cents)
 - No maximum deposit limit
 - KYC must be APPROVED (kyc_level >= 2) before first deposit
@@ -426,6 +459,7 @@ commission_cents = 100 × 100 = 10,000 cents = $100.00 per side (open + close = 
 - Deposit expires if not paid within 60 minutes
 
 ### Withdrawal Rules
+
 - Minimum: $50 USD (5,000 cents)
 - Maximum per transaction: $5,000 USD (500,000 cents)
 - Daily limit: $5,000 USD across all withdrawals
@@ -435,6 +469,7 @@ commission_cents = 100 × 100 = 10,000 cents = $100.00 per side (open + close = 
 - Requirements: KYC approved, sufficient available balance, no negative equity
 
 ### Balance Computation (Canonical SQL)
+
 ```sql
 -- Step 1: Get ledger balance
 SELECT COALESCE(SUM(amount_cents), 0) AS balance_cents
@@ -473,4 +508,4 @@ LEFT JOIN (
 
 ---
 
-*ProTraderSim — PTS-CALC-001 — Trading Calculations & Business Rules — v1.0 — March 2026*
+_ProTraderSim — PTS-CALC-001 — Trading Calculations & Business Rules — v1.0 — March 2026_

@@ -1,6 +1,6 @@
 ---
 name: trading-ui-components
-description: "Use when: building trading interface components, displaying price charts, designing order forms, creating data tables, or implementing trading-specific UI patterns. Uses lightweight-charts, CVA (Class Variance Authority), Terminal Precision design system, and responsive layouts. Primary agents: Frontend, UI/UX Designer, Coding."
+description: 'Use when: building trading interface components, displaying price charts, designing order forms, creating data tables, or implementing trading-specific UI patterns. Uses lightweight-charts, CVA (Class Variance Authority), Terminal Precision design system, and responsive layouts. Primary agents: Frontend, UI/UX Designer, Coding.'
 ---
 
 # Trading UI Components — ProTraderSim
@@ -19,32 +19,32 @@ export default {
   theme: {
     colors: {
       // Terminal Precision: Dark, Professional, Data-Dense
-      background: '#0f1419',        // Deep black
-      surface: '#1a1f29',           // Slightly lighter
-      surface_alt: '#232b38',       // For contrast
-      border: '#3a414f',            // Subtle borders
-      text_primary: '#e5e7eb',      // Almost white
-      text_secondary: '#9ca3af',    // Muted gray
-      text_tertiary: '#6b7280',     // Dimmer gray
-      
+      background: '#0f1419', // Deep black
+      surface: '#1a1f29', // Slightly lighter
+      surface_alt: '#232b38', // For contrast
+      border: '#3a414f', // Subtle borders
+      text_primary: '#e5e7eb', // Almost white
+      text_secondary: '#9ca3af', // Muted gray
+      text_tertiary: '#6b7280', // Dimmer gray
+
       // Trading Colors
-      bullish: '#10b981',           // Green (BUY, profit)
-      bearish: '#ef4444',           // Red (SELL, loss)
-      neutral: '#8b5cf6',           // Purple (neutral moves)
-      warning: '#f59e0b',           // Amber (margin call)
-      info: '#3b82f6',              // Blue (info)
-      
+      bullish: '#10b981', // Green (BUY, profit)
+      bearish: '#ef4444', // Red (SELL, loss)
+      neutral: '#8b5cf6', // Purple (neutral moves)
+      warning: '#f59e0b', // Amber (margin call)
+      info: '#3b82f6', // Blue (info)
+
       // Semantic
       success: '#10b981',
       error: '#ef4444',
-      attention: '#f59e0b'
+      attention: '#f59e0b',
     },
     borderRadius: {
       none: '0',
       sm: '4px',
       md: '6px',
       lg: '8px',
-      full: '9999px'
+      full: '9999px',
     },
     fontSize: {
       xs: ['12px', { lineHeight: '16px' }],
@@ -52,9 +52,9 @@ export default {
       base: ['14px', { lineHeight: '20px' }],
       lg: ['16px', { lineHeight: '24px' }],
       xl: ['18px', { lineHeight: '28px' }],
-      '2xl': ['20px', { lineHeight: '28px' }]
-    }
-  }
+      '2xl': ['20px', { lineHeight: '28px' }],
+    },
+  },
 }
 ```
 
@@ -297,7 +297,7 @@ export function OrderForm({ symbol, currentPrice }: OrderFormProps) {
 
     // Validate
     const newErrors: Record<string, string> = {}
-    
+
     const size = parseFloat(lotSize)
     if (isNaN(size) || size <= 0) {
       newErrors.lotSize = 'Must be > 0'
@@ -629,14 +629,14 @@ function CloseButton({ positionId }: { positionId: string }) {
 
 ## 🚨 Common Mistakes
 
-| ❌ Wrong | ✅ Correct |
-|---------|-----------|
-| Colors too bright | Use dark palette with muted colors |
-| Re-render entire table on price update | Memoize rows, update one at a time |
-| No input validation | Validate before submit, show errors |
-| No loading states | Show skeleton loaders |
-| Chatty API calls | Batch updates, use local state |
-| Charts lag with updates | Update candles incrementally, not full re-render |
+| ❌ Wrong                               | ✅ Correct                                       |
+| -------------------------------------- | ------------------------------------------------ |
+| Colors too bright                      | Use dark palette with muted colors               |
+| Re-render entire table on price update | Memoize rows, update one at a time               |
+| No input validation                    | Validate before submit, show errors              |
+| No loading states                      | Show skeleton loaders                            |
+| Chatty API calls                       | Batch updates, use local state                   |
+| Charts lag with updates                | Update candles incrementally, not full re-render |
 
 ---
 

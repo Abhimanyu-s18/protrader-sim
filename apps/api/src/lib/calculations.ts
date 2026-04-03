@@ -260,6 +260,13 @@ export function formatScaledPrice(scaled: bigint, pipDecimalPlaces: number = 5):
   const intPart = str.slice(0, -STORAGE_DECIMALS)
   const fullDecPart = str.slice(-STORAGE_DECIMALS)
   const decPart = fullDecPart.slice(0, pipDecimalPlaces)
+
+  // Normalize negative zero to positive zero for better UX (avoid '-0.0000')
+  const isZeroDisplay = intPart === '0' && /^0+$/.test(decPart)
+  if (isZeroDisplay) {
+    return `0.${decPart}`
+  }
+
   const result = `${intPart}.${decPart}`
   return isNegative ? `-${result}` : result
 }

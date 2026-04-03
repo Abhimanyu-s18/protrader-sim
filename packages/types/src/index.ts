@@ -9,8 +9,21 @@ export type AssetClass = 'FOREX' | 'STOCK' | 'INDEX' | 'COMMODITY' | 'CRYPTO'
 export type TradeDirection = 'BUY' | 'SELL'
 export type TradeStatus = 'OPEN' | 'CLOSED' | 'PENDING' | 'CANCELLED'
 export type OrderType = 'MARKET' | 'ENTRY'
-export type ClosedBy = 'USER' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'TRAILING_STOP' | 'MARGIN_CALL' | 'STOP_OUT' | 'ADMIN' | 'EXPIRED'
-export type AlertType = 'PRICE_ABOVE' | 'PRICE_BELOW' | 'PRICE_REACHES' | 'PCT_CHANGE_ABOVE' | 'PCT_CHANGE_BELOW'
+export type ClosedBy =
+  | 'USER'
+  | 'STOP_LOSS'
+  | 'TAKE_PROFIT'
+  | 'TRAILING_STOP'
+  | 'MARGIN_CALL'
+  | 'STOP_OUT'
+  | 'ADMIN'
+  | 'EXPIRED'
+export type AlertType =
+  | 'PRICE_ABOVE'
+  | 'PRICE_BELOW'
+  | 'PRICE_REACHES'
+  | 'PCT_CHANGE_ABOVE'
+  | 'PCT_CHANGE_BELOW'
 export type AlertStatus = 'ACTIVE' | 'TRIGGERED' | 'EXPIRED' | 'CANCELLED'
 export type CommissionStatus = 'PENDING' | 'PAID'
 export type DepositStatus = 'PENDING' | 'CONFIRMING' | 'COMPLETED' | 'REJECTED' | 'EXPIRED'
@@ -18,14 +31,26 @@ export type WithdrawalStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'REJECTE
 export type KycDocumentCategory = 'IDENTITY' | 'ADDRESS' | 'MISCELLANEOUS'
 export type KycDocumentStatus = 'UPLOADED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'EXPIRED'
 export type TransactionType =
-  | 'DEPOSIT' | 'WITHDRAWAL' | 'WITHDRAWAL_REVERSAL' | 'TRADE_CLOSE'
-  | 'ROLLOVER' | 'TRADING_BENEFIT' | 'CASHBACK' | 'MANUAL_ADJUSTMENT'
-  | 'DIVIDEND' | 'TAX' | 'COMMISSION' | 'FEE' | 'STOCK_SPLIT_ROUNDING'
-  | 'TRANSFER' | 'BONUS' | 'NEGATIVE_BALANCE_PROTECTION'
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'WITHDRAWAL_REVERSAL'
+  | 'TRADE_CLOSE'
+  | 'ROLLOVER'
+  | 'TRADING_BENEFIT'
+  | 'CASHBACK'
+  | 'MANUAL_ADJUSTMENT'
+  | 'DIVIDEND'
+  | 'TAX'
+  | 'COMMISSION'
+  | 'FEE'
+  | 'STOCK_SPLIT_ROUNDING'
+  | 'TRANSFER'
+  | 'BONUS'
+  | 'NEGATIVE_BALANCE_PROTECTION'
 
 // ── Money type (BigInt serialized as string in API) ────────────────
-export type MoneyString = string   // e.g. "10050" (represents $100.50)
-export type PriceString = string   // e.g. "108500" (represents 1.08500)
+export type MoneyString = string // e.g. "10050" (represents $100.50)
+export type PriceString = string // e.g. "108500" (represents 1.08500)
 
 // ── API Standard Response ─────────────────────────────────────────
 export interface ApiResponse<T> {
@@ -94,7 +119,7 @@ export interface AccountMetrics {
   available_cents: MoneyString
   available_formatted: string
   margin_level_bps: MoneyString | null
-  margin_level_pct: string | null          // e.g. "150.00"
+  margin_level_pct: string | null // e.g. "150.00"
   exposure_cents: MoneyString
   exposure_formatted: string
   buying_power_cents: MoneyString
@@ -135,11 +160,11 @@ export interface LivePrice {
   bid_scaled: PriceString
   ask_scaled: PriceString
   mid_scaled: PriceString
-  bid_display: string       // human-readable e.g. "1.08490"
+  bid_display: string // human-readable e.g. "1.08490"
   ask_display: string
   mid_display: string
   change_bps: string
-  change_pct: string        // e.g. "-0.12"
+  change_pct: string // e.g. "-0.12"
   ts: string
 }
 

@@ -69,28 +69,19 @@ export function emitPriceUpdate(
 }
 
 // Send private event to a specific trader
-export function emitToUser(
-  io: SocketIOServer,
-  userId: string,
-  event: string,
-  data: unknown,
-): void {
+export function emitToUser(io: SocketIOServer, userId: string, event: string, data: unknown): void {
   io.to(`user:${userId}`).emit(event, data)
 }
 
 // Send to all admin panel connections
-export function emitToAdmin(
-  io: SocketIOServer,
-  event: string,
-  data: unknown,
-): void {
+export function emitToAdmin(io: SocketIOServer, event: string, data: unknown): void {
   io.to('admin:panel').emit(event, data)
 }
 
 // ── Payload types ────────────────────────────────────────────────
 export interface PriceUpdatePayload {
   symbol: string
-  bid_scaled: string    // BigInt as string
+  bid_scaled: string // BigInt as string
   ask_scaled: string
   mid_scaled: string
   change_bps: string

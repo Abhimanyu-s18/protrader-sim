@@ -27,8 +27,17 @@ notificationsRouter.get('/', async (req, res, next) => {
     const data = hasMore ? notifications.slice(0, take) : notifications
     const unreadCount = await prisma.notification.count({ where: { userId, isRead: false } })
 
-    res.json(serializeBigInt({ data, next_cursor: hasMore ? data[data.length - 1]?.id.toString() : null, has_more: hasMore, unread_count: unreadCount }))
-  } catch (err) { next(err) }
+    res.json(
+      serializeBigInt({
+        data,
+        next_cursor: hasMore ? data[data.length - 1]?.id.toString() : null,
+        has_more: hasMore,
+        unread_count: unreadCount,
+      }),
+    )
+  } catch (err) {
+    next(err)
+  }
 })
 
 // PUT /v1/notifications/:id/read
@@ -39,7 +48,9 @@ notificationsRouter.put('/:id/read', async (req, res, next) => {
       data: { isRead: true, readAt: new Date() },
     })
     res.json({ success: true })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })
 
 // PUT /v1/notifications/read-all
@@ -50,5 +61,7 @@ notificationsRouter.put('/read-all', async (req, res, next) => {
       data: { isRead: true, readAt: new Date() },
     })
     res.json({ success: true })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 })

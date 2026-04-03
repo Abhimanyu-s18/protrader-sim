@@ -16,8 +16,7 @@ argument-hint: >
   profiling data or query logs already collected. Example: "GET /api/positions returns in
   800ms for traders with 50+ open positions. Target is <100ms. Prisma query logs show 51
   sequential DB queries."
-tools:
-  [read, edit, search, web, 'io.github.upstash/context7/*']
+tools: [read, edit, search, web, 'io.github.upstash/context7/*']
 ---
 
 # Performance Agent — ProTraderSim
@@ -41,7 +40,9 @@ after to confirm improvement.
 ## Performance Investigation Methodology
 
 ### 1. Measure First
+
 Never optimize without baseline measurements:
+
 ```typescript
 // Add to any Express route for profiling
 const start = process.hrtime.bigint()
@@ -51,6 +52,7 @@ console.log(`Duration: ${Number(end - start) / 1_000_000}ms`)
 ```
 
 ### 2. Identify the Layer
+
 ```
 Slow API response:
   → Is it the DB query? (Check Prisma query log duration)
@@ -73,6 +75,7 @@ High memory usage:
 ## Database Performance Patterns
 
 ### N+1 Detection and Fix
+
 ```typescript
 // Enable Prisma query logging in development:
 const prisma = new PrismaClient({
@@ -92,12 +95,13 @@ for (const pos of positions) {
 // ✅ FIX — Single JOIN query
 const positions = await prisma.position.findMany({
   where: { trader_id, status: 'OPEN' },
-  include: { instrument: { select: { symbol: true, category: true } } }
+  include: { instrument: { select: { symbol: true, category: true } } },
 })
 // 1 query, same result
 ```
 
 ### Index Optimization
+
 ```sql
 -- Check missing indexes causing sequential scans
 EXPLAIN ANALYZE
@@ -111,10 +115,11 @@ WHERE status = 'OPEN';  -- Partial index for hot path
 ```
 
 ### Cursor Pagination (Never OFFSET)
+
 ```typescript
 // ❌ SLOW — OFFSET reads and discards rows
 const positions = await prisma.position.findMany({
-  skip: 100,    // DB reads 100 rows to throw them away
+  skip: 100, // DB reads 100 rows to throw them away
   take: 20,
 })
 
@@ -132,10 +137,11 @@ const nextCursor = positions.length === 20 ? positions[19].id : null
 ## Redis Caching Patterns
 
 ### Cache-Aside Pattern (for Instrument List)
+
 ```typescript
 // The 60 instruments change rarely — cache aggressively
 const INSTRUMENTS_CACHE_KEY = 'instruments:all'
-const CACHE_TTL = 300  // 5 minutes
+const CACHE_TTL = 300 // 5 minutes
 
 async function getInstruments() {
   // 1. Try cache first
@@ -154,11 +160,12 @@ async function getInstruments() {
 // Invalidate when instruments change (rare)
 async function updateInstrument(id: string, data: UpdateInstrumentInput) {
   await prisma.instrument.update({ where: { id }, data })
-  await redis.del(INSTRUMENTS_CACHE_KEY)  // Invalidate after write
+  await redis.del(INSTRUMENTS_CACHE_KEY) // Invalidate after write
 }
 ```
 
 ### Real-Time Price Cache (Hot Path)
+
 ```typescript
 // Twelve Data → Redis → Socket.io pipeline
 // Store latest price for each instrument in Redis
@@ -188,16 +195,17 @@ redisSubscriber.subscribe('price_updates', (message) => {
 ## Socket.io Scaling
 
 ### Room Management
+
 ```typescript
 // Traders subscribe to specific instruments — NOT global broadcast
 socket.on('subscribe', ({ symbols }: { symbols: string[] }) => {
-  symbols.forEach(symbol => {
+  symbols.forEach((symbol) => {
     socket.join(`instrument:${symbol}`)
   })
 })
 
 socket.on('unsubscribe', ({ symbols }: { symbols: string[] }) => {
-  symbols.forEach(symbol => {
+  symbols.forEach((symbol) => {
     socket.leave(`instrument:${symbol}`)
   })
 })
@@ -210,6 +218,7 @@ socket.on('disconnect', () => {
 ```
 
 ### Redis Adapter for Multi-Instance
+
 ```typescript
 // Required for multiple ECS tasks — single instance doesn't need this
 import { createAdapter } from '@socket.io/redis-adapter'
@@ -223,7 +232,8 @@ io.adapter(createAdapter(pubClient, subClient))
 ## BullMQ Job Optimization
 
 ### Margin Recalculation Job (High-Volume)
-```typescript
+
+````typescript
 // Process in batches — don't load all traders at once
 import pLimit from 'p-limit'
 
@@ -261,7 +271,7 @@ const marginRecalcQueue = new Queue('margin-recalculation', {
     backoff: { type: 'exponential', delay: 5000 },
   }
 })
-```
+````
 
 ---
 
@@ -271,20 +281,24 @@ const marginRecalcQueue = new Queue('margin-recalculation', {
 ## Performance Analysis: [Feature/Endpoint]
 
 ### Baseline Measurements
-| Metric | Current | Target | Gap |
-|--------|---------|--------|-----|
-| p50 latency | Xms | Yms | Zms |
-| p95 latency | Xms | Yms | Zms |
-| DB queries per request | N | M | N-M |
+
+| Metric                 | Current | Target | Gap |
+| ---------------------- | ------- | ------ | --- |
+| p50 latency            | Xms     | Yms    | Zms |
+| p95 latency            | Xms     | Yms    | Zms |
+| DB queries per request | N       | M      | N-M |
 
 ### Root Cause
+
 [What is making this slow and why]
 
 ### Optimizations Applied
+
 1. [What changed] → [Expected impact]
 2. ...
 
 ### Post-Optimization Measurements
+
 [Same table, new numbers]
 
 ### Improvement: [X]% latency reduction | [N] fewer DB queries

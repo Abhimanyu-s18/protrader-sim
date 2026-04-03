@@ -45,7 +45,7 @@ if (!cached) throw new MarketClosedError(instrument.symbol)
 const { bidScaled, askScaled } = calcBidAsk(
   BigInt(cached.mid_scaled),
   instrument.spreadPips,
-  instrument.pipDecimalPlaces
+  instrument.pipDecimalPlaces,
 )
 
 // 5. Determine open rate
@@ -59,7 +59,7 @@ if (order_type === 'ENTRY') {
     bidScaled,
     askScaled,
     10, // min pips away
-    instrument.pipDecimalPlaces
+    instrument.pipDecimalPlaces,
   )
   if (!valid) throw new InvalidRateError(hint)
 }
@@ -69,7 +69,7 @@ const marginCents = calcMarginCents(
   BigInt(units),
   instrument.contractSize,
   openRateScaled,
-  instrument.leverage
+  instrument.leverage,
 )
 
 // 8. Check available margin
@@ -103,13 +103,11 @@ if (order_type === 'MARKET') {
 // Validate new levels
 if (stop_loss != null) {
   const slScaled = BigInt(Math.round(stop_loss * 100000))
-  
+
   // For BUY: SL must be below current bid
   // For SELL: SL must be above current ask
-  const isValid = direction === 'BUY'
-    ? slScaled < currentBidScaled
-    : slScaled > currentAskScaled
-    
+  const isValid = direction === 'BUY' ? slScaled < currentBidScaled : slScaled > currentAskScaled
+
   if (!isValid) throw new ValidationError('Stop loss too close to market')
 }
 
@@ -128,9 +126,7 @@ await prisma.trade.update({
 ```typescript
 // 1. Get current price
 const cached = await getCachedPrice(instrument.symbol)
-const closeRateScaled = direction === 'BUY'
-  ? BigInt(cached.bid_scaled)
-  : BigInt(cached.ask_scaled)
+const closeRateScaled = direction === 'BUY' ? BigInt(cached.bid_scaled) : BigInt(cached.ask_scaled)
 
 // 2. Calculate P&L
 const pnlCents = calcPnlCents(
@@ -138,7 +134,7 @@ const pnlCents = calcPnlCents(
   trade.openRateScaled,
   closeRateScaled,
   trade.units,
-  instrument.contractSize
+  instrument.contractSize,
 )
 
 // 3. Compute new balance after P&L
@@ -183,16 +179,16 @@ emitToUser(io, userId, 'trade:closed', {
 
 ## Close Reasons
 
-| Reason | Trigger | Behavior |
-|--------|---------|----------|
-| `USER` | Manual close | Immediate execution |
-| `STOP_LOSS` | Price hits SL | Auto-close, limit loss |
-| `TAKE_PROFIT` | Price hits TP | Auto-close, lock profit |
-| `TRAILING_STOP` | Trailing stop triggered | Dynamic SL adjustment |
-| `MARGIN_CALL` | Margin level < 100% | Warning + restricted |
-| `STOP_OUT` | Margin level < 50% | Force close positions |
-| `ADMIN` | Staff intervention | Manual override |
-| `EXPIRED` | Entry order expired | Cancel pending order |
+| Reason          | Trigger                 | Behavior                |
+| --------------- | ----------------------- | ----------------------- |
+| `USER`          | Manual close            | Immediate execution     |
+| `STOP_LOSS`     | Price hits SL           | Auto-close, limit loss  |
+| `TAKE_PROFIT`   | Price hits TP           | Auto-close, lock profit |
+| `TRAILING_STOP` | Trailing stop triggered | Dynamic SL adjustment   |
+| `MARGIN_CALL`   | Margin level < 100%     | Warning + restricted    |
+| `STOP_OUT`      | Margin level < 50%      | Force close positions   |
+| `ADMIN`         | Staff intervention      | Manual override         |
+| `EXPIRED`       | Entry order expired     | Cancel pending order    |
 
 ## Margin Call Flow
 
@@ -200,7 +196,8 @@ emitToUser(io, userId, 'trade:closed', {
 // Check margin level
 const marginLevelBps = calcMarginLevelBps(equityCents, usedMarginCents)
 
-if (marginLevelBps < 10000n) { // < 100%
+if (marginLevelBps < 10000n) {
+  // < 100%
   // MARGIN CALL - warn user
   emitToUser(io, userId, 'margin:call', {
     margin_level_pct: formatPercentage(marginLevelBps),
@@ -208,7 +205,8 @@ if (marginLevelBps < 10000n) { // < 100%
   })
 }
 
-if (marginLevelBps < 5000n) { // < 50%
+if (marginLevelBps < 5000n) {
+  // < 50%
   // STOP OUT - force close largest losing position
   const positionToClose = await getLargestLosingPosition(userId)
   await closeTrade(positionToClose.id, 'STOP_OUT')
@@ -229,11 +227,11 @@ const validateEntryRate = (
   bid: bigint,
   ask: bigint,
   minPips: number,
-  pipDecimals: number
+  pipDecimals: number,
 ): { valid: boolean; hint?: string } => {
   const pipSize = BigInt(10 ** (5 - pipDecimals))
   const minDistance = BigInt(minPips) * pipSize
-  
+
   if (orderType === 'LIMIT') {
     // LIMIT orders: entry must be away from market in the opposite direction
     if (direction === 'BUY') {
@@ -257,7 +255,7 @@ const validateEntryRate = (
       if (bid - entryRate < minDistance) return { valid: false, hint: 'Entry too close to market' }
     }
   }
-  
+
   return { valid: true }
 }
 ```
@@ -266,10 +264,11 @@ const validateEntryRate = (
 
 ```typescript
 // ❌ WRONG: Opening without market hours check
-if (!instrument.isActive)  // Not enough!
+if (!instrument.isActive)
+  // Not enough!
 
-// ❌ WRONG: Using number for margin calculation
-const margin = units * price / leverage  // Precision loss!
+  // ❌ WRONG: Using number for margin calculation
+  const margin = (units * price) / leverage // Precision loss!
 
 // ❌ WRONG: Not validating entry rate
 if (order_type === 'ENTRY') {
@@ -279,14 +278,14 @@ if (order_type === 'ENTRY') {
 // ❌ WRONG: Closing without P&L calculation
 await prisma.trade.update({
   where: { id },
-  data: { status: 'CLOSED' }  // Missing P&L!
+  data: { status: 'CLOSED' }, // Missing P&L!
 })
 
 // ❌ WRONG: Not updating margin watch
-await prisma.trade.create({ data })  // Missing addMarginWatch!
+await prisma.trade.create({ data }) // Missing addMarginWatch!
 
 // ❌ WRONG: Wrong close rate for direction
-const closeRate = currentBid  // Should be bid for BUY, ask for SELL
+const closeRate = currentBid // Should be bid for BUY, ask for SELL
 ```
 
 ## Testing Trade Operations
@@ -304,7 +303,7 @@ describe('Trade Lifecycle', () => {
         order_type: 'MARKET',
       })
       .expect(201)
-    
+
     expect(res.body.data.margin_required_cents).toBeDefined()
     expect(BigInt(res.body.data.margin_required_cents)).toBeGreaterThan(0n)
   })
@@ -312,13 +311,13 @@ describe('Trade Lifecycle', () => {
   it('rejects trade when market is closed', async () => {
     // Mock weekend
     jest.spyOn(Date.prototype, 'getUTCDay').mockReturnValue(0) // Sunday
-    
+
     await request(app)
       .post('/api/trades')
       .set('Authorization', `Bearer ${token}`)
       .send({ instrument_id: '1', direction: 'BUY', units: 10000 })
       .expect(400)
-      .expect(res => {
+      .expect((res) => {
         expect(res.body.error_code).toBe('MARKET_CLOSED')
       })
   })

@@ -42,7 +42,7 @@ confuse someone seeing this for the first time?"
 
 ### 1. API Endpoint Documentation
 
-```markdown
+````markdown
 ## POST /api/withdrawals
 
 **Description**: Trader submits a withdrawal request. The request is immediately placed
@@ -59,6 +59,7 @@ POST /api/withdrawals
 Authorization: Bearer <jwt_token>
 Content-Type: application/json
 ```
+````
 
 ```json
 {
@@ -70,11 +71,11 @@ Content-Type: application/json
 
 **Request Body Fields**:
 
-| Field | Type | Required | Validation | Description |
-|-------|------|----------|------------|-------------|
-| `amountCents` | integer | Yes | > 0, min 100 | Withdrawal amount in cents. $1.00 = 100 |
-| `cryptoAddress` | string | Yes | 26-62 chars | Destination crypto wallet address |
-| `cryptoCurrency` | enum | Yes | See values | `USDT_TRC20`, `USDT_ERC20`, or `ETH` |
+| Field            | Type    | Required | Validation   | Description                             |
+| ---------------- | ------- | -------- | ------------ | --------------------------------------- |
+| `amountCents`    | integer | Yes      | > 0, min 100 | Withdrawal amount in cents. $1.00 = 100 |
+| `cryptoAddress`  | string  | Yes      | 26-62 chars  | Destination crypto wallet address       |
+| `cryptoCurrency` | enum    | Yes      | See values   | `USDT_TRC20`, `USDT_ERC20`, or `ETH`    |
 
 ### Response — Success (201)
 
@@ -94,13 +95,13 @@ Content-Type: application/json
 
 ### Response — Errors
 
-| Status | Error Code | When |
-|--------|-----------|------|
-| 400 | `INSUFFICIENT_FUNDS` | Free margin < withdrawal amount |
-| 400 | `KYC_REQUIRED` | Trader KYC not APPROVED |
-| 400 | `VALIDATION_ERROR` | Invalid request body |
-| 401 | `UNAUTHORIZED` | No or invalid JWT |
-| 403 | `FORBIDDEN` | Non-TRADER role |
+| Status | Error Code           | When                            |
+| ------ | -------------------- | ------------------------------- |
+| 400    | `INSUFFICIENT_FUNDS` | Free margin < withdrawal amount |
+| 400    | `KYC_REQUIRED`       | Trader KYC not APPROVED         |
+| 400    | `VALIDATION_ERROR`   | Invalid request body            |
+| 401    | `UNAUTHORIZED`       | No or invalid JWT               |
+| 403    | `FORBIDDEN`          | Non-TRADER role                 |
 
 ### Status Flow
 
@@ -110,12 +111,14 @@ ON_HOLD → APPROVED → PROCESSING → COMPLETED
 ```
 
 ### Business Rules
+
 - Withdrawal amount is held from `free_margin` on submission
 - If rejected, `free_margin` is restored
 - Minimum withdrawal: $1.00 (100 cents)
 - Trader must have approved KYC to submit
 - Admin approval required — no auto-processing
-```
+
+````
 
 ---
 
@@ -149,16 +152,17 @@ ON_HOLD → APPROVED → PROCESSING → COMPLETED
  * })
  */
 async openPosition(traderId: string, input: OpenPositionInput): Promise<Position>
-```
+````
 
 ---
 
 ### 3. README Section Template
 
-```markdown
+````markdown
 ## Getting Started (Local Development)
 
 ### Prerequisites
+
 - Node.js 20 LTS
 - pnpm 9.x (`npm install -g pnpm@9`)
 - Docker Desktop (for PostgreSQL and Redis)
@@ -171,6 +175,7 @@ git clone https://github.com/your-org/protrader-sim.git
 cd protrader-sim
 pnpm install
 ```
+````
 
 ### 2. Configure Environment
 
@@ -179,6 +184,7 @@ cp .env.example .env
 ```
 
 Open `.env` and fill in the required values. At minimum for local development:
+
 - `DATABASE_URL` — PostgreSQL connection (auto-filled if using Docker Compose)
 - `REDIS_URL` — Redis connection (auto-filled if using Docker Compose)
 - `JWT_SECRET` — Any 64+ character random string for local dev
@@ -198,6 +204,7 @@ pnpm --filter @protrader/database seed
 ```
 
 This creates the schema and seeds:
+
 - 60 CFD instruments (Forex, Indices, Commodities, Crypto)
 - 1 Super Admin account (`admin@protrader.test` / `Admin123!`)
 - 1 test IB Team Leader and Agent
@@ -211,13 +218,14 @@ pnpm dev
 
 This starts both `apps/server` (port 3001) and `apps/web` (port 3000) in watch mode.
 
-| Service | URL |
-|---------|-----|
-| Trader Frontend | http://localhost:3000 |
-| Admin Back-office | http://localhost:3000/admin |
-| API Server | http://localhost:3001 |
-| API Health Check | http://localhost:3001/health |
-```
+| Service           | URL                          |
+| ----------------- | ---------------------------- |
+| Trader Frontend   | http://localhost:3000        |
+| Admin Back-office | http://localhost:3000/admin  |
+| API Server        | http://localhost:3001        |
+| API Health Check  | http://localhost:3001/health |
+
+````
 
 ---
 
@@ -232,21 +240,24 @@ a Redis pub/sub pipeline. This allows multiple server instances to broadcast con
 
 ### Data Flow
 
-```
+````
+
 Twelve Data WebSocket
-        ↓
-  market-data.service.ts
-  (subscribes to 60 instruments)
-        ↓
-  Redis PUBLISH "price_updates"
-  + Redis SET price:{symbol}
-        ↓
+↓
+market-data.service.ts
+(subscribes to 60 instruments)
+↓
+Redis PUBLISH "price_updates"
+
+- Redis SET price:{symbol}
+  ↓
   Socket.io Redis Adapter
   (all server instances subscribed)
-        ↓
+  ↓
   Socket.io rooms: "instrument:{symbol}"
-        ↓
+  ↓
   Connected Trader Browsers
+
 ```
 
 ### Why This Design

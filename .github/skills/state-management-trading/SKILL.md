@@ -1,6 +1,6 @@
 ---
 name: state-management-trading
-description: "Use when: building frontend state for real-time trading data, syncing data with server, managing user positions/balance, handling WebSocket updates, or implementing live dashboards. Combines Zustand client state, React Query server state, and Socket.io real-time subscriptions. Primary agents: Frontend, Coding, Architecture."
+description: 'Use when: building frontend state for real-time trading data, syncing data with server, managing user positions/balance, handling WebSocket updates, or implementing live dashboards. Combines Zustand client state, React Query server state, and Socket.io real-time subscriptions. Primary agents: Frontend, Coding, Architecture.'
 ---
 
 # State Management — Trading Dashboard
@@ -51,11 +51,11 @@ export function useOpenPositions() {
       const response = await api.get('/api/trades/open')
       return response.data as Position[]
     },
-    staleTime: 30000,  // 30s
-    gcTime: 5 * 60000,  // Keep in cache 5min
-    refetchOnWindowFocus: true,  // Refetch if user tabs back
+    staleTime: 30000, // 30s
+    gcTime: 5 * 60000, // Keep in cache 5min
+    refetchOnWindowFocus: true, // Refetch if user tabs back
     retry: 2,
-    retryDelay: 1000
+    retryDelay: 1000,
   })
 }
 
@@ -67,8 +67,8 @@ export function usePosition(positionId: string) {
       const response = await api.get(`/api/trades/${positionId}`)
       return response.data as Position
     },
-    enabled: !!positionId,  // Don't fetch if no ID
-    staleTime: 30000
+    enabled: !!positionId, // Don't fetch if no ID
+    staleTime: 30000,
   })
 }
 
@@ -81,7 +81,7 @@ export function useAccountMetrics() {
       return response.data as AccountMetrics
     },
     staleTime: 30000,
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: true,
   })
 }
 
@@ -93,8 +93,8 @@ export function useInstruments() {
       const response = await api.get('/api/instruments')
       return response.data as Instrument[]
     },
-    staleTime: Infinity,  // Cache forever (or until manual refresh)
-    gcTime: 24 * 60 * 60 * 1000  // Keep 24h
+    staleTime: Infinity, // Cache forever (or until manual refresh)
+    gcTime: 24 * 60 * 60 * 1000, // Keep 24h
   })
 }
 ```
@@ -116,13 +116,13 @@ export function useOpenPosition() {
     onSuccess: (newPosition) => {
       // Invalidate cached positions list
       queryClient.invalidateQueries({ queryKey: ['positions'] })
-      
+
       // Optimistically update if needed
       queryClient.setQueryData(['position', newPosition.id], newPosition)
     },
     onError: (error: AxiosError) => {
       console.error('Failed to open position:', error.response?.data)
-    }
+    },
   })
 }
 
@@ -137,10 +137,10 @@ export function useClosePosition() {
     onSuccess: (_, { positionId }) => {
       // Remove from cache immediately
       queryClient.removeQueries({ queryKey: ['position', positionId] })
-      
+
       // Refetch open positions
       queryClient.invalidateQueries({ queryKey: ['positions', 'open'] })
-    }
+    },
   })
 }
 ```
@@ -188,7 +188,7 @@ export async function initializeSocket(token: string): Promise<Socket> {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        reconnectionAttempts: 10
+        reconnectionAttempts: 10,
       })
 
       socket.on('connect', () => {
@@ -252,8 +252,7 @@ export function useSocketManager() {
     }
 
     // Initialize or reconnect with new token
-    initializeSocket(token)
-      .catch(err => console.error('Failed to connect socket:', err))
+    initializeSocket(token).catch((err) => console.error('Failed to connect socket:', err))
 
     // Cleanup on unmount
     return () => {
@@ -285,7 +284,7 @@ export function usePriceUpdates(symbols: string[]) {
 
     // Only re-subscribe if symbols actually changed (deep equality)
     const symbolsChanged = JSON.stringify(symbols) !== JSON.stringify(previousSymbolsRef.current)
-    
+
     if (!symbolsChanged || !symbols.length) {
       return
     }
@@ -353,7 +352,7 @@ interface PriceStore {
 
 export const usePriceStore = create<PriceStore>((set, get) => ({
   prices: {},
-  
+
   updatePrices: (data: PriceUpdate) => {
     set((state) => ({
       prices: {
@@ -363,9 +362,9 @@ export const usePriceStore = create<PriceStore>((set, get) => ({
           ask: BigInt(data.ask),
           mid: BigInt(data.mid),
           change_bps: data.change_bps,
-          timestamp: new Date(data.ts)
-        }
-      }
+          timestamp: new Date(data.ts),
+        },
+      },
     }))
   },
 
@@ -381,7 +380,7 @@ export const usePriceStore = create<PriceStore>((set, get) => ({
     if (socket) {
       socket.emit('unsubscribe:prices', { symbols })
     }
-  }
+  },
 }))
 ```
 
@@ -400,16 +399,16 @@ interface AccountStore {
 
 export const useAccountStore = create<AccountStore>((set) => ({
   metrics: null,
-  
+
   setMetrics: (metrics: AccountMetrics) => {
     const marginLevelBps = BigInt(metrics.margin_level_bps || '0')
-    
+
     set({
       metrics,
-      isMarginCall: marginLevelBps <= 10000n && marginLevelBps > 0n,  // 100%
-      isStopOut: marginLevelBps <= 5000n && marginLevelBps > 0n        // 50%
+      isMarginCall: marginLevelBps <= 10000n && marginLevelBps > 0n, // 100%
+      isStopOut: marginLevelBps <= 5000n && marginLevelBps > 0n, // 50%
     })
-  }
+  },
 }))
 
 // Selector
@@ -460,7 +459,7 @@ export const useUiStore = create<UiStore>((set) => ({
   sorting: { field: 'openTime', direction: 'desc' },
 
   setFilters: (filters) => set({ filters }),
-  setSorting: (sorting) => set({ sorting })
+  setSorting: (sorting) => set({ sorting }),
 }))
 ```
 
@@ -505,11 +504,11 @@ function getSortValue(
 // Type-safe comparison function
 function compareValues(a: number | string, b: number | string, ascending: boolean): number {
   const direction = ascending ? 1 : -1
-  
+
   if (typeof a === 'string' && typeof b === 'string') {
     return a.localeCompare(b) * direction
   }
-  
+
   const aNum = typeof a === 'number' ? a : 0
   const bNum = typeof b === 'number' ? b : 0
   return (aNum - bNum) * direction
@@ -557,14 +556,14 @@ function compareValues(a: number | string, b: number | string, ascending: boolea
         <tbody>
           {filtered.map(position => {
             const currentPrice = prices[position.symbol]
-            
+
             // Calculate live P&L
             let pnl_cents = 0n
             if (currentPrice) {
               const priceDiff = position.direction === 'BUY'
                 ? currentPrice.bid - position.open_rate_scaled
                 : position.open_rate_scaled - currentPrice.ask
-              
+
               pnl_cents = (priceDiff * position.units * BigInt(position.contract_size) * 100n) / 100000n
             }
 
@@ -639,7 +638,7 @@ const PositionWithPrice = ({ position }: Props) => {
     (s) => s.prices[position.symbol],
     (prev, next) => prev?.timestamp === next?.timestamp  // Custom comparison
   )
-  
+
   return <Position price={price} />
 }
 ```
@@ -649,9 +648,7 @@ const PositionWithPrice = ({ position }: Props) => {
 ```typescript
 // Only subscribe to visible positions
 const visibleSymbols = useMemo(() => {
-  return positions
-    ?.filter(p => isVisible(p))
-    .map(p => p.symbol)
+  return positions?.filter((p) => isVisible(p)).map((p) => p.symbol)
 }, [positions, isVisible])
 
 usePriceUpdates(visibleSymbols)
@@ -675,14 +672,14 @@ usePriceUpdates(visibleSymbols)
 
 ## 🚨 Common Mistakes
 
-| ❌ Wrong | ✅ Correct |
-|---------|-----------|
-| Fetch positions in every render | Use React Query with caching |
-| Subscribe to all symbols | Max 20, only visible ones |
+| ❌ Wrong                        | ✅ Correct                         |
+| ------------------------------- | ---------------------------------- |
+| Fetch positions in every render | Use React Query with caching       |
+| Subscribe to all symbols        | Max 20, only visible ones          |
 | Update all rows on price update | Memoize rows, update one at a time |
-| Cache prices in memory | Use Zustand store with selectors |
-| Trust price from server for P&L | Recalculate client-side (atomic) |
-| No loading/error UI | Always show loader, error boundary |
+| Cache prices in memory          | Use Zustand store with selectors   |
+| Trust price from server for P&L | Recalculate client-side (atomic)   |
+| No loading/error UI             | Always show loader, error boundary |
 
 ---
 

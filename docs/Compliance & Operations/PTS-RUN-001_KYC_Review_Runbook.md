@@ -1,7 +1,9 @@
 # ProTraderSim
+
 ## PTS-RUN-001 — KYC Review Runbook
+
 **Version 1.0 | March 2026 | CONFIDENTIAL**
-*Operational Step-by-Step Guide for IB Agents and Team Leaders*
+_Operational Step-by-Step Guide for IB Agents and Team Leaders_
 
 ---
 
@@ -10,6 +12,7 @@
 This runbook is for the operations team performing KYC document reviews. It covers every decision point in the review process with explicit steps, checklists, and escalation paths. Reading PTS-SOP-001 first is recommended, but this runbook is written to stand alone at the desk during a live review.
 
 **Roles covered:**
+
 - **IB Agent** — performs L2 (Identity) review. 24-hour SLA.
 - **IB Team Leader** — performs L3 (Full Verification) review. 48-hour SLA.
 - **Admin** — accesses review queue and tools in admin panel.
@@ -25,14 +28,14 @@ This runbook is for the operations team performing KYC document reviews. It cove
 
 **Queue columns:**
 
-| Column | What It Shows |
-|---|---|
-| Trader Name | Full name from registration |
-| Account Number | PT-prefixed account number |
-| Submitted At | Date and time documents were uploaded |
-| Documents | Count of uploaded files |
-| Review Level | L2 (Agent) or L3 (Team Leader) |
-| Days Waiting | Time since submission — amber at 75% SLA, red at 100% SLA |
+| Column         | What It Shows                                             |
+| -------------- | --------------------------------------------------------- |
+| Trader Name    | Full name from registration                               |
+| Account Number | PT-prefixed account number                                |
+| Submitted At   | Date and time documents were uploaded                     |
+| Documents      | Count of uploaded files                                   |
+| Review Level   | L2 (Agent) or L3 (Team Leader)                            |
+| Days Waiting   | Time since submission — amber at 75% SLA, red at 100% SLA |
 
 **Filter options:** Status, Review Level, Date range, Assigned Agent
 
@@ -102,14 +105,17 @@ Work through all items. Every item must pass before approving.
 ### 4.5 Document Completeness
 
 **Passport:**
+
 - [ ] Full name, DOB, nationality, passport number, expiry, photo all visible
 - [ ] MRZ (machine-readable zone at bottom) visible and not cut off
 
 **National ID:**
+
 - [ ] Front: full name, DOB, ID number, photo visible
 - [ ] Back: expiry, address or other fields visible (if required by issuing country)
 
 **Driving Licence:**
+
 - [ ] Full name, DOB, licence number, expiry, issuing authority, photo all visible
 
 **→ If required fields are missing or obscured: reject with `PARTIAL_VISIBILITY`**
@@ -191,15 +197,15 @@ When one or more checklist items fail:
 
 **Rejection reason codes:**
 
-| Code | When to Use |
-|---|---|
-| `DOC_QUALITY_POOR` | Blurry, glare, shadows, cut-off corners, unreadable text |
-| `DOC_EXPIRED` | Document expiry date has passed |
-| `NAME_MISMATCH` | Name on document does not match registered name |
-| `ADDRESS_MISMATCH` | Address on document does not match registered address |
-| `DOC_OUTDATED` | Address document is older than the accepted timeframe (3 months, or up to 12 months for Local Authority Tax Bill) | "Your address document is dated more than the accepted timeframe. Please submit a document issued within the last 3 months (or 12 months for Local Authority Tax Bill)." | kyc_status → REQUIRES_RESUBMIT |
-| `PARTIAL_VISIBILITY` | Required fields, corners, or sections not fully visible |
-| `UNSUPPORTED_TYPE` | Document type is not on the accepted list |
+| Code                 | When to Use                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| `DOC_QUALITY_POOR`   | Blurry, glare, shadows, cut-off corners, unreadable text                                                          |
+| `DOC_EXPIRED`        | Document expiry date has passed                                                                                   |
+| `NAME_MISMATCH`      | Name on document does not match registered name                                                                   |
+| `ADDRESS_MISMATCH`   | Address on document does not match registered address                                                             |
+| `DOC_OUTDATED`       | Address document is older than the accepted timeframe (3 months, or up to 12 months for Local Authority Tax Bill) | "Your address document is dated more than the accepted timeframe. Please submit a document issued within the last 3 months (or 12 months for Local Authority Tax Bill)." | kyc_status → REQUIRES_RESUBMIT |
+| `PARTIAL_VISIBILITY` | Required fields, corners, or sections not fully visible                                                           |
+| `UNSUPPORTED_TYPE`   | Document type is not on the accepted list                                                                         |
 
 > **Never use `PEP_MATCH` in the rejection UI.** If you suspect a PEP or sanctions match, stop the review and call Krishantha immediately. See Section 11.2.
 
@@ -242,18 +248,18 @@ Your notes go directly to the trader. Write them clearly and helpfully.
 
 ## 10. Common Scenarios and Correct Responses
 
-| Scenario | Correct Action |
-|---|---|
-| Trader submitted a selfie photo instead of a document | Reject with `DOC_QUALITY_POOR`. Note: "You have uploaded a photo of yourself. Please upload a clear scan or photo of your identity document (passport, national ID, or driving licence)." |
-| Passport photo page submitted only — data page missing | Reject with `PARTIAL_VISIBILITY`. Note: "Your passport submission shows only the photo page. Please upload the personal data page showing your full name, date of birth, passport number, and expiry date." |
-| Utility bill is in a company name, not personal | Reject with `UNSUPPORTED_TYPE`. Note: "The bill you submitted appears to be in a company name. Please submit a personal utility bill, bank statement, or other accepted document in your own full legal name." |
-| Address document is 89 days old | Approve — within 3 months. |
-| Address document is 94 days old | Reject with `DOC_OUTDATED`. |
-| Middle name on document but not on registration | Approve if first and last name match exactly. Add a review note: "Approved — middle name present on document but not on registration; first and last name match exactly." |
-| Document is in a non-English language | Approve if all required fields are identifiable (names, dates, and addresses are typically readable across languages). Use Google Translate for basic field identification only (names, dates, addresses). **Do not use Google Translate for legal/nuanced interpretation**. Any legal, identity-sensitive, or regulator-facing documents require a professional certified translation. If uncertain, stop processing, flag the document, and escalate to Krishantha with the translated screenshot and original file. |
-| Phone photo of a document (not scanned) | Acceptable if clear and legible. Reject with `DOC_QUALITY_POOR` only if quality genuinely prevents verification. |
-| Document shows a PO Box, not a residential address | Reject with `ADDRESS_MISMATCH`. Note: "Address documents must show a residential address. A PO Box is not accepted. Please submit a document showing your physical residential address." |
-| Two people listed on a bank statement | Acceptable if the trader's name appears on the statement and their address is shown. Approve. |
+| Scenario                                               | Correct Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trader submitted a selfie photo instead of a document  | Reject with `DOC_QUALITY_POOR`. Note: "You have uploaded a photo of yourself. Please upload a clear scan or photo of your identity document (passport, national ID, or driving licence)."                                                                                                                                                                                                                                                                                                                              |
+| Passport photo page submitted only — data page missing | Reject with `PARTIAL_VISIBILITY`. Note: "Your passport submission shows only the photo page. Please upload the personal data page showing your full name, date of birth, passport number, and expiry date."                                                                                                                                                                                                                                                                                                            |
+| Utility bill is in a company name, not personal        | Reject with `UNSUPPORTED_TYPE`. Note: "The bill you submitted appears to be in a company name. Please submit a personal utility bill, bank statement, or other accepted document in your own full legal name."                                                                                                                                                                                                                                                                                                         |
+| Address document is 89 days old                        | Approve — within 3 months.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Address document is 94 days old                        | Reject with `DOC_OUTDATED`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Middle name on document but not on registration        | Approve if first and last name match exactly. Add a review note: "Approved — middle name present on document but not on registration; first and last name match exactly."                                                                                                                                                                                                                                                                                                                                              |
+| Document is in a non-English language                  | Approve if all required fields are identifiable (names, dates, and addresses are typically readable across languages). Use Google Translate for basic field identification only (names, dates, addresses). **Do not use Google Translate for legal/nuanced interpretation**. Any legal, identity-sensitive, or regulator-facing documents require a professional certified translation. If uncertain, stop processing, flag the document, and escalate to Krishantha with the translated screenshot and original file. |
+| Phone photo of a document (not scanned)                | Acceptable if clear and legible. Reject with `DOC_QUALITY_POOR` only if quality genuinely prevents verification.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Document shows a PO Box, not a residential address     | Reject with `ADDRESS_MISMATCH`. Note: "Address documents must show a residential address. A PO Box is not accepted. Please submit a document showing your physical residential address."                                                                                                                                                                                                                                                                                                                               |
+| Two people listed on a bank statement                  | Acceptable if the trader's name appears on the statement and their address is shown. Approve.                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ---
 
@@ -264,6 +270,7 @@ Your notes go directly to the trader. Write them clearly and helpfully.
 Signs to watch for: inconsistent fonts within the same document, pixelated or smeared text around specific fields only, background security pattern inconsistencies, MRZ code that does not visually match the data page, photo that appears digitally inserted or tampered with.
 
 **Steps:**
+
 1. Do NOT approve or reject through the normal flow
 2. Click "Request Additional Document" to pause the review without alerting the trader
 3. Call **Krishantha (Legal Counsel)** immediately — do not email first
@@ -293,27 +300,28 @@ If a trader makes or attempts a deposit greater than $10,000 USD while their KYC
 
 ### 11.4 Escalation Contact Reference
 
-| Situation | Primary Contact | Method | Timeframe |
-|---|---|---|---|
-| Suspected forgery | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@...<br>Backup: George [LastName], Executive Director, +<phone>, george@... | Phone first, then encrypted email | Immediately |
-| PEP / Sanctions match | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@... | Phone first, then encrypted email | Immediately |
-| High-value deposit (>$10K) | Victor [LastName], Operations Manager, +<phone>, victor@...<br>Backup: Krishantha [LastName], Legal Counsel, +<phone>, krishantha@... | Email | Same business day |
-| AML behavioural trigger | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@... | Written escalation report | Within 4 hours |
-| Account suspension dispute | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@...<br>Backup: Victor [LastName], Operations Manager, +<phone>, victor@... | Email | Within 24 hours |
-| System error during review | Victor [LastName], Operations Manager, +<phone>, victor@... | Slack / phone | As soon as possible |
+| Situation                  | Primary Contact                                                                                                                       | Method                            | Timeframe           |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------- |
+| Suspected forgery          | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@...<br>Backup: George [LastName], Executive Director, +<phone>, george@... | Phone first, then encrypted email | Immediately         |
+| PEP / Sanctions match      | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@...                                                                        | Phone first, then encrypted email | Immediately         |
+| High-value deposit (>$10K) | Victor [LastName], Operations Manager, +<phone>, victor@...<br>Backup: Krishantha [LastName], Legal Counsel, +<phone>, krishantha@... | Email                             | Same business day   |
+| AML behavioural trigger    | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@...                                                                        | Written escalation report         | Within 4 hours      |
+| Account suspension dispute | Krishantha [LastName], Legal Counsel, +<phone>, krishantha@...<br>Backup: Victor [LastName], Operations Manager, +<phone>, victor@... | Email                             | Within 24 hours     |
+| System error during review | Victor [LastName], Operations Manager, +<phone>, victor@...                                                                           | Slack / phone                     | As soon as possible |
 
 ---
 
 ## 12. SLA Monitoring and Handover
 
-| Level | SLA | At-Risk | Escalation |
-|---|---|---|---|
-| L2 (Agent) | 24 hours from submission | 18 hours elapsed | Notify Team Leader |
-| L3 (Team Leader) | 48 hours from L2 approval | 36 hours elapsed | Notify Admin |
+| Level            | SLA                       | At-Risk          | Escalation         |
+| ---------------- | ------------------------- | ---------------- | ------------------ |
+| L2 (Agent)       | 24 hours from submission  | 18 hours elapsed | Notify Team Leader |
+| L3 (Team Leader) | 48 hours from L2 approval | 36 hours elapsed | Notify Admin       |
 
 Queue highlights submissions in amber at 75% of SLA elapsed, red at 100%. Red submissions must be actioned or escalated immediately.
 
 **If you cannot complete a review within SLA:**
+
 - Click **"Release Review"** to return the document to PENDING status
 - Notify Victor (Operations) so the submission can be reassigned
 - Do not leave submissions in UNDER_REVIEW status overnight
@@ -332,4 +340,4 @@ Before finishing your review session:
 
 ---
 
-*ProTraderSim — PTS-RUN-001 — KYC Review Runbook — v1.0 — March 2026*
+_ProTraderSim — PTS-RUN-001 — KYC Review Runbook — v1.0 — March 2026_

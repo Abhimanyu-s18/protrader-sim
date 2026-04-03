@@ -80,7 +80,7 @@ Create a better folder structure for my [work/projects/photos/etc]
 When a user requests file organization help:
 
 1. **Understand the Scope**
-   
+
    Ask clarifying questions:
    - Which directory needs organization? (Downloads, Documents, entire home folder?)
    - What's the main problem? (Can't find things, duplicates, too messy, no structure?)
@@ -88,22 +88,23 @@ When a user requests file organization help:
    - How aggressively to organize? (Conservative vs. comprehensive cleanup)
 
 2. **Analyze Current State**
-   
+
    Review the target directory:
+
    ```bash
    # Get overview of current structure
    ls -la [target_directory]
-   
+
    # Check file types and sizes
    find [target_directory] -type f -exec file {} \; | head -20
-   
+
    # Identify largest files
    du -sh [target_directory]/* | sort -rh | head -20
-   
+
    # Count file types
    find [target_directory] -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn
    ```
-   
+
    Summarize findings:
    - Total files and folders
    - File type breakdown
@@ -112,9 +113,9 @@ When a user requests file organization help:
    - Obvious organization issues
 
 3. **Identify Organization Patterns**
-   
+
    Based on the files, determine logical groupings:
-   
+
    **By Type**:
    - Documents (PDFs, DOCX, TXT)
    - Images (JPG, PNG, SVG)
@@ -123,22 +124,23 @@ When a user requests file organization help:
    - Code/Projects (directories with code)
    - Spreadsheets (XLSX, CSV)
    - Presentations (PPTX, KEY)
-   
+
    **By Purpose**:
    - Work vs. Personal
    - Active vs. Archive
    - Project-specific
    - Reference materials
    - Temporary/scratch files
-   
+
    **By Date**:
    - Current year/month
    - Previous years
    - Very old (archive candidates)
 
 4. **Find Duplicates**
-   
+
    When requested, search for duplicates:
+
    ```bash
    # Find exact duplicates by hash (portable across macOS/Linux)
    if command -v md5sum &> /dev/null; then
@@ -148,10 +150,10 @@ When a user requests file organization help:
      # macOS: md5
      find [directory] -type f -exec md5 -r {} + | awk '{print $1}' | sort | uniq -d
    fi
-   
+
    # Find files with same name (portable: use sed instead of -printf)
    find [directory] -type f | sed 's|.*/||' | sort | uniq -d
-   
+
    # Find similar-sized files (portable: use stat with platform detection)
    if [[ "$OSTYPE" == "darwin"* ]]; then
      # macOS: stat -f
@@ -161,13 +163,14 @@ When a user requests file organization help:
      find [directory] -type f -exec stat -c "%s %n" {} + | sort -n
    fi
    ```
-   
+
    **Alternative**: Use established tools like `fdupes` (faster, cross-platform):
+
    ```bash
    # Find duplicates (macOS: brew install fdupes, Linux: apt-get install fdupes)
    fdupes -r [directory]
    ```
-   
+
    For each set of duplicates:
    - Show all file paths
    - Display sizes and modification dates
@@ -175,37 +178,39 @@ When a user requests file organization help:
    - **Important**: Always ask for confirmation before deleting
 
 5. **Propose Organization Plan**
-   
+
    Present a clear plan before making changes:
-   
+
    ```markdown
    # Organization Plan for [Directory]
-   
+
    ## Current State
+
    - X files across Y folders
    - [Size] total
    - File types: [breakdown]
    - Issues: [list problems]
-   
+
    ## Proposed Structure
-   
    ```
+
    [Directory]/
    ├── Work/
-   │   ├── Projects/
-   │   ├── Documents/
-   │   └── Archive/
+   │ ├── Projects/
+   │ ├── Documents/
+   │ └── Archive/
    ├── Personal/
-   │   ├── Photos/
-   │   ├── Documents/
-   │   └── Media/
+   │ ├── Photos/
+   │ ├── Documents/
+   │ └── Media/
    └── Downloads/
-       ├── To-Sort/
-       └── Archive/
+   ├── To-Sort/
+   └── Archive/
+
    ```
-   
+
    ## Changes I'll Make
-   
+
    1. **Create new folders**: [list]
    2. **Move files**:
       - X PDFs → Work/Documents/
@@ -213,29 +218,29 @@ When a user requests file organization help:
       - Z old files → Archive/
    3. **Rename files**: [any renaming patterns]
    4. **Delete**: [duplicates or trash files]
-   
+
    ## Files Needing Your Decision
-   
+
    - [List any files you're unsure about]
-   
+
    Ready to proceed? (yes/no/modify)
    ```
 
 6. **Execute Organization**
-   
+
    After approval, organize systematically:
-   
+
    ```bash
    # Create folder structure
    mkdir -p "path/to/new/folders"
-   
+
    # Move files with clear logging
    mv "old/path/file.pdf" "new/path/file.pdf"
-   
+
    # Rename files with consistent patterns
    # Example: "YYYY-MM-DD - Description.ext"
    ```
-   
+
    **Important Rules**:
    - Always confirm before deleting anything
    - Log all moves for potential undo
@@ -244,46 +249,50 @@ When a user requests file organization help:
    - Stop and ask if you encounter unexpected situations
 
 7. **Provide Summary and Maintenance Tips**
-   
+
    After organizing:
-   
-   ```markdown
+
+   ````markdown
    # Organization Complete! ✨
-   
+
    ## What Changed
-   
+
    - Created [X] new folders
    - Organized [Y] files
    - Freed [Z] GB by removing duplicates
    - Archived [W] old files
-   
+
    ## New Structure
-   
+
    [Show the new folder tree]
-   
+
    ## Maintenance Tips
-   
+
    To keep this organized:
-   
+
    1. **Weekly**: Sort new downloads
    2. **Monthly**: Review and archive completed projects
    3. **Quarterly**: Check for new duplicates
    4. **Yearly**: Archive old files
-   
+
    ## Quick Commands for You
-   
+
    ```bash
    # Find files modified this week
    find . -type f -mtime -7
-   
+
    # Sort downloads by type
    [custom command for their setup]
-   
+
    # Find duplicates
    [custom command]
    ```
-   
+   ````
+
    Want to organize another folder?
+
+   ```
+
    ```
 
 ## Examples
@@ -293,6 +302,7 @@ When a user requests file organization help:
 **User**: "My Downloads folder is a mess with 500+ files. Help me organize it."
 
 **Process**:
+
 1. Analyzes Downloads folder
 2. Finds patterns: work docs, personal photos, installers, random PDFs
 3. Proposes structure:
@@ -311,10 +321,12 @@ When a user requests file organization help:
 **User**: "Find duplicate files in my Documents and help me decide which to keep."
 
 **Output**:
+
 ```markdown
 # Found 23 Sets of Duplicates (156 MB total)
 
 ## Duplicate Set 1: "proposal.pdf"
+
 - `/Documents/proposal.pdf` (2.3 MB, modified: 2024-03-15)
 - `/Documents/old/proposal.pdf` (2.3 MB, modified: 2024-03-15)
 - `/Desktop/proposal.pdf` (2.3 MB, modified: 2024-03-10)
@@ -330,28 +342,31 @@ Delete the other 2 copies?
 **User**: "Review my ~/Projects directory and suggest improvements."
 
 **Output**:
+
 ```markdown
 # Analysis of ~/Projects
 
 ## Current Structure Issues
+
 - Mix of active and archived projects (3+ years old)
 - No consistent naming convention
 - Some projects at root, others in random subfolders
 - Duplicate folders (project-name, project-name-old, project-name-v2)
 
 ## Proposed Structure
-
 ```
+
 Projects/
 ├── Active/
-│   ├── client-work/
-│   ├── side-projects/
-│   └── learning/
+│ ├── client-work/
+│ ├── side-projects/
+│ └── learning/
 ├── Archive/
-│   ├── 2022/
-│   ├── 2023/
-│   └── 2024/
+│ ├── 2022/
+│ ├── 2023/
+│ └── 2024/
 └── Templates/
+
 ```
 
 ## Specific Changes
@@ -368,6 +383,7 @@ Want me to implement this?
 **User**: "Organize my photo folders by year and month."
 
 **Output**: Creates structure like:
+
 ```
 Photos/
 ├── 2023/
@@ -385,23 +401,25 @@ Then moves photos based on EXIF metadata or file modification dates.
 **How to extract and use dates**:
 
 1. **From EXIF (preferred, requires exiftool)**:
+
    ```bash
    # Installation: macOS: brew install exiftool | Linux: apt-get install libimage-exiftool-perl
    # Extract DateTimeOriginal from photo
    exiftool -n -d "%Y/%m-%B" -fileorder DateTimeOriginal "[directory]/*.jpg" | grep "Directory"
-   
+
    # Move photo to year/month folder based on EXIF date
    exiftool -d "Photos/%Y/%m-%%B/%%f%%le" -o "Photos/%Y/%m-%(DateTimeOriginal)" "[photo.jpg]"
    ```
 
 2. **Fallback to file modification date** (no external tools needed):
+
    ```bash
    # macOS: stat -f
    stat -f "%Sm" -t "%Y-%m" [photo.jpg]
-   
+
    # Linux: stat -c
    stat -c %y [photo.jpg] | cut -d' ' -f1 | tr '-' '/'
-   
+
    # Move based on modification date
    for file in [directory]/*.{jpg,png,jpeg}; do
      if command -v exiftool &> /dev/null; then
@@ -416,39 +434,45 @@ Then moves photos based on EXIF metadata or file modification dates.
 ## Common Organization Tasks
 
 ### Downloads Cleanup
+
 ```
-Organize my Downloads folder - move documents to Documents, 
-images to Pictures, keep installers separate, and archive files 
+Organize my Downloads folder - move documents to Documents,
+images to Pictures, keep installers separate, and archive files
 older than 3 months.
 ```
 
 ### Project Organization
+
 ```
-Review my Projects folder structure and help me separate active 
+Review my Projects folder structure and help me separate active
 projects from old ones I should archive.
 ```
 
 ### Duplicate Removal
+
 ```
-Find all duplicate files in my Documents folder and help me 
+Find all duplicate files in my Documents folder and help me
 decide which ones to keep.
 ```
 
 ### Desktop Cleanup
+
 ```
-My Desktop is covered in files. Help me organize everything into 
+My Desktop is covered in files. Help me organize everything into
 my Documents folder properly.
 ```
 
 ### Photo Organization
+
 ```
-Organize all photos in this folder by date (year/month) based 
+Organize all photos in this folder by date (year/month) based
 on when they were taken.
 ```
 
 ### Work/Personal Separation
+
 ```
-Help me separate my work files from personal files across my 
+Help me separate my work files from personal files across my
 Documents folder.
 ```
 
@@ -464,12 +488,14 @@ Documents folder.
 ## Best Practices
 
 ### Folder Naming
+
 - Use clear, descriptive names
 - Avoid spaces (use hyphens or underscores)
 - Be specific: "client-proposals" not "docs"
 - Use prefixes for ordering: "01-current", "02-archive"
 
 ### File Naming
+
 - Include dates: "2024-10-17-meeting-notes.md"
 - Be descriptive: "q3-financial-report.xlsx"
 - Avoid version numbers in names for code (use version control instead)
@@ -477,6 +503,7 @@ Documents folder.
 - Remove download artifacts: "document-final-v2 (1).pdf" → "document.pdf"
 
 ### When to Archive
+
 - Projects not touched in 6+ months
 - Completed work that might be referenced later
 - Old versions after migration to new systems
@@ -489,4 +516,3 @@ Documents folder.
 - Cleaning up before storage cleanup
 - Organizing shared team folders
 - Structuring new project directories
-

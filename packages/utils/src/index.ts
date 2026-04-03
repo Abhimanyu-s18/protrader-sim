@@ -23,7 +23,11 @@ export function formatPercentage(bps: string | number | bigint | null): string {
   return `${whole}.${frac.toString().padStart(2, '0')}%`
 }
 
-export function formatPnl(cents: string | number | bigint): { formatted: string; isPositive: boolean; isNegative: boolean } {
+export function formatPnl(cents: string | number | bigint): {
+  formatted: string
+  isPositive: boolean
+  isNegative: boolean
+} {
   const c = typeof cents === 'bigint' ? cents : BigInt(cents)
   return {
     formatted: formatMoney(c),
@@ -34,11 +38,21 @@ export function formatPnl(cents: string | number | bigint): { formatted: string;
 
 // ── Date helpers ─────────────────────────────────────────────────
 export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
 export function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return new Date(dateStr).toLocaleString('en-US', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 // ── API client factory ────────────────────────────────────────────
@@ -55,15 +69,20 @@ export function createApiClient(baseURL: string) {
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error_code: 'UNKNOWN', message: res.statusText }))
-      throw Object.assign(new Error(err.message), { error_code: err.error_code, status: res.status })
+      throw Object.assign(new Error(err.message), {
+        error_code: err.error_code,
+        status: res.status,
+      })
     }
     return res.json() as Promise<T>
   }
 
   return {
     get: <T>(path: string) => request<T>(path),
-    post: <T>(path: string, body: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
-    put: <T>(path: string, body: unknown) => request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+    post: <T>(path: string, body: unknown) =>
+      request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+    put: <T>(path: string, body: unknown) =>
+      request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
     del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   }
 }

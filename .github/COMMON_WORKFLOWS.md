@@ -31,11 +31,13 @@ Pick the workflow that matches your task. Each includes: who to invoke, what to 
 **Example**: Traders request a "Get Trading Stats" endpoint (GET /api/stats/trading).
 
 ### Who to Invoke
+
 - **Coding Agent** (implementation)
 - **Test Agent** (test coverage)
 - **Security Agent** (if endpoint touches auth/sensitive data)
 
 ### Prerequisites
+
 1. Know which database tables you need to read
 2. Know the response shape (what data to return)
 3. Know which roles can access it
@@ -43,6 +45,7 @@ Pick the workflow that matches your task. Each includes: who to invoke, what to 
 ### Phase 1: Design (5 min)
 
 **Prepare documentation**:
+
 ```
 Endpoint: GET /api/stats/trading
 Role: TRADER
@@ -57,6 +60,7 @@ Response fields:
 ### Phase 2: Invoke Coding Agent
 
 **Prompt**:
+
 ```
 Implement GET /api/stats/trading endpoint.
 
@@ -76,6 +80,7 @@ Return as ApiResponse<TradingStatsResponse>
 ### Phase 3: Coding Agent Delivers
 
 Expected outputs:
+
 - ✅ New file or route update: `apps/api/src/routes/stats.ts`
 - ✅ New service function: `apps/api/src/services/stats.service.ts` with `getTradingStats(userId: string)`
 - ✅ TypeScript types in `packages/types/index.ts`
@@ -84,6 +89,7 @@ Expected outputs:
 ### Phase 4: Invoke Test Agent
 
 **Prompt**:
+
 ```
 Write comprehensive tests for GET /api/stats/trading
 
@@ -97,6 +103,7 @@ Test cases:
 ```
 
 Expected outputs:
+
 - ✅ Test file: `apps/api/src/routes/__tests__/stats.test.ts`
 - ✅ Service tests: `apps/api/src/services/__tests__/stats.service.test.ts`
 - ✅ Coverage >80%
@@ -104,6 +111,7 @@ Expected outputs:
 ### Checkpoint ✓
 
 Run locally:
+
 ```bash
 pnpm --filter @protrader/api test                    # Tests pass
 curl -H "Authorization: Bearer <token>" http://localhost:4000/api/stats/trading
@@ -117,11 +125,13 @@ curl -H "Authorization: Bearer <token>" http://localhost:4000/api/stats/trading
 **Example**: Add a `user_notes` table so traders can attach notes to positions.
 
 ### Who to Invoke
+
 - **Schema Agent** (database design)
 - **Coding Agent** (API routes to manage notes)
 - **Test Agent** (test coverage)
 
 ### Prerequisites
+
 1. Know the entity relationships (user → position → note)
 2. Know if data is time-sensitive (audit trail needed?)
 3. Know the access model (who can create/read/delete notes?)
@@ -129,6 +139,7 @@ curl -H "Authorization: Bearer <token>" http://localhost:4000/api/stats/trading
 ### Phase 1: Prepare Schema Design
 
 **Document the requirements**:
+
 ```
 Table: user_notes
 Purpose: Traders add personal notes/memos to trades for later reference
@@ -150,6 +161,7 @@ Business rules:
 ### Phase 2: Invoke Schema Agent
 
 **Prompt**:
+
 ```
 Add a user_notes table to track personal notes on trades.
 
@@ -175,6 +187,7 @@ No financial data, so standard decimal OK. CREATED/UPDATED pattern OK.
 ### Phase 3: Schema Agent Delivers
 
 Expected outputs:
+
 - ✅ Updated `packages/db/prisma/schema.prisma` with UserNote model
 - ✅ Migration file: `packages/db/prisma/migrations/[timestamp]_add_user_notes/migration.sql`
 - ✅ TypeScript type exported from `packages/types/index.ts`
@@ -190,6 +203,7 @@ pnpm db:studio                 # Verify table in GUI
 ### Phase 5: Invoke Coding Agent for API
 
 **Prompt**:
+
 ```
 Build CRUD API for user notes:
 
@@ -240,6 +254,7 @@ curl -X DELETE http://localhost:4000/api/trades/uuid-123/notes/note-uuid \
 **Example**: P&L calculations are off by 1-2 cents for large positions.
 
 ### Who to Invoke
+
 - **Debug Agent** (diagnose root cause)
 - **Test Agent** (write regression tests)
 - **Code Review Agent** (final audit)
@@ -247,6 +262,7 @@ curl -X DELETE http://localhost:4000/api/trades/uuid-123/notes/note-uuid \
 ### Phase 1: Reproduce the Bug
 
 **Document the specifics**:
+
 ```
 Symptom: When closing a 100,000 unit EUR/USD position at 1.08543, P&L shows 1250.00 cents
 Expected: 1250.00 cents
@@ -263,6 +279,7 @@ Details:
 ### Phase 2: Invoke Debug Agent
 
 **Prompt**:
+
 ```
 Diagnose P&L calculation error.
 
@@ -284,6 +301,7 @@ Provide the exact formula used and what's incorrect.
 ### Phase 3: Debug Agent Analyzes
 
 Expected output:
+
 ```
 Root cause found: Integer division before multiplication truncates cents.
 
@@ -314,7 +332,7 @@ Wrong order (divides prematurely):
 
 Correct order (no premature division):
     = 567 * 100000 * 100 / 5000000 = 5670000000 / 5000000 = 1134 cents
-    
+
 Note: Both may match for this scale, but order matters when PRICE_SCALE
 is smaller (e.g., crypto with 10000 scale instead of 100000).
 ```
@@ -322,6 +340,7 @@ is smaller (e.g., crypto with 10000 scale instead of 100000).
 ### Phase 4: Coding Agent Fixes
 
 **Update file**:
+
 ```bash
 apps/api/src/lib/calculations.ts
 ```
@@ -334,14 +353,14 @@ Usually a one-line fix reordering the division.
 describe('calculatePnLForBuy', () => {
   it('should correctly calculate P&L for large position (100K units)', () => {
     const pnl = calculatePnLForBuy(
-      100000n,           // units
-      108500n,           // openRateScaled
-      108543n,           // currentBidScaled
-      100000n            // contractSize
+      100000n, // units
+      108500n, // openRateScaled
+      108543n, // currentBidScaled
+      100000n, // contractSize
     )
-    expect(pnl).toBe(4300n)  // 43 pips × 100 cents = 4300 cents
+    expect(pnl).toBe(4300n) // 43 pips × 100 cents = 4300 cents
   })
-  
+
   it('should handle fractional pip movements', () => {
     // [similar edge cases]
   })
@@ -362,12 +381,14 @@ pnpm --filter @protrader/api test -- --watch        # All tests pass
 **Example**: GET /api/positions endpoint returns in 1.2s, target: <200ms.
 
 ### Who to Invoke
+
 - **Performance Agent** (profiling + optimization)
 - **Code Review Agent** (final review)
 
 ### Phase 1: Establish Baseline
 
 **Document current state**:
+
 ```
 Endpoint: GET /api/positions
 Current latency: 1.2s (measured on staging, 100 concurrent traders, 50 open positions each)
@@ -382,6 +403,7 @@ Real-time update: yes, via Socket.io
 ### Phase 2: Invoke Performance Agent
 
 **Prompt**:
+
 ```
 Optimize GET /api/positions endpoint.
 
@@ -405,6 +427,7 @@ Focus on orm-query-optimization patterns.
 ### Phase 3: Performance Agent Delivers
 
 Expected output:
+
 ```sql
 -- Problem: Missing index on trades(user_id, status)
 -- Solution:
@@ -447,6 +470,7 @@ pnpm --filter @protrader/api test                  # No regression in tests
 **Example**: Add a "Favorite Instruments" watchlist to the trading dashboard.
 
 ### Who to Invoke
+
 - **UI/UX Designer** (interaction flow, wireframe)
 - **Frontend Agent** (React/Next.js implementation)
 - **Coding Agent** (API endpoints if new)
@@ -455,11 +479,13 @@ pnpm --filter @protrader/api test                  # No regression in tests
 ### Phase 1: Design & Scope
 
 **What frontend provides**:
+
 - Page/component to display watchlist
 - Add/remove buttons
 - Real-time price updates via Socket.io
 
 **What backend provides** (may already exist or need building):
+
 - GET /api/watchlist (list user's saved instruments)
 - POST /api/watchlist (add instrument)
 - DELETE /api/watchlist/:id (remove)
@@ -467,6 +493,7 @@ pnpm --filter @protrader/api test                  # No regression in tests
 ### Phase 2: Invoke UI/UX Designer (Optional but Recommended)
 
 **Prompt**:
+
 ```
 Design the watchlist panel for the explorer dashboard.
 
@@ -484,6 +511,7 @@ Requirements:
 ### Phase 3: Invoke Frontend Agent
 
 **Prompt**:
+
 ```
 Build watchlist panel component for platform dashboard.
 
@@ -512,6 +540,7 @@ Handle states:
 ### Phase 4: Frontend Agent Delivers
 
 Expected files:
+
 - ✅ `apps/platform/src/components/WatchlistPanel.tsx` (component)
 - ✅ `apps/platform/src/hooks/useWatchlist.ts` (custom hook)
 - ✅ `apps/platform/src/stores/watchlistStore.ts` (Zustand store if new)
@@ -521,6 +550,7 @@ Expected files:
 ### Phase 5: Optional — Coding Agent for API Endpoints
 
 If endpoints don't exist, invoke Coding Agent to build:
+
 - POST /api/watchlist (add)
 - DELETE /api/watchlist/:instrumentId (remove)
 - GET /api/watchlist (list)
@@ -548,6 +578,7 @@ pnpm --filter @protrader/platform dev            # Start frontend dev server
 **Example**: Traders upload passport/proof of address, admin reviews and approves.
 
 ### Who to Invoke
+
 - **Architect Agent** (system design if complex)
 - **Security Agent** (KYC & file handling)
 - **Coding Agent** (API implementation)
@@ -555,12 +586,14 @@ pnpm --filter @protrader/platform dev            # Start frontend dev server
 - **Test Agent** (security tests)
 
 ### Prerequisites
+
 - Cloudflare R2 API key + bucket configured
 - KYC document types: passport, proof_of_address, others
 
 ### Phase 1: System Design
 
 **Invoke Architect** for approval first if this is your first KYC flow. They'll confirm:
+
 - File storage strategy (Cloudflare R2)
 - Review workflow (auto-scan or manual?)
 - Data retention policy
@@ -568,6 +601,7 @@ pnpm --filter @protrader/platform dev            # Start frontend dev server
 ### Phase 2: Invoke Security Agent
 
 **Prompt**:
+
 ```
 Design secure KYC document upload flow per kyc-compliance-flow skill.
 
@@ -599,6 +633,7 @@ Per kyc-compliance-flow skill: file validation, storage, access control.
 ### Phase 4: Schema Agent (if new table)
 
 Create `kyc_documents` table:
+
 ```
 - id (UUID PK)
 - user_id (FK → users)
@@ -615,17 +650,20 @@ Create `kyc_documents` table:
 ### Phase 5: Coding Agent Implements API
 
 **POST /api/kyc/upload**
+
 - Validate file (type, size, hash)
 - Upload to R2
 - Create kyc_documents record
 - Return file_id + status
 
 **PUT /api/kyc/:docId/approve**
+
 - Admin-only endpoint
 - Update status → APPROVED
 - Send email notification
 
 **PUT /api/kyc/:docId/reject**
+
 - Admin-only endpoint
 - Update status → REJECTED + reason
 - Send email notification
@@ -641,6 +679,7 @@ Create `kyc_documents` table:
 ### Phase 7: Admin Panel Enhancement
 
 Show:
+
 - Pending documents list
 - Document preview (securely)
 - Approve/Reject buttons
@@ -665,18 +704,21 @@ Show:
 **Example**: Traders deposit USDT via NowPayments, admin approves withdrawal requests.
 
 ### Who to Invoke
+
 - **Architect Agent** (payment system design)
 - **Security Agent** (webhook verification, idempotency)
 - **Coding Agent** (API + NowPayments integration)
 - **Test Agent** (edge cases, IPN simulation)
 
 ### Prerequisites
+
 - NowPayments API credentials configured
 - Understand payment states: PENDING → PAID → SETTLED
 
 ### Phase 1: System Design
 
 **Invoke Architect** to confirm:
+
 - Deposit flow: trader creates order → NowPayments → IPN webhook → balance credited
 - Withdrawal flow: trader requests → admin approves → stablecoin sent → balance debited
 - Idempotency: handle duplicate IPN webhooks (same order_id multiple times)
@@ -684,6 +726,7 @@ Show:
 ### Phase 2: Invoke Security Agent
 
 **Prompt**:
+
 ```
 Design secure deposit/withdrawal flow per payment-integration skill.
 
@@ -728,12 +771,14 @@ Per payment-integration skill.
 ### Phase 4: Schema Agent
 
 Add tables:
+
 - `deposits` (user_id, amount_cents, status, nowpayments_order_id, txn_hash)
 - `withdrawals` (user_id, amount_cents, status, destination_address, approved_by_id)
 
 ### Phase 5: Coding Agent Implements
 
 **Backend API**:
+
 - POST /api/deposits — create deposit request
 - POST /api/withdrawals — create withdrawal request
 - POST /webhooks/nowpayments — IPN handler (verify signature, handle idempotency)
@@ -741,6 +786,7 @@ Add tables:
 - PUT /api/admin/withdrawals/:id/reject — admin rejection
 
 **Key points**:
+
 - All amounts in BIGINT cents
 - Idempotency check in webhook: `if (deposit already exists) return 200 OK`
 - Ledger transaction per transfer
@@ -765,6 +811,7 @@ Add tables:
 ### Checkpoint ✓
 
 **Local testing** (with NowPayments sandbox):
+
 ```bash
 # Simulate deposit IPN webhook
 curl -X POST http://localhost:4000/webhooks/nowpayments \
@@ -782,17 +829,20 @@ curl -X POST http://localhost:4000/webhooks/nowpayments \
 **Example**: Show live position updates as prices change (entry → current price → P&L update).
 
 ### Who to Invoke
+
 - **Frontend Agent** (Socket.io client subscription + state management)
 - **Coding Agent** (Socket.io server broadcasting)
 - **Performance Agent** (scaling for 1000s of traders)
 
 ### Prerequisites
+
 - Understand Socket.io rooms: `user:{userId}`, `prices:{symbol}`
 - Know JWT-over-Socket.io auth (RS256 token in handshake)
 
 ### Phase 1: Backend Setup
 
 **Invoke Coding Agent**:
+
 ```
 Set up Socket.io price broadcast for positions page.
 
@@ -814,6 +864,7 @@ Ensure:
 ### Phase 2: Frontend Setup
 
 **Invoke Frontend Agent**:
+
 ```
 Build live position updates using Socket.io.
 
@@ -839,6 +890,7 @@ State:
 ### Phase 3: Stream Data
 
 **Invoke Coding Agent** to ensure:
+
 - Price updates broadcast every 100ms-500ms (not too frequent to overwhelm client)
 - Per-symbol fan-out (only traders with open trades subscribe)
 - Graceful re-subscription on disconnect
@@ -846,6 +898,7 @@ State:
 ### Phase 4: Test & Performance
 
 **Invoke Performance Agent**:
+
 ```
 Load test Socket.io with 1000 concurrent traders, 50 positions each, price updates every 200ms.
 
@@ -874,6 +927,7 @@ Target:
 **Example**: "Production error: GET /api/positions returning 500 with 'Cannot read properties of null (reading balance)'"
 
 ### Who to Invoke
+
 - **Debug Agent** (diagnosis first)
 - **Coding Agent** (fix)
 - **Test Agent** (regression test)
@@ -882,6 +936,7 @@ Target:
 ### Phase 1: Gather Context
 
 **Before invoking Debug Agent, document**:
+
 ```
 Error: TypeError: Cannot read properties of null (reading 'balance')
 Endpoint: GET /api/positions
@@ -898,13 +953,14 @@ Stack trace:
 ### Phase 2: Invoke Debug Agent
 
 **Prompt**:
+
 ```
 Diagnose production error on GET /api/positions:
 
 TypeError: Cannot read properties of null (reading 'balance')
 Stack: services/positions.service.ts:42
 
-Hypothesis: 
+Hypothesis:
 - Service assumes wallet exists but user might not have been initialized
 - OR: Recent code change introduced early return without null check
 
@@ -921,6 +977,7 @@ Urgency: 15 traders affected, need rapid fix + rollback strategy.
 ### Phase 3: Debug Agent Delivers
 
 Expected output:
+
 ```
 Root cause: Line 42 accesses wallet.balance without null check.
 
@@ -951,10 +1008,9 @@ git push origin main:production
 describe('GET /api/positions — null wallet edge case', () => {
   it('should return 404 if wallet not found', async () => {
     // Create user without wallet
-    const res = await request(app).get('/api/positions')
-      .set('Authorization', `Bearer ${token}`)
-    
-    expect([404, 500]).toContain(res.status)  // Verify either 404 or 500
+    const res = await request(app).get('/api/positions').set('Authorization', `Bearer ${token}`)
+
+    expect([404, 500]).toContain(res.status) // Verify either 404 or 500
     expect(res.body.error).toContain('wallet')
   })
 })
@@ -975,9 +1031,11 @@ pnpm --filter @protrader/api test -- positions.test.ts
 **Example**: Test the trade opening endpoint with all edge cases and financial accuracy.
 
 ### Who to Invoke
+
 - **Test Agent** (test design + implementation)
 
 ### Prerequisites
+
 - Implementation code is already written
 - Know happy path + edge cases
 
@@ -1013,6 +1071,7 @@ Mocking:
 ### Test Agent Delivers
 
 Files:
+
 - ✅ `apps/api/src/routes/__tests__/trades.test.ts` (API endpoint tests)
 - ✅ `apps/api/src/services/__tests__/trade.service.test.ts` (unit tests)
 - ✅ Snapshot tests for response shape (optional)

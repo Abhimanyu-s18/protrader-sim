@@ -2,10 +2,7 @@
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@upstash/context7-mcp"
-      ],
+      "args": ["-y", "@upstash/context7-mcp"],
       "env": {
         "DEFAULT_MINIMUM_TOKENS": ""
       }
@@ -20,40 +17,23 @@
     },
     "git": {
       "command": "uvx",
-      "args": [
-        "mcp-server-git",
-        "--repository",
-        "/Users/krishan/Developer/protrader-sim"
-      ]
+      "args": ["mcp-server-git", "--repository", "/Users/krishan/Developer/protrader-sim"]
     },
     "memory": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-memory"
-      ]
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
     },
     "playwright": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@playwright/mcp@0.0.38"
-      ]
+      "args": ["-y", "@playwright/mcp@0.0.38"]
     },
     "sequentialthinking": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sequential-thinking"
-      ]
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     },
     "cloudflare": {
       "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://observability.mcp.cloudflare.com/sse"
-      ],
+      "args": ["-y", "mcp-remote", "https://observability.mcp.cloudflare.com/sse"],
       "env": {
         "CF_BEARER_TOKEN": "${CF_BEARER_TOKEN}"
       }

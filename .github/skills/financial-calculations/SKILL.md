@@ -1,6 +1,6 @@
 ---
 name: financial-calculations
-description: "Use when: implementing margin calculations, P&L formulas, leverage multiples, equity computations, or any financial math in ProTraderSim. Ensures BigInt precision, correct PRICE_SCALE application, and regulatory compliance. Primary agents: Coding, Architecture, Test."
+description: 'Use when: implementing margin calculations, P&L formulas, leverage multiples, equity computations, or any financial math in ProTraderSim. Ensures BigInt precision, correct PRICE_SCALE application, and regulatory compliance. Primary agents: Coding, Architecture, Test.'
 ---
 
 # Financial Calculations — ProTraderSim
@@ -14,10 +14,10 @@ Master the critical financial formulas that power CFD trading on ProTraderSim. A
 **Always import from `packages/utils/src/index.ts`:**
 
 ```typescript
-const PRICE_SCALE = 100000n      // Scale for price precision (5 decimals)
-const BPS_SCALE = 10000n         // Basis points (10000 bps = 100%)
-const CENTS = 100n               // Convert dollars to cents
-const ONE_MILLION = 1000000n     // For scaling large numbers
+const PRICE_SCALE = 100000n // Scale for price precision (5 decimals)
+const BPS_SCALE = 10000n // Basis points (10000 bps = 100%)
+const CENTS = 100n // Convert dollars to cents
+const ONE_MILLION = 1000000n // For scaling large numbers
 ```
 
 **Never hardcode these values.** Always use imported constants.
@@ -33,20 +33,18 @@ const ONE_MILLION = 1000000n     // For scaling large numbers
 
 ```typescript
 // CORRECT — All BigInt, division last
-const marginRequired = (
-  BigInt(units) * 
-  BigInt(contractSize) * 
-  openRateScaled *  // Already scaled by PRICE_SCALE
-  CENTS
-) / (
-  BigInt(leverage) * 
-  PRICE_SCALE
-)
+const marginRequired =
+  (BigInt(units) *
+    BigInt(contractSize) *
+    openRateScaled * // Already scaled by PRICE_SCALE
+    CENTS) /
+  (BigInt(leverage) * PRICE_SCALE)
 
 // Result: cents (BIGINT), never convert to Number
 ```
 
 **Key Rules**:
+
 - `units` = lot size (e.g., 1.5 for Forex = 150000 units after normalization)
 - `contractSize` = 100000 for Forex, 1 for stocks
 - `openRateScaled` = price × PRICE_SCALE (e.g., 1.08500 → 108500n)
@@ -54,6 +52,7 @@ const marginRequired = (
 - **Result must be BIGINT cents** (e.g., 375000n = $3,750)
 
 **Edge Cases**:
+
 - Zero leverage → **reject immediately**
 - Negative units/rate → **reject immediately**
 - Margin > available balance → **reject with insufficient_margin error**
@@ -67,18 +66,19 @@ const marginRequired = (
 
 ```typescript
 // CORRECT
-const pnlCents = (
-  (currentBidScaled - openRateScaled) *  // Difference in scaled prices
-  BigInt(units) *
-  BigInt(contractSize) *
-  CENTS
-) / PRICE_SCALE
+const pnlCents =
+  ((currentBidScaled - openRateScaled) * // Difference in scaled prices
+    BigInt(units) *
+    BigInt(contractSize) *
+    CENTS) /
+  PRICE_SCALE
 
 // If negative: Loss. If positive: Profit.
 // Result: BIGINT cents
 ```
 
 **Key Rules**:
+
 - Use **BID price** for closes (what buyer actually pays)
 - Both `currentBid` and `openRate` must already be scaled
 - Positive result = profit, negative = loss
@@ -93,17 +93,18 @@ const pnlCents = (
 
 ```typescript
 // CORRECT
-const pnlCents = (
-  (openRateScaled - currentAskScaled) *  // Reversed for sell
-  BigInt(units) *
-  BigInt(contractSize) *
-  CENTS
-) / PRICE_SCALE
+const pnlCents =
+  ((openRateScaled - currentAskScaled) * // Reversed for sell
+    BigInt(units) *
+    BigInt(contractSize) *
+    CENTS) /
+  PRICE_SCALE
 
 // If negative: Loss. If positive: Profit.
 ```
 
 **Key Rules**:
+
 - Use **ASK price** for closes (what seller must pay)
 - Formula is **reversed** from BUY
 - Same precision rules as BUY P&L
@@ -131,6 +132,7 @@ if (usedMarginCents === 0n) {
 ```
 
 **Key Rules**:
+
 - Result is in basis points (1 bps = 0.01%)
 - Only computed if trader has open positions
 - **Null when no margin used** (balance only, no leverage)
@@ -156,6 +158,7 @@ const equityCents = balanceCents + unrealizedPnlCents
 ```
 
 **Key Rules**:
+
 - Equity can go **negative** (trader owes money)
 - Balance is **always read from ledger**, not stored
 - Unrealized P&L is **real-time**, recomputed each update
@@ -182,6 +185,7 @@ const swapChargeCents = (marginUsedCents * BigInt(swapRateBps)) / BPS_SCALE
 ```
 
 **Key Rules**:
+
 - Applied daily at market open
 - Buy and sell swaps typically differ
 - Deducted from balance via ledger transaction
@@ -194,6 +198,7 @@ const swapChargeCents = (marginUsedCents * BigInt(swapRateBps)) / BPS_SCALE
 ### When Number Inputs Are OK
 
 **External APIs return Number prices**—this is normal and safe ONLY at the API boundary. Examples:
+
 - Twelve Data WebSocket: `{ bid: 1.08500, ask: 1.08505, mid: 1.08502 }` (JavaScript Number)
 - NowPayments quote API: `{ rate: 0.00012345 }` (JavaScript Number)
 - Internal price cache: Retrieve as Number, then convert
@@ -203,17 +208,19 @@ const swapChargeCents = (marginUsedCents * BigInt(swapRateBps)) / BPS_SCALE
 ### Safe Conversion Pattern
 
 **❌ WRONG — Floating-point multiplication:**
+
 ```typescript
 const openRateScaled = BigInt(Math.round(prices.mid * Number(PRICE_SCALE)))
 // Loses precision due to double rounding
 ```
 
 **✅ CORRECT — String-based conversion:**
+
 ```typescript
 /**
  * Convert a numeric API price (e.g., 1.08500) to scaled BigInt (108500n)
  * via safe string manipulation, avoiding floating-point arithmetic entirely.
- * 
+ *
  * @param price - number from API (e.g., 1.08500)
  * @returns BigInt scaled by PRICE_SCALE (e.g., 108500n)
  */
@@ -227,7 +234,7 @@ function priceToScaled(price: number): bigint {
 }
 
 // Usage
-const openRateScaled = priceToScaled(prices.mid)  // Safe, no Number arithmetic
+const openRateScaled = priceToScaled(prices.mid) // Safe, no Number arithmetic
 ```
 
 ### Why This Works
@@ -250,26 +257,26 @@ function validatePrice(price: unknown): number {
   if (typeof price !== 'number' || Number.isNaN(price)) {
     throw new Error('Price must be a valid number')
   }
-  
+
   // Range check (positive, reasonable bounds)
   if (price <= 0 || price > 1000000) {
     throw new Error(`Price out of range: ${price}`)
   }
-  
+
   // Decimal precision check (not more than 8 decimals in practice)
   const str = price.toString()
   const decimalPlaces = str.includes('.') ? str.split('.')[1].length : 0
   if (decimalPlaces > 8) {
     throw new Error(`Price has too many decimals: ${price}`)
   }
-  
+
   return price
 }
 
 // Usage at API boundary
 const prices = await getPrices(symbol)
 const validatedMid = validatePrice(prices.mid)
-const openRateScaled = priceToScaled(validatedMid)  // Now safe to scale
+const openRateScaled = priceToScaled(validatedMid) // Now safe to scale
 ```
 
 ---
@@ -277,6 +284,7 @@ const openRateScaled = priceToScaled(validatedMid)  // Now safe to scale
 ## ✅ Implementation Checklist
 
 ### Before Writing Formula Code
+
 - [ ] Is this formula documented in CLAUDE.md or calculations.ts?
 - [ ] Did I import PRICE_SCALE and BPS_SCALE?
 - [ ] Am I using BigInt everywhere (no Number casts)?
@@ -285,6 +293,7 @@ const openRateScaled = priceToScaled(validatedMid)  // Now safe to scale
 - [ ] Will the result fit in a BIGINT (< 2^63 - 1)?
 
 ### After Writing Formula Code
+
 - [ ] Add JSDoc with formula English description
 - [ ] Include example inputs and expected outputs
 - [ ] Cover at least 2 edge cases (zero, negative, boundary)
@@ -292,6 +301,7 @@ const openRateScaled = priceToScaled(validatedMid)  // Now safe to scale
 - [ ] Cross-check against CLAUDE.md calculation engine
 
 ### For Pull Request
+
 - [ ] Tests pass with edge cases
 - [ ] Code review checklist signed off
 - [ ] No changes to existing formulas without approval
@@ -315,12 +325,12 @@ async openPosition(
     where: { symbol }
   })
   const prices = await getPrices(symbol) // { bid, ask, mid }
-  
+
   // 2. Determine open rate (mid for better UX)
   // Assuming prices.mid is a regular number from API (e.g., 1.08500)
   // SAFE CONVERSION: Convert via string to avoid floating-point arithmetic
   const openRateScaled = priceToScaled(prices.mid.toString())
-  
+
   // 3. Calculate margin required
   const marginCents = (
     BigInt(Math.trunc(units * 100)) *  // units normalized
@@ -328,13 +338,13 @@ async openPosition(
     openRateScaled *
     CENTS
   ) / (BigInt(leverage) * PRICE_SCALE)
-  
+
   // 4. Validate sufficient balance
   const balance = await getBalance(traderId)
   if (balance < marginCents) {
     throw new ApiError('INSUFFICIENT_MARGIN', 'Not enough balance')
   }
-  
+
   // 5. Create position record
   const position = await prisma.position.create({
     data: {
@@ -348,13 +358,13 @@ async openPosition(
       status: 'OPEN'
     }
   })
-  
+
   // 6. Emit real-time update
   emitToUser(io, traderId, 'position:opened', {
     position_id: position.id,
     margin_used: marginCents.toString()
   })
-  
+
   return position
 }
 ```
@@ -363,13 +373,13 @@ async openPosition(
 
 ## 🚨 Common Mistakes to Avoid
 
-| ❌ Wrong | ✅ Correct | Why |
-|---------|-----------|-----|
-| `const pnl = units * price / leverage` | Use full formula with contractSize & scales | Incomplete; wrong result |
-| `const margin = (units * price) as bigint` | All operations as BigInt from start | Type casting loses precision |
-| `(bid - ask) * units / leverage` | Include contractSize, CENTS, PRICE_SCALE | Formula is incomplete |
-| Store balance as Decimal in DB | Store in ledger only; compute from transactions | Balance is derived, not stored |
-| `marginLevel = equity / margin` | `(equity × BPS_SCALE) / margin` | Without BPS_SCALE, result is too small |
+| ❌ Wrong                                   | ✅ Correct                                      | Why                                    |
+| ------------------------------------------ | ----------------------------------------------- | -------------------------------------- |
+| `const pnl = units * price / leverage`     | Use full formula with contractSize & scales     | Incomplete; wrong result               |
+| `const margin = (units * price) as bigint` | All operations as BigInt from start             | Type casting loses precision           |
+| `(bid - ask) * units / leverage`           | Include contractSize, CENTS, PRICE_SCALE        | Formula is incomplete                  |
+| Store balance as Decimal in DB             | Store in ledger only; compute from transactions | Balance is derived, not stored         |
+| `marginLevel = equity / margin`            | `(equity × BPS_SCALE) / margin`                 | Without BPS_SCALE, result is too small |
 
 ---
 

@@ -20,7 +20,7 @@
         "validation": "task_must_use_orchestrator"
       },
       {
-        "step": "2", 
+        "step": "2",
         "action": "verify_task_decomposition",
         "message": "Ensure task is properly decomposed into subtasks",
         "validation": "subtasks_identified"

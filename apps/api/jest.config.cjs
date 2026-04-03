@@ -14,6 +14,12 @@ module.exports = {
   snapshotSerializers: ['<rootDir>/jest-bigint-serializer.js'],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
     'src/lib/calculations.ts': {
       branches: 100,
       functions: 100,
@@ -21,5 +27,7 @@ module.exports = {
       statements: 100,
     },
   },
-  testTimeout: 10000,
+  globalSetup: '<rootDir>/jest.globalSetup.js',
+  // Reduce timeout to default as most tests are fast; per-suite increase should be done with jest.setTimeout in slow integration tests.
+  testTimeout: 5000,
 }

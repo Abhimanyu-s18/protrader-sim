@@ -23,32 +23,28 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../lib/utils'
 
 // ── CVA Variants ─────────────────────────────────────────────────
-const componentVariants = cva(
-  'base-classes-here',
-  {
-    variants: {
-      variant: {
-        primary:   'bg-primary text-white hover:bg-primary-600',
-        secondary: 'border border-primary text-primary',
-        danger:    'bg-danger text-white hover:bg-red-700',
-      },
-      size: {
-        sm: 'h-8 px-3 text-sm',
-        md: 'h-10 px-4 text-sm',
-        lg: 'h-12 px-6 text-base',
-      },
+const componentVariants = cva('base-classes-here', {
+  variants: {
+    variant: {
+      primary: 'bg-primary text-white hover:bg-primary-600',
+      secondary: 'border border-primary text-primary',
+      danger: 'bg-danger text-white hover:bg-red-700',
     },
-    defaultVariants: {
-      variant: 'primary',
-      size: 'md',
+    size: {
+      sm: 'h-8 px-3 text-sm',
+      md: 'h-10 px-4 text-sm',
+      lg: 'h-12 px-6 text-base',
     },
-  }
-)
+  },
+  defaultVariants: {
+    variant: 'primary',
+    size: 'md',
+  },
+})
 
 // ── Props Interface ─────────────────────────────────────────────
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof componentVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof componentVariants> {
   loading?: boolean
 }
 
@@ -63,7 +59,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     >
       {loading ? '...' : children}
     </button>
-  )
+  ),
 )
 Button.displayName = 'Button'
 ```
@@ -71,6 +67,7 @@ Button.displayName = 'Button'
 ## Design System Tokens
 
 ### Colors (via Tailwind config)
+
 - `primary` — Brand blue (#0066FF)
 - `primary-600` — Hover state
 - `danger` — Error red (#DC2626)
@@ -79,6 +76,7 @@ Button.displayName = 'Button'
 - `dark` — Dark backgrounds (#1F2937)
 
 ### Spacing Scale
+
 - `xs` — 4px (0.25rem)
 - `sm` — 8px (0.5rem)
 - `md` — 16px (1rem)
@@ -86,6 +84,7 @@ Button.displayName = 'Button'
 - `xl` — 32px (2rem)
 
 ### Typography
+
 - `text-xs` — 12px (captions, badges)
 - `text-sm` — 14px (body, buttons)
 - `text-base` — 16px (headings)
@@ -96,6 +95,7 @@ Button.displayName = 'Button'
 ## Common Variant Patterns
 
 ### Button-like Components
+
 ```typescript
 variant: {
   primary:   'bg-primary text-white hover:bg-primary-600 focus-visible:ring-primary',
@@ -113,6 +113,7 @@ size: {
 ```
 
 ### Card-like Components
+
 ```typescript
 variant: {
   default: 'bg-white border border-gray-200',

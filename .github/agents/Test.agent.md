@@ -52,13 +52,13 @@ have tests, it's not done.
 
 ## Testing Stack
 
-| Layer | Tool | Location |
-|-------|------|----------|
-| Unit tests (services) | Vitest | `apps/server/src/services/__tests__/` |
-| Integration tests (API) | Vitest + Supertest | `apps/server/src/routes/__tests__/` |
-| Frontend component tests | Vitest + Testing Library | `apps/web/src/components/__tests__/` |
-| E2E tests | Playwright | `tests/e2e/` |
-| Financial calculation tests | Vitest | `packages/config/src/__tests__/` |
+| Layer                       | Tool                     | Location                              |
+| --------------------------- | ------------------------ | ------------------------------------- |
+| Unit tests (services)       | Vitest                   | `apps/server/src/services/__tests__/` |
+| Integration tests (API)     | Vitest + Supertest       | `apps/server/src/routes/__tests__/`   |
+| Frontend component tests    | Vitest + Testing Library | `apps/web/src/components/__tests__/`  |
+| E2E tests                   | Playwright               | `tests/e2e/`                          |
+| Financial calculation tests | Vitest                   | `packages/config/src/__tests__/`      |
 
 ---
 
@@ -85,7 +85,7 @@ export async function createTestUser(opts: CreateUserOptions = {}) {
       role: opts.role ?? 'TRADER',
       pool_code: opts.poolCode ?? 'TEST001',
       kyc_status: opts.kycStatus ?? 'PENDING',
-    }
+    },
   })
 }
 
@@ -93,11 +93,11 @@ export async function createTestWallet(traderId: string, balanceCents = 100_000_
   return prisma.traderWallet.create({
     data: {
       trader_id: traderId,
-      balance: balanceCents,        // 100_000_00n = $100,000.00
+      balance: balanceCents, // 100_000_00n = $100,000.00
       equity: balanceCents,
       margin_used: 0n,
       free_margin: balanceCents,
-    }
+    },
   })
 }
 
@@ -108,14 +108,14 @@ export async function createTestPosition(traderId: string, instrumentId: string,
       instrument_id: instrumentId,
       direction: 'BUY',
       lot_size: 0.1,
-      open_price: 185000n,     // 1.85000 (scaled by 100000)
+      open_price: 185000n, // 1.85000 (scaled by 100000)
       current_price: 1_85000n,
-      margin: 1_85000n,        // cents
+      margin: 1_85000n, // cents
       unrealized_pnl: 0n,
       leverage: 100,
       status: 'OPEN',
       ...overrides,
-    }
+    },
   })
 }
 ```
@@ -156,14 +156,14 @@ describe('TradingService', () => {
         direction: 'BUY',
         lotSize: 1.0,
         leverage: 100,
-        currentPrice: 1_10000n,  // 1.10000
+        currentPrice: 1_10000n, // 1.10000
       })
 
       expect(result.status).toBe('OPEN')
       expect(result.direction).toBe('BUY')
 
       const updatedWallet = await prisma.traderWallet.findUnique({
-        where: { trader_id: trader.id }
+        where: { trader_id: trader.id },
       })
       // Margin should have been deducted
       expect(updatedWallet!.free_margin).toBeLessThan(100_000_00n)
@@ -173,7 +173,7 @@ describe('TradingService', () => {
       // Set wallet to nearly zero
       await prisma.traderWallet.update({
         where: { trader_id: trader.id },
-        data: { free_margin: 1n }    // $0.01 — not enough for any real trade
+        data: { free_margin: 1n }, // $0.01 — not enough for any real trade
       })
 
       await expect(
@@ -183,7 +183,7 @@ describe('TradingService', () => {
           lotSize: 10.0,
           leverage: 100,
           currentPrice: 1_10000n,
-        })
+        }),
       ).rejects.toThrow('INSUFFICIENT_MARGIN')
     })
 
@@ -195,7 +195,7 @@ describe('TradingService', () => {
           lotSize: 0,
           leverage: 100,
           currentPrice: 1_10000n,
-        })
+        }),
       ).rejects.toThrow('INVALID_LOT_SIZE')
     })
 
@@ -204,7 +204,9 @@ describe('TradingService', () => {
       await createTestWallet(pendingTrader.id)
 
       await expect(
-        tradingService.openPosition(pendingTrader.id, { /* ... */ })
+        tradingService.openPosition(pendingTrader.id, {
+          /* ... */
+        }),
       ).rejects.toThrow('KYC_REQUIRED')
     })
   })
@@ -232,21 +234,36 @@ describe('Financial Calculations', () => {
       // Margin = (1 lot × 100,000 units × 1.1000) / 100 = $1,100.00
       const marginCents = calculateMargin({
         lotSize: 1.0,
-        openPrice: 1_10000n,  // 1.10000 in our scaled format
+        openPrice: 1_10000n, // 1.10000 in our scaled format
         leverage: 100,
         contractSize: 100_000,
       })
-      expect(marginCents).toBe(110_000n)  // $1,100.00 in cents
+      expect(marginCents).toBe(110_000n) // $1,100.00 in cents
     })
 
     it('should scale proportionally with lot size', () => {
-      const margin1Lot = calculateMargin({ lotSize: 1.0, openPrice: 1_10000n, leverage: 100, contractSize: 100_000 })
-      const margin2Lots = calculateMargin({ lotSize: 2.0, openPrice: 1_10000n, leverage: 100, contractSize: 100_000 })
+      const margin1Lot = calculateMargin({
+        lotSize: 1.0,
+        openPrice: 1_10000n,
+        leverage: 100,
+        contractSize: 100_000,
+      })
+      const margin2Lots = calculateMargin({
+        lotSize: 2.0,
+        openPrice: 1_10000n,
+        leverage: 100,
+        contractSize: 100_000,
+      })
       expect(margin2Lots).toBe(margin1Lot * 2n)
     })
 
     it('should never return a fractional cent (BigInt precision)', () => {
-      const margin = calculateMargin({ lotSize: 0.01, openPrice: 1_23456n, leverage: 50, contractSize: 100_000 })
+      const margin = calculateMargin({
+        lotSize: 0.01,
+        openPrice: 1_23456n,
+        leverage: 50,
+        contractSize: 100_000,
+      })
       expect(typeof margin).toBe('bigint')
     })
   })
@@ -256,28 +273,40 @@ describe('Financial Calculations', () => {
       const pnl = calculateUnrealizedPnL({
         direction: 'BUY',
         openPrice: 1_10000n,
-        currentPrice: 1_11000n,  // +100 pips (0.01 move from 1.10000 to 1.11000)
+        currentPrice: 1_11000n, // +100 pips (0.01 move from 1.10000 to 1.11000)
         lotSize: 1.0,
         contractSize: 100_000,
       })
       // 100 pips × 1 lot × $10/pip = +$1000
-      expect(pnl).toBe(1000_00n)  // $1000.00 in cents
+      expect(pnl).toBe(1000_00n) // $1000.00 in cents
     })
 
     it('should calculate negative P&L for BUY when price goes down', () => {
       const pnl = calculateUnrealizedPnL({
         direction: 'BUY',
         openPrice: 1_10000n,
-        currentPrice: 1_09000n,  // -100 pips (0.01 move from 1.10000 to 1.09000)
+        currentPrice: 1_09000n, // -100 pips (0.01 move from 1.10000 to 1.09000)
         lotSize: 1.0,
         contractSize: 100_000,
       })
-      expect(pnl).toBe(-1000_00n)  // -$1000.00 in cents
+      expect(pnl).toBe(-1000_00n) // -$1000.00 in cents
     })
 
     it('should invert P&L direction for SELL trades', () => {
-      const buyPnl = calculateUnrealizedPnL({ direction: 'BUY', openPrice: 1_10000n, currentPrice: 1_11000n, lotSize: 1.0, contractSize: 100_000 })
-      const sellPnl = calculateUnrealizedPnL({ direction: 'SELL', openPrice: 1_10000n, currentPrice: 1_11000n, lotSize: 1.0, contractSize: 100_000 })
+      const buyPnl = calculateUnrealizedPnL({
+        direction: 'BUY',
+        openPrice: 1_10000n,
+        currentPrice: 1_11000n,
+        lotSize: 1.0,
+        contractSize: 100_000,
+      })
+      const sellPnl = calculateUnrealizedPnL({
+        direction: 'SELL',
+        openPrice: 1_10000n,
+        currentPrice: 1_11000n,
+        lotSize: 1.0,
+        contractSize: 100_000,
+      })
       expect(sellPnl).toBe(buyPnl * -1n)
     })
   })
@@ -348,7 +377,7 @@ describe('POST /api/withdrawals', () => {
 
   it('should return 400 when balance is insufficient', async () => {
     const brokeTrader = await createTestUser({ kycStatus: 'APPROVED' })
-    await createTestWallet(brokeTrader.id, 1n)    // $0.01 balance
+    await createTestWallet(brokeTrader.id, 1n) // $0.01 balance
     const brokeToken = generateTestToken({ sub: brokeTrader.id, role: 'TRADER' })
 
     const response = await request(app)
@@ -366,6 +395,7 @@ describe('POST /api/withdrawals', () => {
 ## RBAC Test Pattern (Always Include)
 
 Every protected endpoint must have these three tests:
+
 1. ✅ Correct role — succeeds
 2. ❌ No token — returns 401
 3. ❌ Wrong role — returns 403

@@ -1,6 +1,6 @@
 ---
 name: orm-query-optimization
-description: "Use when: optimizing slow Prisma queries, debugging N+1 query problems, designing efficient select/include patterns, leveraging Postgres indexes, or improving database performance. Ensures queries execute in <100ms with minimal database load. Primary agents: Coding, Architecture, Performance."
+description: 'Use when: optimizing slow Prisma queries, debugging N+1 query problems, designing efficient select/include patterns, leveraging Postgres indexes, or improving database performance. Ensures queries execute in <100ms with minimal database load. Primary agents: Coding, Architecture, Performance.'
 ---
 
 # ORM Query Optimization — ProTraderSim
@@ -50,18 +50,19 @@ async function getPositionsWithTraderEmails(limit: number = 10) {
       id: true,
       symbol: true,
       units: true,
-      user_id: true,  // Include user_id to reference it
-    }
+      user_id: true, // Include user_id to reference it
+    },
   })
 
   // This loop triggers N additional queries (one per position)
   const result = await Promise.all(
     positions.map(async (pos) => {
-      const user = await db.user.findUnique({  // ❌ Query inside loop!
-        where: { id: pos.user_id }
+      const user = await db.user.findUnique({
+        // ❌ Query inside loop!
+        where: { id: pos.user_id },
       })
       return { ...pos, trader_email: user.email }
-    })
+    }),
   )
 
   return result
@@ -82,12 +83,13 @@ async function getPositionsWithTraderEmails(limit: number = 10) {
       id: true,
       symbol: true,
       units: true,
-      user: {  // ✅ Include relation (JOIN in SQL)
+      user: {
+        // ✅ Include relation (JOIN in SQL)
         select: {
-          email: true
-        }
-      }
-    }
+          email: true,
+        },
+      },
+    },
   })
 
   return positions
@@ -102,12 +104,12 @@ async function getPositionsWithTraderEmails(limit: number = 10) {
 
 ## 🎯 Query Patterns
 
-### Pattern 1: Select Specific Columns (Not *)
+### Pattern 1: Select Specific Columns (Not \*)
 
 ```typescript
 // BAD: Fetches entire user (100+ columns potentially)
 const user = await db.user.findUnique({
-  where: { id: userId }
+  where: { id: userId },
 })
 
 // GOOD: Select only what you need
@@ -116,9 +118,9 @@ const user = await db.user.findUnique({
   select: {
     id: true,
     email: true,
-    kyc_status: true
+    kyc_status: true,
     // Don't select balance - compute from ledger instead
-  }
+  },
 })
 ```
 
@@ -130,12 +132,12 @@ const position = await db.trade.findUnique({
   where: { id: positionId },
   include: {
     user: {
-      select: { id: true, email: true }  // Include sub-select
+      select: { id: true, email: true }, // Include sub-select
     },
     instrument: {
-      select: { id: true, symbol: true, contract_size: true }
-    }
-  }
+      select: { id: true, symbol: true, contract_size: true },
+    },
+  },
 })
 ```
 
@@ -144,26 +146,26 @@ const position = await db.trade.findUnique({
 ```typescript
 // Get next 50 positions after positionId 123 (filter by open status)
 const positions = await db.trade.findMany({
-  skip: 1,  // Skip cursor itself
-  take: 50,  // Next 50
+  skip: 1, // Skip cursor itself
+  take: 50, // Next 50
   cursor: { id: '123' },
   where: {
-    status: 'OPEN'  // or use: closed_at: null (both are valid, prefer status when it's an enum)
+    status: 'OPEN', // or use: closed_at: null (both are valid, prefer status when it's an enum)
   },
   select: {
     id: true,
     symbol: true,
-    created_at: true
+    created_at: true,
   },
   orderBy: {
-    created_at: 'desc'  // Sort by creation time
-  }
+    created_at: 'desc', // Sort by creation time
+  },
 })
 
 // Response includes cursor for next batch
 return {
   data: positions,
-  next_cursor: positions[positions.length - 1]?.id
+  next_cursor: positions[positions.length - 1]?.id,
 }
 ```
 
@@ -179,10 +181,10 @@ const user3 = await db.user.findUnique({ where: { id: id3 } })
 const users = await db.user.findMany({
   where: {
     id: {
-      in: [id1, id2, id3]  // WHERE id IN (...)
-    }
+      in: [id1, id2, id3], // WHERE id IN (...)
+    },
   },
-  select: { id: true, email: true }
+  select: { id: true, email: true },
 })
 ```
 
@@ -207,12 +209,12 @@ Equity = Balance + UnrealizedPnl
 async function getAccountMetrics(userId: string) {
   const balance = await db.ledgerTransaction.aggregate({
     where: { user_id: userId },
-    _sum: { amount_cents: true }
+    _sum: { amount_cents: true },
   })
 
   const margins = await db.trade.findMany({
     where: { user_id: userId, status: 'OPEN' },
-    select: { margin_used_cents: true }
+    select: { margin_used_cents: true },
   })
 
   const pnlPositions = await db.trade.findMany({
@@ -233,7 +235,7 @@ async function getAccountMetrics(userId: string) {
   // Balance from ledger
   const { _sum: balanceSum } = await db.ledgerTransaction.aggregate({
     where: { user_id: userId },
-    _sum: { amount_cents: true }
+    _sum: { amount_cents: true },
   })
   const balance_cents = balanceSum.amount_cents ?? 0n
 
@@ -248,16 +250,13 @@ async function getAccountMetrics(userId: string) {
       open_rate_scaled: true,
       margin_used_cents: true,
       instrument: {
-        select: { contract_size: true }
-      }
-    }
+        select: { contract_size: true },
+      },
+    },
   })
 
   // Total margin used
-  const used_margin_cents = openPositions.reduce(
-    (sum, p) => sum + p.margin_used_cents,
-    0n
-  )
+  const used_margin_cents = openPositions.reduce((sum, p) => sum + p.margin_used_cents, 0n)
 
   // Calculate unrealized P&L (client-side with fresh prices)
   // NOTE: P&L must use latest prices from Redis
@@ -278,9 +277,8 @@ async function getAccountMetrics(userId: string) {
     const price = prices[pos.symbol]
     if (!price) continue
 
-    const rateDiff = pos.direction === 'BUY'
-      ? price.bid - pos.open_rate_scaled
-      : pos.open_rate_scaled - price.ask
+    const rateDiff =
+      pos.direction === 'BUY' ? price.bid - pos.open_rate_scaled : pos.open_rate_scaled - price.ask
 
     const posPnl = (rateDiff * pos.units * BigInt(pos.instrument.contract_size) * 100n) / 100000n
     unrealized_pnl_cents += posPnl
@@ -289,9 +287,8 @@ async function getAccountMetrics(userId: string) {
   const equity_cents = balance_cents + unrealized_pnl_cents
   const available_cents = equity_cents - used_margin_cents
 
-  const margin_level_bps = used_margin_cents > 0n
-    ? (equity_cents * 10000n) / used_margin_cents
-    : null
+  const margin_level_bps =
+    used_margin_cents > 0n ? (equity_cents * 10000n) / used_margin_cents : null
 
   return {
     balance_cents,
@@ -299,7 +296,7 @@ async function getAccountMetrics(userId: string) {
     equity_cents,
     used_margin_cents,
     available_cents,
-    margin_level_bps
+    margin_level_bps,
   }
 }
 // Time: ~5ms (aggregate) + ~10ms (positions + instrument select) = ~15ms
@@ -330,7 +327,7 @@ model Trade {
   symbol     String
   status     TradeStatus
   closed_at  DateTime?
-  
+
   user       User     @relation(fields: [user_id], references: [id])
 
   // Single-column indexes (low cardinality)
@@ -372,28 +369,28 @@ model Trade {
 export async function getDashboard(userId: string) {
   // 1. Fetch user (5ms)
   const user = await db.user.findUnique({
-    where: { id: userId }
+    where: { id: userId },
   })
 
   // 2. Fetch all trades (50+ positions = 50ms with N+1)
   const trades = await db.trade.findMany({
-    where: { user_id: userId }
+    where: { user_id: userId },
   })
 
   // 3. Fetch instruments for each trade (50 queries = 250ms)
   const tradesWithInstruments = await Promise.all(
     trades.map(async (t) => {
       const instrument = await db.instrument.findUnique({
-        where: { id: t.instrument_id }
+        where: { id: t.instrument_id },
       })
       return { ...t, instrument }
-    })
+    }),
   )
 
   // 4. Fetch all prices from Redis
   const pricesKeys = await redis.keys('prices:*')
   const prices: Record<string, any> = {}
-  
+
   if (pricesKeys.length > 0) {
     const priceValues = await redis.mget(...pricesKeys)
     pricesKeys.forEach((key, idx) => {
@@ -423,8 +420,8 @@ export async function getDashboard(userId: string) {
         id: true,
         email: true,
         kyc_status: true,
-        created_at: true
-      }
+        created_at: true,
+      },
     }),
 
     // 2. Open trades + instrument (1 query, 15ms)
@@ -438,13 +435,13 @@ export async function getDashboard(userId: string) {
         open_rate_scaled: true,
         margin_used_cents: true,
         instrument: {
-          select: { contract_size: true }
-        }
-      }
+          select: { contract_size: true },
+        },
+      },
     }),
 
     // 3. Metrics aggregates (10ms)
-    calculateMetrics(userId)
+    calculateMetrics(userId),
   ])
 
   // 4. Fetch prices in parallel (10ms)
@@ -455,7 +452,7 @@ export async function getDashboard(userId: string) {
     user,
     open_trades: openTrades,
     metrics,
-    prices
+    prices,
   }
 }
 ```
@@ -477,15 +474,15 @@ export async function getDashboard(userId: string) {
 
 ## 🚨 Common Mistakes
 
-| ❌ Wrong | ✅ Correct |
-|---------|-----------|
-| Fetch entire user object | Use select to pick columns |
-| Loop with query inside | Batch with WHERE...IN |
-| No indexes on foreign keys | Always index user_id, symbol |
-| Fetch all trades, filter in code | Use WHERE clause in DB |
-| Calculate P&L with stored value | Fetch positions, calc client-side |
-| No pagination | Use cursor-based pagination |
-| Multiple separate queries | Combine with include |
+| ❌ Wrong                         | ✅ Correct                        |
+| -------------------------------- | --------------------------------- |
+| Fetch entire user object         | Use select to pick columns        |
+| Loop with query inside           | Batch with WHERE...IN             |
+| No indexes on foreign keys       | Always index user_id, symbol      |
+| Fetch all trades, filter in code | Use WHERE clause in DB            |
+| Calculate P&L with stored value  | Fetch positions, calc client-side |
+| No pagination                    | Use cursor-based pagination       |
+| Multiple separate queries        | Combine with include              |
 
 ---
 

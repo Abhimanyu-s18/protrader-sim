@@ -34,16 +34,19 @@ The token is **not hardcoded** — it must be provided via environment variable 
    - Copy your API token
 
 2. **Export the Environment Variable**:
+
    ```bash
    export CF_BEARER_TOKEN="<your-cloudflare-api-token>"
    ```
 
 3. **Verify the Variable is Set**:
+
    ```bash
    echo $CF_BEARER_TOKEN  # Should print your token
    ```
 
 4. **Validate MCP Environment** (before starting servers):
+
    ```bash
    node .kilocode/validate-mcp-env.js
    ```
@@ -60,16 +63,19 @@ The token is **not hardcoded** — it must be provided via environment variable 
 ### Troubleshooting
 
 **Error: "CF_BEARER_TOKEN is not set"**
+
 - Ensure you have exported the environment variable
 - Check that you're in the same shell session where you ran `export`
 - Use `env | grep CF_` to verify the variable exists
 
 **Error: "Authentication failed to Cloudflare endpoint"**
+
 - Verify the token has not expired or been revoked
 - Check that the token has the correct scopes for the observability API
 - Generate a new token from the Cloudflare Dashboard
 
 **Error: "Connection refused" or "Cannot reach observability.mcp.cloudflare.com"**
+
 - Verify your network connection can reach Cloudflare endpoints
 - Check firewall and proxy settings
 - Ensure the URL `https://observability.mcp.cloudflare.com/sse` is accessible
@@ -84,16 +90,19 @@ The `.kilocode/validate-mcp-env.js` script performs fail-fast validation:
 - **Exits with status 1 if validation fails** (prevents silent authentication failures)
 
 To manually run the validator:
+
 ```bash
 node .kilocode/validate-mcp-env.js
 ```
 
 Expected output on success:
+
 ```
 ✅ All required MCP environment variables are set
 ```
 
 Expected output on failure:
+
 ```
 ❌ MCP Server Startup Failed: Missing required environment variables
 
