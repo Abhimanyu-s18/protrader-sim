@@ -51,7 +51,7 @@ const centsValue: bigint = dollarsToCents(userInput) // 10050n
 
 // To string for API response
 const centsValue: bigint = 10050n
-const forDisplay: MoneyString = centsToDollars(centsValue) // "10050" (stored as string)
+const forDisplay: MoneyString = centsToDollars(centsValue) // '10050' (stored as string)
 ```
 
 **Helper Functions** (from `packages/utils/src/money.ts`):
@@ -59,18 +59,18 @@ const forDisplay: MoneyString = centsToDollars(centsValue) // "10050" (stored as
 ```typescript
 /**
  * Convert dollar amount to cents (BigInt)
- * @param dollars "100.50" (must be a string to maintain precision)
+ * @param dollars '100.50' (must be a string to maintain precision)
  * @returns 10050n
  */
 export function dollarsToCents(dollars: string): bigint {
   // Validate input is a string
   if (typeof dollars !== 'string') {
-    throw new Error('dollarsToCents requires a string input (e.g., "100.50")')
+    throw new Error("dollarsToCents requires a string input (e.g., '100.50')")
   }
 
   // Validate format: optional leading digits, optional two-decimal fraction
   if (!/^\d+(\.\d{1,2})?$/.test(dollars)) {
-    throw new Error(`Invalid dollar format: "${dollars}". Expected format: "100.50"`)
+    throw new Error(`Invalid dollar format: '${dollars}'. Expected format: '100.50'`)
   }
 
   const [whole, fraction = '00'] = dollars.split('.')
@@ -81,7 +81,7 @@ export function dollarsToCents(dollars: string): bigint {
 /**
  * Convert cents (BigInt) to dollar string
  * @param cents 10050n
- * @returns "10050" (MoneyString for API)
+ * @returns '10050' (MoneyString for API)
  */
 export function centsToDollars(cents: bigint): MoneyString {
   return cents.toString() // API response format
@@ -90,7 +90,7 @@ export function centsToDollars(cents: bigint): MoneyString {
 /**
  * Format for display (with $ sign)
  * @param cents 10050n
- * @returns "$100.50"
+ * @returns '$100.50'
  */
 export function formatMoney(cents: bigint): string {
   const sign = cents < 0n ? '-' : ''
@@ -113,13 +113,13 @@ const PRICE_SCALE = 100000n
 // Quote: EUR/USD = 1.08500
 const scaledPrice = 108500n // Directly as BigInt (5 decimals × PRICE_SCALE)
 
-// Helper to convert string price to scaled BigInt (e.g., "1.08500" → 108500n)
+// Helper to convert string price to scaled BigInt (e.g., '1.08500' → 108500n)
 function priceToScaled(priceString: string): bigint {
   if (typeof priceString !== 'string') {
     throw new Error('priceToScaled requires a string input')
   }
   if (!/^\d+(\.\d{1,5})?$/.test(priceString)) {
-    throw new Error(`Invalid price format: "${priceString}". Expected format: "1.08500"`)
+    throw new Error(`Invalid price format: '${priceString}'. Expected format: '1.08500'`)
   }
   const parts = priceString.split('.')
   const whole = BigInt(parts[0] || '0')
@@ -134,7 +134,7 @@ const scaledPrice2 = priceToScaled('1.08500') // 108500n
 const readable = Number(scaledPrice) / Number(PRICE_SCALE) // 1.08500
 
 // API response (PriceString)
-const forApi: PriceString = scaledPrice.toString() // "108500"
+const forApi: PriceString = scaledPrice.toString() // '108500'
 ```
 
 ---
@@ -162,7 +162,7 @@ const WithdrawalSchema = z.object({
 })
 
 // Usage
-const input = req.body // { amount: "150.50" }
+const input = req.body // { amount: '150.50' }
 const parsed = WithdrawalSchema.parse(input)
 // Now safe to use: dollarsToCents(parsed.amount)
 ```
@@ -307,7 +307,7 @@ async function computeBalance(userId: string): Promise<bigint> {
 ```typescript
 async function processDeposit(
   userId: string,
-  amountDollars: string, // "100.50" from API
+  amountDollars: string, // '100.50' from API
 ): Promise<DepositRecord> {
   // 1. Convert to cents
   const amountCents = dollarsToCents(amountDollars)
@@ -407,8 +407,8 @@ async function processWithdrawal(userId: string, amountDollars: string): Promise
 | ---------------------------------------------- | ---------------------------------------- |
 | Store balance in `trader_wallet.balance` field | Compute from `ledger_transactions` SUM   |
 | Use `Decimal` type in Prisma                   | Use `BigInt`                             |
-| `const cents = dollars * 100` (as number)      | `dollarsToCents("100.50")` → 10050n      |
-| API response: `{ balance: 100000 }`            | API response: `{ balance: "100000" }`    |
+| `const cents = dollars * 100` (as number)      | `dollarsToCents('100.50')` → 10050n      |
+| API response: `{ balance: 100000 }`            | API response: `{ balance: '100000' }`    |
 | Check balance after transaction                | Check balance **before** and use in calc |
 | `new BigInt(dollars * 100)`                    | `dollarsToCents(dollars)`                |
 

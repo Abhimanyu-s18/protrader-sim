@@ -96,6 +96,16 @@ watchlistRouter.put('/reorder', async (req, res, next) => {
   try {
     const { order } = z.object({ order: z.array(z.string()) }).parse(req.body)
     const userId = BigInt(req.user!.user_id)
+
+    // Validate that all IDs exist and belong to the user
+    const existingItems = await prisma.watchlistItem.findMany({
+      where: { id: { in: order.map(BigInt) }, userId },
+      select: { id: true },
+    })
+    if (existingItems.length !== order.length) {
+      return res.status(400).json({ error: 'Invalid watchlist item IDs' })
+    }
+
     await prisma.$transaction(
       order.map((id, index) =>
         prisma.watchlistItem.updateMany({

@@ -205,7 +205,11 @@ describe('TradingService', () => {
 
       await expect(
         tradingService.openPosition(pendingTrader.id, {
-          /* ... */
+          instrumentId: 'EURUSD_ID',
+          direction: 'BUY',
+          lotSize: 1.0,
+          leverage: 100,
+          currentPrice: 1_10000n,
         }),
       ).rejects.toThrow('KYC_REQUIRED')
     })

@@ -57,7 +57,20 @@ depositsRouter.get('/', async (req, res, next) => {
   try {
     const { cursor, limit = '50' } = req.query as Record<string, string>
     const userId = BigInt(req.user!.user_id)
-    const take = Math.min(parseInt(limit, 10), 200)
+
+    // Validate limit
+    const limitNum = parseInt(limit, 10)
+    if (!Number.isFinite(limitNum) || limitNum <= 0) {
+      next(Errors.badRequest('Invalid limit parameter'))
+      return
+    }
+    const take = Math.min(limitNum, 200)
+
+    // Validate cursor
+    if (cursor && !/^\d+$/.test(cursor)) {
+      next(Errors.badRequest('Invalid cursor parameter'))
+      return
+    }
 
     const deposits = await prisma.deposit.findMany({
       where: { userId, ...(cursor ? { id: { lt: BigInt(cursor) } } : {}) },
@@ -82,6 +95,12 @@ depositsRouter.get('/', async (req, res, next) => {
 // GET /v1/deposits/:id
 depositsRouter.get('/:id', async (req, res, next) => {
   try {
+    // Validate id parameter
+    if (!req.params['id'] || !/^\d+$/.test(req.params['id'])) {
+      next(Errors.badRequest('Invalid deposit id'))
+      return
+    }
+
     const deposit = await prisma.deposit.findFirst({
       where: { id: BigInt(req.params['id']!), userId: BigInt(req.user!.user_id) },
     })

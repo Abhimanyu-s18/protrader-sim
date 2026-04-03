@@ -33,6 +33,7 @@ export const Errors = {
   duplicate: (field: string) => new AppError('DUPLICATE', `${field} already exists.`, 409),
   validation: (details: Record<string, unknown>) =>
     new AppError('VALIDATION_ERROR', 'Request validation failed.', 400, details),
+  badRequest: (message: string) => new AppError('BAD_REQUEST', message, 400),
   internal: () => new AppError('INTERNAL_ERROR', 'An unexpected error occurred.', 500),
 } as const
 

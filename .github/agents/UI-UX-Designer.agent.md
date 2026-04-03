@@ -16,29 +16,27 @@ argument-hint: >
   order placement flow for traders — instrument selection, direction (buy/sell), lot size input,
   leverage selector, stop loss/take profit optional fields, margin preview, and confirm button."
 tools:
-  [
-    vscode/memory,
-    vscode/runCommand,
-    vscode/vscodeAPI,
-    vscode/extensions,
-    vscode/askQuestions,
-    execute/getTerminalOutput,
-    execute/awaitTerminal,
-    execute/createAndRunTask,
-    execute/runInTerminal,
-    read/problems,
-    read/readFile,
-    read/viewImage,
-    read/terminalSelection,
-    read/terminalLastCommand,
-    edit/createDirectory,
-    edit/createFile,
-    edit/editFiles,
-    edit/rename,
-    search,
-    browser,
-    todo,
-  ]
+  - vscode/memory
+  - vscode/runCommand
+  - vscode/vscodeAPI
+  - vscode/extensions
+  - vscode/askQuestions
+  - execute/getTerminalOutput
+  - execute/awaitTerminal
+  - execute/createAndRunTask
+  - execute/runInTerminal
+  - read/problems
+  - read/readFile
+  - read/viewImage
+  - read/terminalSelection
+  - read/terminalLastCommand
+  - edit/createDirectory
+  - edit/createFile
+  - edit/editFiles
+  - edit/rename
+  - search
+  - browser
+  - todo
 ---
 
 # UI/UX Designer Agent — ProTraderSim

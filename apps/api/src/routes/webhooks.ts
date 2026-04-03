@@ -29,6 +29,11 @@ webhooksRouter.post('/nowpayments', async (req, res, next) => {
       order_id: string
     }
 
+    if (!payment_id || !payment_status || !pay_currency || !order_id) {
+      res.status(400).json({ error: 'Missing required fields' })
+      return
+    }
+
     if (payment_status === 'finished' || payment_status === 'confirmed') {
       const deposit = await prisma.deposit.findUnique({ where: { nowpaymentsInvoiceId: order_id } })
       if (!deposit || deposit.status === 'COMPLETED') {

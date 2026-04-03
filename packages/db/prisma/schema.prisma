@@ -594,6 +594,7 @@ model LegalDocument {
   isActive      Boolean  @default(true) @map("is_active")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
 
+  @@unique([documentType])
   @@index([documentType, isActive])
   @@map("legal_documents")
 }

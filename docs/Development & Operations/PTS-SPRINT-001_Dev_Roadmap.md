@@ -265,7 +265,7 @@ All templates are React Email components rendered server-side and sent via Resen
 
 **Notification History & Retention:**
 
-- All notifications stored in `notifications` table (user_id, type, created_at, status, dispatched_channels, read_at )
+- All notifications stored in `notifications` table (user_id, type, created_at, status, dispatched_channels, read_at)
 - Retention: keep all records for 12 months; then archive to cold storage (S3 Glacier)
 - UI: "Notification Center" page shows user's last 100 notifications with filtering by type/channel/date range and search
 - Download: users can download full notification history as CSV for compliance/audit

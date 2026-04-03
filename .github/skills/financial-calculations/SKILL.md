@@ -329,7 +329,7 @@ async openPosition(
   // 2. Determine open rate (mid for better UX)
   // Assuming prices.mid is a regular number from API (e.g., 1.08500)
   // SAFE CONVERSION: Convert via string to avoid floating-point arithmetic
-  const openRateScaled = priceToScaled(prices.mid.toString())
+  const openRateScaled = priceToScaled(prices.mid)
 
   // 3. Calculate margin required
   const marginCents = (

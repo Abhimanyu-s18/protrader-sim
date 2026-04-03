@@ -31,8 +31,6 @@ export function getRedis(): Redis {
 // ── Price cache helpers ───────────────────────────────────────────
 const PRICE_TTL_SECONDS = 60
 
-export type PriceScaled = z.infer<typeof priceScaledSchema>
-
 const priceScaledSchema = z.object({
   bid_scaled: z.string(),
   ask_scaled: z.string(),
@@ -40,6 +38,8 @@ const priceScaledSchema = z.object({
   change_bps: z.string(),
   ts: z.string(),
 })
+
+export type PriceScaled = z.infer<typeof priceScaledSchema>
 
 export async function setCachedPrice(symbol: string, price: PriceScaled): Promise<void> {
   const redis = getRedis()

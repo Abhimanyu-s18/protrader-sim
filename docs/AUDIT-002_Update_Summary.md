@@ -23,7 +23,7 @@ A thorough review of the actual codebase was conducted against all documented re
 | Layer                | Audit v2.0 Claim        | Actual Codebase Status        | Correction                                                                                            |
 | -------------------- | ----------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Database Schema      | 17 models, 14 enums     | 16 models, 23 enums           | Corrected count                                                                                       |
-| API Backend          | 41 endpoints, 85%       | 47 endpoints, 95%             | Partial-close, admin, IB routes all implemented                                                       |
+| API Backend          | 41 endpoints, 85%       | 59 endpoints, 95%             | Partial-close, admin, IB routes all implemented                                                       |
 | Financial Engine     | 95%                     | 100%                          | All calculations, precision tests, edge cases covered                                                 |
 | Background Workers   | 8%, 0 active workers    | 45%                           | Rollover worker fully implemented with batch pagination, idempotency guards, SSI transactions         |
 | Market Data Pipeline | 15%, no live feed       | 85%                           | Twelve Data WebSocket → Redis → Socket.io fully implemented (1047 lines in `services/market-data.ts`) |
@@ -137,7 +137,7 @@ testTimeout: 5000,
 | P0 task accuracy   | 6 tasks marked TODO  | 6 tasks correctly marked DONE, 0 remaining |
 | Completion status  | Underestimated (40%) | Accurate (~55% — API 95%, Frontend 0%)     |
 | Bug inventory      | 7 bugs listed        | 7 resolved, 2 new (CI test gaps)           |
-| API endpoint count | 41                   | 47                                         |
+| API endpoint count | 41                   | 59                                         |
 | Test file count    | 3                    | 4 (~1776 LOC)                              |
 | Workers status     | "0 active"           | Rollover worker implemented                |
 | Market data status | "No live feed"       | Full WebSocket pipeline implemented        |

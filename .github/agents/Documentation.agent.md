@@ -69,6 +69,8 @@ Content-Type: application/json
 }
 ```
 
+````
+
 **Request Body Fields**:
 
 | Field            | Type    | Required | Validation   | Description                             |
@@ -152,7 +154,7 @@ ON_HOLD → APPROVED → PROCESSING → COMPLETED
  * })
  */
 async openPosition(traderId: string, input: OpenPositionInput): Promise<Position>
-````
+```
 
 ---
 
@@ -249,16 +251,18 @@ market-data.service.ts
 ↓
 Redis PUBLISH "price_updates"
 
-- Redis SET price:{symbol}
-  ↓
-  Socket.io Redis Adapter
-  (all server instances subscribed)
-  ↓
-  Socket.io rooms: "instrument:{symbol}"
-  ↓
-  Connected Trader Browsers
+Redis persistence flow:
+Redis SET price:{symbol}
 
-```
+Realtime Socket.io flow:
+Socket.io Redis Adapter
+(all server instances subscribed)
+↓
+Socket.io rooms: "instrument:{symbol}"
+↓
+Connected Trader Browsers
+
+`````
 
 ### Why This Design
 - **Redis as message bus**: Decouples price ingestion from Socket.io delivery. Multiple
@@ -291,3 +295,5 @@ Redis PUBLISH "price_updates"
 - [ ] New env variables documented in .env.example with a comment
 - [ ] README setup steps tested on a clean machine / clean clone
 - [ ] Status flows shown as diagrams (Mermaid or ASCII art)
+````
+`````

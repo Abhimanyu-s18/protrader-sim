@@ -9,7 +9,27 @@ interface PriceDisplayProps {
   direction?: 'up' | 'down' | 'neutral'
 }
 
-export function PriceDisplay({ value, className, direction = 'neutral' }: PriceDisplayProps) {
+export function PriceDisplay({
+  value,
+  className,
+  flash = false,
+  direction = 'neutral',
+}: PriceDisplayProps) {
+  const [isFlashing, setIsFlashing] = React.useState(false)
+  const prevValueRef = React.useRef(value)
+
+  React.useEffect(() => {
+    if (flash && value !== prevValueRef.current) {
+      setIsFlashing(true)
+      const timer = setTimeout(() => {
+        setIsFlashing(false)
+      }, 300)
+      prevValueRef.current = value
+      return () => clearTimeout(timer)
+    }
+    prevValueRef.current = value
+  }, [value, flash])
+
   return (
     <span
       className={cn(
@@ -17,6 +37,7 @@ export function PriceDisplay({ value, className, direction = 'neutral' }: PriceD
         direction === 'up' && 'text-buy',
         direction === 'down' && 'text-sell',
         direction === 'neutral' && 'text-dark',
+        isFlashing && 'bg-yellow-100 transition-colors duration-300 dark:bg-yellow-900/30',
         className,
       )}
     >

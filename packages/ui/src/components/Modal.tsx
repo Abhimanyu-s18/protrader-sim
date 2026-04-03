@@ -35,6 +35,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
           <button
             onClick={onClose}
             className="text-dark-400 hover:text-dark ml-auto transition-colors"
+            aria-label="Close modal"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path

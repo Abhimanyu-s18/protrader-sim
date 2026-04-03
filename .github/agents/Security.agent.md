@@ -17,22 +17,20 @@ argument-hint: >
   Cloudflare R2, admin reviews and approves/rejects. Check for file validation, access
   control, and PII handling."
 tools:
-  [
-    vscode/memory,
-    vscode/resolveMemoryFileUri,
-    vscode/runCommand,
-    vscode/vscodeAPI,
-    vscode/askQuestions,
-    execute/getTerminalOutput,
-    execute/awaitTerminal,
-    execute/killTerminal,
-    execute/createAndRunTask,
-    execute/runInTerminal,
-    read,
-    search,
-    web,
-    todo,
-  ]
+  - vscode/memory
+  - vscode/resolveMemoryFileUri
+  - vscode/runCommand
+  - vscode/vscodeAPI
+  - vscode/askQuestions
+  - execute/getTerminalOutput
+  - execute/awaitTerminal
+  - execute/killTerminal
+  - execute/createAndRunTask
+  - execute/runInTerminal
+  - read
+  - search
+  - web
+  - todo
 ---
 
 # Security Agent — ProTraderSim

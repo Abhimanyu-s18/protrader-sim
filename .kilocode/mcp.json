@@ -17,7 +17,7 @@
     },
     "git": {
       "command": "uvx",
-      "args": ["mcp-server-git", "--repository", "/Users/krishan/Developer/protrader-sim"]
+      "args": ["mcp-server-git", "--repository", "${REPO_PATH}"]
     },
     "memory": {
       "command": "npx",

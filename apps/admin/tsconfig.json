@@ -1,6 +1,7 @@
 {
   "extends": "@protrader/config/tsconfig/nextjs",
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": { "@/*": ["./src/*"] }
   },

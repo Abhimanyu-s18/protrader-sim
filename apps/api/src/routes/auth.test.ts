@@ -6,22 +6,14 @@ import { getRedis } from '../lib/redis.js'
 const agent = request.agent(app)
 
 async function cleanupTestData() {
-  // Get test users before deleting to derive Redis key patterns
-  const testUsers = await prisma.user.findMany({
-    where: { email: { startsWith: 'test-' } },
-    select: { id: true, email: true },
-  })
-
+  // Delete test user sessions first
   await prisma.session.deleteMany({ where: { user: { email: { startsWith: 'test-' } } } })
   await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
 
   const redis = getRedis()
 
-  // Clean up test-related Redis keys
-  const patterns = ['test:*']
-  for (const user of testUsers) {
-    patterns.push(`session:*${user.id}*`, `user:${user.id}:*`, `*${user.email}*`)
-  }
+  // Clean up test-related Redis keys (only auth-specific patterns)
+  const patterns = ['email_verify:*', 'pwd_reset:*']
 
   for (const pattern of patterns) {
     const stream = redis.scanStream({ match: pattern, count: 100 })

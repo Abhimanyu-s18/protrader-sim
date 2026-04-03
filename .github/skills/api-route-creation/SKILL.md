@@ -237,7 +237,7 @@ authorize(['TRADER'], (req, user) => {
 
 ## ✅ Input Validation (Zod)
 
-### Schema Definitions
+### Validation Middleware
 
 ### Schema Definitions
 

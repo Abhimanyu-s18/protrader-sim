@@ -37,6 +37,16 @@ ibRouter.get('/commissions', async (req, res, next) => {
     const { status, cursor, limit = '50' } = req.query as Record<string, string>
     const take = Math.min(parseInt(limit, 10), 200)
 
+    // Validate status
+    if (status && !['PENDING', 'PAID'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status parameter' })
+    }
+
+    // Validate cursor
+    if (cursor && !/^\d+$/.test(cursor)) {
+      return res.status(400).json({ error: 'Invalid cursor parameter' })
+    }
+
     const commissions = await prisma.ibCommission.findMany({
       where: {
         agentId,
@@ -59,7 +69,7 @@ ibRouter.get('/commissions', async (req, res, next) => {
     })
     const hasMore = commissions.length > take
     const data = hasMore ? commissions.slice(0, take) : commissions
-    res.json(
+    return res.json(
       serializeBigInt({
         data,
         next_cursor: hasMore ? data[data.length - 1]?.id.toString() : null,
@@ -168,20 +178,37 @@ ibRouter.get('/agents', requireRole('IB_TEAM_LEADER', 'SUPER_ADMIN'), async (req
         createdAt: true,
       },
     })
-    const enriched = await Promise.all(
-      agents.map(async (agent) => {
-        const traderCount = await prisma.user.count({ where: { agentId: agent.id } })
-        const commSum = await prisma.ibCommission.aggregate({
-          where: { agentId: agent.id },
-          _sum: { amountCents: true },
-        })
-        return {
-          ...agent,
-          trader_count: traderCount,
-          total_commission_cents: (commSum._sum.amountCents ?? 0n).toString(),
-        }
+
+    // Fetch all trader counts and commission sums in parallel
+    const agentIds = agents.map((a) => a.id)
+    const [traderCounts, commissionSums] = await Promise.all([
+      prisma.user.groupBy({
+        by: ['agentId'],
+        where: { agentId: { in: agentIds } },
+        _count: true,
       }),
+      prisma.ibCommission.groupBy({
+        by: ['agentId'],
+        where: { agentId: { in: agentIds } },
+        _sum: { amountCents: true },
+      }),
+    ])
+
+    const validTraderCounts = traderCounts.filter((tc) => tc.agentId != null)
+    const validCommissionSums = commissionSums.filter((cs) => cs.agentId != null)
+
+    const traderCountMap = new Map(
+      validTraderCounts.map((tc) => [tc.agentId.toString(), tc._count]),
     )
+    const commissionSumMap = new Map(
+      validCommissionSums.map((cs) => [cs.agentId.toString(), cs._sum.amountCents ?? 0n]),
+    )
+
+    const enriched = agents.map((agent) => ({
+      ...agent,
+      trader_count: traderCountMap.get(agent.id.toString()) ?? 0,
+      total_commission_cents: (commissionSumMap.get(agent.id.toString()) ?? 0n).toString(),
+    }))
     res.json(serializeBigInt(enriched))
   } catch (err) {
     next(err)

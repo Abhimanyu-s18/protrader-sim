@@ -811,22 +811,18 @@ async function main() {
   ]
 
   for (const doc of legalDocs) {
-    await prisma.legalDocument
-      .upsert({
-        where: { id: 0 as unknown as bigint },
-        update: {},
-        create: {
-          documentName: doc.documentName,
-          documentType: doc.documentType,
-          r2Key: `legal/${doc.documentType}_v${doc.version}.pdf`,
-          version: doc.version,
-          effectiveDate: new Date('2026-01-01'),
-          isActive: true,
-        },
-      })
-      .catch(() => {
-        // Already exists, skip
-      })
+    await prisma.legalDocument.upsert({
+      where: { documentType: doc.documentType },
+      update: {},
+      create: {
+        documentName: doc.documentName,
+        documentType: doc.documentType,
+        r2Key: `legal/${doc.documentType}_v${doc.version}.pdf`,
+        version: doc.version,
+        effectiveDate: new Date('2026-01-01'),
+        isActive: true,
+      },
+    })
   }
 
   // Count final seeded records

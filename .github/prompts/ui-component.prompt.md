@@ -55,13 +55,43 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       className={cn(componentVariants({ variant, size }), className)}
       ref={ref}
       disabled={disabled || loading}
+      aria-busy={loading}
+      {...(loading && { 'aria-live': 'polite' })}
       {...props}
     >
-      {loading ? '...' : children}
+      <span className="flex items-center gap-2">
+        {loading && <span className="loader" aria-hidden="true" />}
+        {children}
+      </span>
+      {loading && <span className="sr-only">Loading…</span>}
     </button>
   ),
 )
 Button.displayName = 'Button'
+```
+
+## Loading Spinner Styles
+
+The template uses a `.loader` CSS class for the loading spinner. Add these styles to your global CSS file or component-scoped styles:
+
+```css
+.loader {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
 ```
 
 ## Design System Tokens

@@ -197,15 +197,15 @@ When one or more checklist items fail:
 
 **Rejection reason codes:**
 
-| Code                 | When to Use                                                                                                       |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
-| `DOC_QUALITY_POOR`   | Blurry, glare, shadows, cut-off corners, unreadable text                                                          |
-| `DOC_EXPIRED`        | Document expiry date has passed                                                                                   |
-| `NAME_MISMATCH`      | Name on document does not match registered name                                                                   |
-| `ADDRESS_MISMATCH`   | Address on document does not match registered address                                                             |
-| `DOC_OUTDATED`       | Address document is older than the accepted timeframe (3 months, or up to 12 months for Local Authority Tax Bill) | "Your address document is dated more than the accepted timeframe. Please submit a document issued within the last 3 months (or 12 months for Local Authority Tax Bill)." | kyc_status → REQUIRES_RESUBMIT |
-| `PARTIAL_VISIBILITY` | Required fields, corners, or sections not fully visible                                                           |
-| `UNSUPPORTED_TYPE`   | Document type is not on the accepted list                                                                         |
+| Code                 | When to Use                                                                                                                                                                                                                                                                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DOC_QUALITY_POOR`   | Blurry, glare, shadows, cut-off corners, unreadable text                                                                                                                                                                                                                                                                                            |
+| `DOC_EXPIRED`        | Document expiry date has passed                                                                                                                                                                                                                                                                                                                     |
+| `NAME_MISMATCH`      | Name on document does not match registered name                                                                                                                                                                                                                                                                                                     |
+| `ADDRESS_MISMATCH`   | Address on document does not match registered address                                                                                                                                                                                                                                                                                               |
+| `DOC_OUTDATED`       | Address document is older than the accepted timeframe (3 months, or up to 12 months for Local Authority Tax Bill). Example message: "Your address document is dated more than the accepted timeframe. Please submit a document issued within the last 3 months (or 12 months for Local Authority Tax Bill)." Status: kyc_status → REQUIRES_RESUBMIT |
+| `PARTIAL_VISIBILITY` | Required fields, corners, or sections not fully visible                                                                                                                                                                                                                                                                                             |
+| `UNSUPPORTED_TYPE`   | Document type is not on the accepted list                                                                                                                                                                                                                                                                                                           |
 
 > **Never use `PEP_MATCH` in the rejection UI.** If you suspect a PEP or sanctions match, stop the review and call Krishantha immediately. See Section 11.2.
 
@@ -299,6 +299,8 @@ If a trader makes or attempts a deposit greater than $10,000 USD while their KYC
 4. Continue the KYC review normally — do not delay it because of the deposit
 
 ### 11.4 Escalation Contact Reference
+
+**DRAFT - NOT FOR OPERATIONAL USE** - Contact information below contains placeholders and must be verified before use.
 
 | Situation                  | Primary Contact                                                                                                                       | Method                            | Timeframe           |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------- |

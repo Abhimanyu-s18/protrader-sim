@@ -60,11 +60,10 @@ ProTraderSim is a multi-asset offshore CFD simulation trading platform with an I
 
 **REMAINING:**
 
-8. ~~**Test coverage not in CI**~~ — **FIXED**: Tests integrated into CI (4 files, ~1776 LOC), coverage thresholds enforced (80% global, 100% financial calculations)
-9. **All 5 frontend apps empty** — No UI components, no pages, 0% complete
-10. **No email templates** — 0 of 21 templates implemented
-11. **NowPayments API not called** — Deposit creation TODO, webhook handler only
-12. **Forex swap rates incomplete** — 6 pairs have placeholder values
+8. **All 5 frontend apps empty** — No UI components, no pages, 0% complete
+9. **No email templates** — 0 of 21 templates implemented
+10. **NowPayments API not called** — Deposit creation TODO, webhook handler only
+11. **Forex swap rates incomplete** — 6 pairs have placeholder values
 
 ---
 
@@ -1111,6 +1110,8 @@ docs: update trading calculations spec for swap rates
   - Commit message must reference this decision
   - All changes must pass lint and typecheck before commit
   - Safe because there are no parallel development conflicts
+  - **Re-evaluation trigger:** This exception must be re-evaluated when team size or activity increases (e.g., when new maintainers are added or parallel development begins)
+  - **Recommended interim practice:** Use PR-based workflows and CI gate checks even for solo commits to maintain consistency and catch issues early
 
 **Code Review:**
 
