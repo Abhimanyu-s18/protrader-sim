@@ -39,12 +39,14 @@ ibRouter.get('/commissions', async (req, res, next) => {
 
     // Validate status
     if (status && !['PENDING', 'PAID'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status parameter' })
+      res.status(400).json({ error: 'Invalid status parameter' })
+      return
     }
 
     // Validate cursor
     if (cursor && !/^\d+$/.test(cursor)) {
-      return res.status(400).json({ error: 'Invalid cursor parameter' })
+      res.status(400).json({ error: 'Invalid cursor parameter' })
+      return
     }
 
     const commissions = await prisma.ibCommission.findMany({
@@ -69,7 +71,7 @@ ibRouter.get('/commissions', async (req, res, next) => {
     })
     const hasMore = commissions.length > take
     const data = hasMore ? commissions.slice(0, take) : commissions
-    return res.json(
+    res.json(
       serializeBigInt({
         data,
         next_cursor: hasMore ? data[data.length - 1]?.id.toString() : null,
@@ -198,10 +200,10 @@ ibRouter.get('/agents', requireRole('IB_TEAM_LEADER', 'SUPER_ADMIN'), async (req
     const validCommissionSums = commissionSums.filter((cs) => cs.agentId != null)
 
     const traderCountMap = new Map(
-      validTraderCounts.map((tc) => [tc.agentId.toString(), tc._count]),
+      validTraderCounts.map((tc) => [tc.agentId!.toString(), tc._count]),
     )
     const commissionSumMap = new Map(
-      validCommissionSums.map((cs) => [cs.agentId.toString(), cs._sum.amountCents ?? 0n]),
+      validCommissionSums.map((cs) => [cs.agentId!.toString(), cs._sum.amountCents ?? 0n]),
     )
 
     const enriched = agents.map((agent) => ({

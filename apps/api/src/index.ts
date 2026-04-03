@@ -24,13 +24,16 @@ import { webhooksRouter } from './routes/webhooks.js'
 
 import { errorHandler } from './middleware/errorHandler.js'
 import { requestLogger } from './middleware/requestLogger.js'
-import { registerSocketHandlers } from './lib/socket.js'
+import { registerSocketHandlers, setSocketServer } from './lib/socket.js'
 import { prisma } from './lib/prisma.js'
 import { getRedis } from './lib/redis.js'
 import { createLogger } from './lib/logger.js'
 import { scheduleRecurringJobs } from './lib/queues.js'
 import { startMarketData, stopMarketData } from './services/market-data.js'
 import './workers/rollover.js'
+import './workers/email.js'
+import './workers/notification.js'
+import './workers/kyc-reminder.js'
 
 const log = createLogger('server')
 
@@ -63,6 +66,7 @@ export function initSocketServer(server: Server): SocketIOServer {
     })
 
     registerSocketHandlers(socketIO)
+    setSocketServer(socketIO)
   }
 
   return socketIO

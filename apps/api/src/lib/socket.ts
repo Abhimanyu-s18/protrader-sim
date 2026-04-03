@@ -57,6 +57,20 @@ export function registerSocketHandlers(io: SocketIOServer): void {
   })
 }
 
+// ── Server reference (set once on startup, accessed by workers/services) ─────
+
+let _io: SocketIOServer | null = null
+
+/** Called by index.ts after the Socket.io server is created. */
+export function setSocketServer(io: SocketIOServer): void {
+  _io = io
+}
+
+/** Returns the active Socket.io server, or null before startup. */
+export function getSocketIO(): SocketIOServer | null {
+  return _io
+}
+
 // ── Emit helpers (used by services) ──────────────────────────────
 
 // Broadcast price update to all subscribers of a symbol

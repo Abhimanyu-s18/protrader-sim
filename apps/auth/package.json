@@ -10,22 +10,25 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@protrader/ui": "workspace:*",
+    "@hookform/resolvers": "^3.9.0",
     "@protrader/types": "workspace:*",
+    "@protrader/ui": "workspace:*",
     "@protrader/utils": "workspace:*",
+    "axios": "^1.7.7",
     "next": "15.0.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.0",
-    "@hookform/resolvers": "^3.9.0",
-    "zod": "^3.23.8",
-    "axios": "^1.7.7"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@protrader/config": "workspace:*",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.15",
     "typescript": "^5.6.0"
   }
 }

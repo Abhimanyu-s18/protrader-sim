@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter @protrader/api typecheck)",
+      "Bash(npx pnpm:*)",
+      "Bash(/Users/krishan/.local/share/pnpm/pnpm --filter @protrader/api typecheck)",
+      "Read(//Users/krishan/.local/share/**)",
+      "Read(//usr/local/bin/**)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(/opt/homebrew/bin/node --version)",
+      "Bash(/Users/krishan/.nvm/versions/node/v24.14.0/bin/node --version)",
+      "Bash(/Users/krishan/.nvm/versions/node/v24.14.0/bin/npx --version)",
+      "Bash(NODE_BIN=/Users/krishan/.nvm/versions/node/v24.14.0/bin)",
+      "Bash($NODE_BIN/node --version)",
+      "Read(//Users/krishan/Developer/protrader-sim/lib/node_modules/**)",
+      "Bash(NODE=/Users/krishan/.nvm/versions/node/v24.14.0/bin/node)",
+      "Bash($NODE /Users/krishan/Developer/protrader-sim/node_modules/.bin/tsc -p /Users/krishan/Developer/protrader-sim/apps/api/tsconfig.json --noEmit)",
+      "Bash($NODE /Users/krishan/Developer/protrader-sim/apps/api/node_modules/typescript/bin/tsc -p /Users/krishan/Developer/protrader-sim/apps/api/tsconfig.json --noEmit)",
+      "Bash($NODE /Users/krishan/Developer/protrader-sim/node_modules/typescript/bin/tsc -p /Users/krishan/Developer/protrader-sim/apps/api/tsconfig.json --noEmit)",
+      "Bash($NODE /Users/krishan/Developer/protrader-sim/apps/api/node_modules/typescript/bin/tsc --version)",
+      "Bash($NODE apps/api/node_modules/typescript/bin/tsc -p apps/api/tsconfig.json --noEmit)",
+      "Bash(sh /Users/krishan/Developer/protrader-sim/apps/api/node_modules/.bin/tsc -p /Users/krishan/Developer/protrader-sim/apps/api/tsconfig.json --noEmit)",
+      "Bash(NODE_PATH=/Users/krishan/.nvm/versions/node/v24.14.0/bin)",
+      "Bash($NODE_PATH/node /Users/krishan/Developer/protrader-sim/apps/api/node_modules/typescript/bin/tsc --version)",
+      "Bash($NODE_PATH/node /Users/krishan/Developer/protrader-sim/apps/api/node_modules/typescript/bin/tsc -p /Users/krishan/Developer/protrader-sim/apps/api/tsconfig.json --noEmit)",
+      "Bash(/Users/krishan/.nvm/versions/node/v24.14.0/bin/node /Users/krishan/Developer/protrader-sim/node_modules/typescript/bin/tsc --version)",
+      "Bash(PATH=\"/Users/krishan/.nvm/versions/node/v24.14.0/bin:$PATH\" node -e \"console.log\\(''node works''\\)\")",
+      "Bash(PATH=\"/Users/krishan/.nvm/versions/node/v24.14.0/bin:$PATH\")",
+      "Bash(node --eval \"require\\(''child_process''\\).execSync\\(''corepack pnpm --version'', {stdio:''inherit''}\\)\")",
+      "Bash(PATH=\"/Users/krishan/.nvm/versions/node/v24.14.0/bin:$PATH\" corepack pnpm --filter @protrader/api typecheck)",
+      "Bash(PATH=\"/Users/krishan/.nvm/versions/node/v24.14.0/bin:$PATH\" corepack pnpm --filter @protrader/api test)"
+    ]
+  }
+}

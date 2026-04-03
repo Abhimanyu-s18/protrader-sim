@@ -1,7 +1,10 @@
 import { Router, type Router as ExpressRouter } from 'express'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
+import { createLogger } from '../lib/logger.js'
 import crypto from 'crypto'
+
+const log = createLogger('webhooks')
 
 export const webhooksRouter: ExpressRouter = Router()
 
@@ -9,17 +12,30 @@ export const webhooksRouter: ExpressRouter = Router()
 // NowPayments IPN webhook — payment status updates
 webhooksRouter.post('/nowpayments', async (req, res, next) => {
   try {
+    const ipnSecret = process.env['NOWPAYMENTS_IPN_SECRET']
+    if (!ipnSecret) {
+      log.error('NOWPAYMENTS_IPN_SECRET is not configured — rejecting webhook')
+      res.status(503).json({ error: 'Webhook endpoint not configured' })
+      return
+    }
+
     const signature = req.headers['x-nowpayments-sig'] as string | undefined
-    const ipnSecret = process.env['NOWPAYMENTS_IPN_SECRET'] ?? ''
+    if (!signature) {
+      res.status(401).json({ error: 'Missing signature' })
+      return
+    }
 
     // Verify HMAC-SHA512 signature
-    if (signature && ipnSecret) {
-      const payload = JSON.stringify(req.body, Object.keys(req.body as object).sort())
-      const expectedSig = crypto.createHmac('sha512', ipnSecret).update(payload).digest('hex')
-      if (signature !== expectedSig) {
-        res.status(401).json({ error: 'Invalid signature' })
-        return
-      }
+    const payload = JSON.stringify(req.body, Object.keys(req.body as object).sort())
+    const expectedSig = crypto.createHmac('sha512', ipnSecret).update(payload).digest('hex')
+    const sigBuffer = Buffer.from(signature, 'hex')
+    const expectedBuffer = Buffer.from(expectedSig, 'hex')
+    if (
+      sigBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+    ) {
+      res.status(401).json({ error: 'Invalid signature' })
+      return
     }
 
     const { payment_id, payment_status, pay_currency, order_id } = req.body as {

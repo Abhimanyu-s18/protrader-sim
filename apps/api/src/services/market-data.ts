@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import WebSocket from 'ws'
 import { prisma, withSerializableRetry } from '../lib/prisma.js'
-import { getRedis, setCachedPrice, removeMarginWatch, addMarginWatch } from '../lib/redis.js'
+import { getRedis, getCachedPrice, setCachedPrice, removeMarginWatch, addMarginWatch } from '../lib/redis.js'
 import {
   calcBidAsk,
   calcPnlCents,
@@ -496,11 +496,12 @@ async function processTick(tick: TickData): Promise<void> {
   }
 
   // Run price-triggered checks in parallel
-  const checkNames = ['checkStopLossTakeProfit', 'checkEntryOrders', 'checkAlerts']
+  const checkNames = ['checkStopLossTakeProfit', 'checkEntryOrders', 'checkAlerts', 'checkMarginLevels']
   const results = await Promise.allSettled([
     checkStopLossTakeProfit(inst, bidScaled, askScaled),
     checkEntryOrders(inst, bidScaled, askScaled),
     checkAlerts(inst, midScaled),
+    checkMarginLevels(inst, bidScaled, askScaled),
   ])
 
   // Log any rejected checks instead of silently swallowing errors
@@ -537,6 +538,209 @@ export function getMarketDataStatus(): {
     connected: isRunning && ws !== null && ws.readyState === WebSocket.OPEN,
     subscribedSymbols: instrumentMap.size,
     reconnectAttempts,
+  }
+}
+
+// ── Margin Call / Stop-Out Checks ─────────────────────────────
+
+/**
+ * Check margin levels for all users watching this instrument.
+ * On each price tick, re-evaluate account equity vs used margin.
+ *
+ * - margin level < instrument.marginCallBps → emit margin:call + notify
+ * - margin level < instrument.stopOutBps   → force-close the most losing open trade
+ */
+async function checkMarginLevels(
+  inst: InstrumentInfo,
+  bidScaled: bigint,
+  askScaled: bigint,
+): Promise<void> {
+  const redis = getRedis()
+  const userIds = await redis.smembers(`margin_watch:${inst.id}`)
+  if (userIds.length === 0) return
+
+  for (const userId of userIds) {
+    try {
+      await checkUserMarginLevel(userId, inst, bidScaled, askScaled)
+    } catch (err) {
+      log.error({ err, userId, symbol: inst.symbol }, 'Failed to check margin level for user')
+    }
+  }
+}
+
+/**
+ * Compute a single user's account equity and margin level across all open trades.
+ * Closes the largest losing trade if margin level falls below stopOutBps.
+ * Emits margin:call if margin level falls below marginCallBps.
+ */
+async function checkUserMarginLevel(
+  userIdStr: string,
+  triggerInst: InstrumentInfo,
+  _bidScaled: bigint,
+  _askScaled: bigint,
+): Promise<void> {
+  const userId = BigInt(userIdStr)
+
+  // Fetch balance and all open trades in one pass
+  const [[balanceRow], openTrades] = await Promise.all([
+    prisma.$queryRaw<[{ balance_cents: bigint }]>`
+      SELECT get_user_balance(${userId}) AS balance_cents
+    `,
+    prisma.trade.findMany({
+      where: { userId, status: 'OPEN' },
+      include: {
+        instrument: {
+          select: {
+            id: true,
+            symbol: true,
+            contractSize: true,
+            spreadPips: true,
+            pipDecimalPlaces: true,
+            marginCallBps: true,
+            stopOutBps: true,
+          },
+        },
+      },
+    }),
+  ])
+
+  if (openTrades.length === 0) {
+    await removeMarginWatch(triggerInst.id, userIdStr)
+    return
+  }
+
+  const balance = balanceRow?.balance_cents ?? 0n
+
+  // Compute real-time unrealized P&L using latest cached prices
+  let totalUnrealizedPnl = 0n
+  let totalUsedMargin = 0n
+  let mostLosingTradeId: bigint | null = null
+  let mostLosingPnl = 0n
+
+  for (const trade of openTrades) {
+    const cached = await getCachedPrice(trade.instrument.symbol)
+    if (!cached) {
+      // Use stale unrealizedPnlCents from DB if no live price available
+      totalUnrealizedPnl += trade.unrealizedPnlCents
+      totalUsedMargin += trade.marginRequiredCents
+      continue
+    }
+
+    const tradeMid = BigInt(cached.mid_scaled)
+    const { bidScaled: tradeBid, askScaled: tradeAsk } = calcBidAsk(
+      tradeMid,
+      trade.instrument.spreadPips,
+      trade.instrument.pipDecimalPlaces,
+    )
+    const currentPrice = trade.direction === 'BUY' ? tradeBid : tradeAsk
+    const pnl = calcPnlCents(
+      trade.direction,
+      trade.openRateScaled,
+      currentPrice,
+      trade.units,
+      trade.instrument.contractSize,
+    )
+
+    totalUnrealizedPnl += pnl
+    totalUsedMargin += trade.marginRequiredCents
+
+    if (pnl < mostLosingPnl) {
+      mostLosingPnl = pnl
+      mostLosingTradeId = trade.id
+    }
+  }
+
+  if (totalUsedMargin === 0n) return
+
+  const equityCents = balance + totalUnrealizedPnl
+  const marginLevelBps = (equityCents * 10000n) / totalUsedMargin
+
+  // Use the triggered instrument's thresholds as the reference
+  const marginCallBps = triggerInst.marginCallBps
+  const stopOutBps = triggerInst.stopOutBps
+
+  if (marginLevelBps <= stopOutBps) {
+    // Stop-out: force-close the most losing trade
+    if (mostLosingTradeId) {
+      const trade = openTrades.find((t) => t.id === mostLosingTradeId)
+      if (trade) {
+        const cached = await getCachedPrice(trade.instrument.symbol)
+        if (cached) {
+          const tradeMid = BigInt(cached.mid_scaled)
+          const { bidScaled, askScaled } = calcBidAsk(
+            tradeMid,
+            trade.instrument.spreadPips,
+            trade.instrument.pipDecimalPlaces,
+          )
+          const stopOutInstInfo: InstrumentInfo = {
+            id: trade.instrument.id.toString(),
+            symbol: trade.instrument.symbol,
+            twelveDataSymbol: trade.instrument.symbol,
+            contractSize: trade.instrument.contractSize,
+            leverage: 0, // not used in closeTradeWithReason
+            spreadPips: trade.instrument.spreadPips,
+            pipDecimalPlaces: trade.instrument.pipDecimalPlaces,
+            marginCallBps: trade.instrument.marginCallBps,
+            stopOutBps: trade.instrument.stopOutBps,
+          }
+          await closeTradeWithReason(trade, stopOutInstInfo, bidScaled, askScaled, 'STOP_OUT', userIdStr)
+          log.info(
+            { userId: userIdStr, tradeId: mostLosingTradeId.toString(), marginLevelBps: marginLevelBps.toString() },
+            'Stop-out executed',
+          )
+        }
+      }
+    }
+
+    if (ioRef) {
+      emitToUser(ioRef, userIdStr, 'margin:stop_out', {
+        margin_level_bps: marginLevelBps.toString(),
+        equity_cents: equityCents.toString(),
+        used_margin_cents: totalUsedMargin.toString(),
+      })
+    }
+
+    // Create stop-out notification
+    await prisma.notification.create({
+      data: {
+        userId,
+        type: 'STOP_OUT',
+        title: 'Stop Out Executed',
+        message: `Your margin level reached ${(marginLevelBps / 100n).toString()}%. A position has been closed to protect your account.`,
+      },
+    })
+  } else if (marginLevelBps <= marginCallBps) {
+    // Margin call: notify user but don't close yet
+    if (ioRef) {
+      emitToUser(ioRef, userIdStr, 'margin:call', {
+        margin_level_bps: marginLevelBps.toString(),
+        equity_cents: equityCents.toString(),
+        used_margin_cents: totalUsedMargin.toString(),
+      })
+    }
+
+    // Create margin call notification (throttle: only if no recent notification exists)
+    const recentNotification = await prisma.notification.findFirst({
+      where: {
+        userId,
+        type: 'MARGIN_CALL',
+        createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) }, // within last hour
+      },
+    })
+    if (!recentNotification) {
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: 'MARGIN_CALL',
+          title: 'Margin Call Warning',
+          message: `Your margin level is ${(marginLevelBps / 100n).toString()}%. Please deposit funds or close positions to avoid stop-out.`,
+        },
+      })
+      log.info(
+        { userId: userIdStr, marginLevelBps: marginLevelBps.toString() },
+        'Margin call notification sent',
+      )
+    }
   }
 }
 
@@ -668,7 +872,7 @@ async function closeTradeWithReason(
   inst: InstrumentInfo,
   bidScaled: bigint,
   askScaled: bigint,
-  closedBy: 'STOP_LOSS' | 'TAKE_PROFIT' | 'TRAILING_STOP',
+  closedBy: 'STOP_LOSS' | 'TAKE_PROFIT' | 'TRAILING_STOP' | 'STOP_OUT',
   userIdStr: string,
 ): Promise<void> {
   const userId = trade.userId ?? BigInt(userIdStr)
