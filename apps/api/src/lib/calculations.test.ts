@@ -84,6 +84,22 @@ describe('calcMarginCents', () => {
     const margin = calcMarginCents(0n, 100000, 108500n, 500)
     expect(margin).toBe(0n)
   })
+
+  it('should throw for negative units', () => {
+    expect(() => calcMarginCents(-1n, 100000, 108500n, 500)).toThrow('units must be non-negative')
+  })
+
+  it('should throw for zero leverage', () => {
+    expect(() => calcMarginCents(1n, 100000, 108500n, 0)).toThrow(
+      'leverage must be a positive number',
+    )
+  })
+
+  it('should throw for negative leverage', () => {
+    expect(() => calcMarginCents(1n, 100000, 108500n, -1)).toThrow(
+      'leverage must be a positive number',
+    )
+  })
 })
 
 describe('calcPnlCents', () => {
@@ -140,6 +156,10 @@ describe('calcMarginLevelBps', () => {
     // equity $1,000, used margin $2,000 → 50% margin level
     const level = calcMarginLevelBps(100000n, 200000n)
     expect(level).toBe(5000n)
+  })
+
+  it('should throw for negative usedMarginCents', () => {
+    expect(() => calcMarginLevelBps(1000000n, -1n)).toThrow('usedMarginCents must be non-negative')
   })
 })
 
@@ -548,6 +568,11 @@ describe('formatScaledPrice', () => {
   it('should default to 5 decimal places when pipDecimalPlaces omitted', () => {
     expect(formatScaledPrice(108500n)).toBe('1.08500')
     expect(formatScaledPrice(0n)).toBe('0.00000')
+  })
+
+  it('should handle negative prices', () => {
+    expect(formatScaledPrice(-108500n, 4)).toBe('-1.0850')
+    expect(formatScaledPrice(-1n, 4)).toBe('-0.0000')
   })
 })
 
