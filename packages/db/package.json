@@ -1,7 +1,7 @@
 {
-  "name": "@protrader/db",
-  "version": "0.0.1",
-  "private": true,
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "exports": {
     ".": "./src/index.ts"
   },

@@ -34,7 +34,26 @@
 
 ### ✅ Task B-04: Integrate Tests into CI Pipeline — COMPLETED
 
-**Verified:** `apps/api/package.json` test script includes `--coverage` and coverage collection. `apps/api/jest.config.cjs` includes coverage thresholds (100% for calculations.ts). `apps/api/src/routes/trades.test.ts` uses correct API endpoints (POST /v1/trades with order_type field). `.github/workflows/ci.yml` runs tests without `--passWithNoTests`.
+**Changes made:**
+
+1. `apps/api/package.json` — test script includes `--coverage` and `--collectCoverageFrom` flags
+2. `apps/api/jest.config.cjs` — coverage thresholds set (100% for `calculations.ts`)
+3. `apps/api/src/routes/trades.test.ts` — Fixed API contract mismatches:
+   - Changed `trade_id` → `id` (6 occurrences) to match Prisma's default field name
+   - Changed `response.body.data.items` → `response.body.data` (4 occurrences) to match actual GET /v1/trades response shape
+   - Changed `response.body.data.has_more` → `response.body.has_more` (2 occurrences)
+   - Changed `response.body.data.next_cursor` → `response.body.next_cursor` (1 occurrence)
+4. `.github/workflows/ci.yml` — verified test job configuration:
+   - PostgreSQL 17 and Redis 7 service containers
+   - Proper migration run before tests
+   - Environment variables set (DATABASE_URL, REDIS_URL, JWT keys)
+   - Runs via `pnpm turbo test`
+
+**Verification:**
+
+- Calculation tests pass with 100% coverage (59 tests, all passing)
+- Integration tests require CI infrastructure (PostgreSQL + Redis services)
+- Coverage thresholds enforced for `src/lib/calculations.ts`
 
 ### ✅ Task B-05: Fix Withdrawal Balance Calculation — COMPLETED
 

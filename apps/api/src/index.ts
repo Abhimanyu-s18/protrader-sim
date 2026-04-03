@@ -157,45 +157,48 @@ app.use(errorHandler)
 // ── Start ─────────────────────────────────────────────────────────
 const PORT = parseInt(process.env['PORT'] ?? '4000', 10)
 
-httpServer.listen(PORT, async () => {
-  log.info(
-    { port: PORT, env: process.env['NODE_ENV'] ?? 'development' },
-    'ProTraderSim API started, initializing critical services...',
-  )
-
-  try {
-    // Schedule BullMQ recurring jobs (rollover, PnL snapshot, KYC reminder)
-    log.info('Scheduling recurring jobs...')
-    await scheduleRecurringJobs()
-    log.info('Recurring jobs scheduled successfully')
-  } catch (err) {
-    const msg = `Failed to schedule recurring jobs: ${err instanceof Error ? err.message : String(err)}`
-    log.error({ err }, msg)
-    startupErrors.push(msg)
-  }
-
-  try {
-    // Start market data pipeline (Twelve Data WebSocket → Redis → Socket.io)
-    log.info('Starting market data pipeline...')
-    await startMarketData(io)
-    log.info('Market data pipeline started successfully')
-  } catch (err) {
-    const msg = `Failed to start market data pipeline: ${err instanceof Error ? err.message : String(err)}`
-    log.error({ err }, msg)
-    startupErrors.push(msg)
-  }
-
-  // Mark app as ready only if no startup errors occurred
-  if (startupErrors.length === 0) {
-    appReady = true
-    log.info('All critical services initialized successfully. Server is ready.')
-  } else {
-    log.warn(
-      { errors: startupErrors },
-      'Server started with warnings but is not ready for traffic.',
+// Only start the server if this file is run directly (not imported for testing)
+if (require.main === module) {
+  httpServer.listen(PORT, async () => {
+    log.info(
+      { port: PORT, env: process.env['NODE_ENV'] ?? 'development' },
+      'ProTraderSim API started, initializing critical services...',
     )
-  }
-})
+
+    try {
+      // Schedule BullMQ recurring jobs (rollover, PnL snapshot, KYC reminder)
+      log.info('Scheduling recurring jobs...')
+      await scheduleRecurringJobs()
+      log.info('Recurring jobs scheduled successfully')
+    } catch (err) {
+      const msg = `Failed to schedule recurring jobs: ${err instanceof Error ? err.message : String(err)}`
+      log.error({ err }, msg)
+      startupErrors.push(msg)
+    }
+
+    try {
+      // Start market data pipeline (Twelve Data WebSocket → Redis → Socket.io)
+      log.info('Starting market data pipeline...')
+      await startMarketData(io)
+      log.info('Market data pipeline started successfully')
+    } catch (err) {
+      const msg = `Failed to start market data pipeline: ${err instanceof Error ? err.message : String(err)}`
+      log.error({ err }, msg)
+      startupErrors.push(msg)
+    }
+
+    // Mark app as ready only if no startup errors occurred
+    if (startupErrors.length === 0) {
+      appReady = true
+      log.info('All critical services initialized successfully. Server is ready.')
+    } else {
+      log.warn(
+        { errors: startupErrors },
+        'Server started with warnings but is not ready for traffic.',
+      )
+    }
+  })
+}
 
 // ── Graceful Shutdown ─────────────────────────────────────────────
 let isShuttingDown = false

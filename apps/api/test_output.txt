@@ -1,0 +1,454 @@
+[06:04:00] [32mINFO[39m (42088): [36mConnected[39m
+    [35mmodule[39m: "redis"
+  console.log
+    prisma:error 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+    
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+      at Object.mc (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:21:432)
+
+  console.log
+    prisma:error 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:18:26
+    
+      15 
+      16 afterAll(async () => {
+      17   // Clean up
+    → 18   await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+      at Object.mc (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:21:432)
+
+FAIL src/routes/auth.test.ts
+  ● Auth API Integration Tests › POST /v1/auth/register › should register a new user successfully
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/register › should reject invalid email
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/register › should reject weak password
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/register › should reject duplicate email
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/login › should login successfully with correct credentials
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/login › should reject invalid credentials
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/login › should reject non-existent user
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/refresh › should refresh access token
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/refresh › should reject invalid refresh token
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/logout › should logout successfully
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/logout › should reject logout without auth
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/forgot-password › should accept forgot password request (anti-enumeration)
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/forgot-password › should accept non-existent email (anti-enumeration)
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/reset-password › should reject invalid token
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+  ● Auth API Integration Tests › POST /v1/auth/verify-email › should reject invalid token
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:11:26
+
+       8 describe('Auth API Integration Tests', () => {
+       9   beforeAll(async () => {
+      10     // Clean up test data
+    → 11     await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+       9 |   beforeAll(async () => {
+      10 |     // Clean up test data
+    > 11 |     await prisma.session.deleteMany()
+         |     ^
+      12 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      13 |     await getRedis().flushall()
+      14 |   })
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:11:5)
+
+
+  ● Test suite failed to run
+
+    PrismaClientInitializationError: 
+    Invalid `prisma.session.deleteMany()` invocation in
+    /Users/krishan/Developer/protrader-sim/apps/api/src/routes/auth.test.ts:18:26
+
+      15 
+      16 afterAll(async () => {
+      17   // Clean up
+    → 18   await prisma.session.deleteMany(
+    User `protrader` was denied access on the database `protrader_sim.public`
+
+      16 |   afterAll(async () => {
+      17 |     // Clean up
+    > 18 |     await prisma.session.deleteMany()
+         |     ^
+      19 |     await prisma.session.deleteMany()
+      20 |     await prisma.user.deleteMany({ where: { email: { startsWith: 'test-' } } })
+      21 |     await getRedis().flushall()
+
+      at $n.handleRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:7615)
+      at $n.handleAndLogRequestError (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6623)
+      at $n.request (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:121:6307)
+      at l (../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/runtime/library.js:130:9633)
+      at Object.<anonymous> (src/routes/auth.test.ts:18:5)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 14 skipped, 15 total
+Snapshots:   0 total
+Time:        2.467 s, estimated 3 s
+Ran all test suites matching /src\/routes\/auth.test.ts/i with tests matching "should register a new user".
+Jest did not exit one second after the test run has completed.
+
+'This usually means that there are asynchronous operations that weren't stopped in your tests. Consider running Jest with `--detectOpenHandles` to troubleshoot this issue.

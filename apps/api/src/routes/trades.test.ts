@@ -62,7 +62,7 @@ describe('Trades API Integration Tests', () => {
         })
         .expect(201)
 
-      expect(response.body.data).toHaveProperty('trade_id')
+      expect(response.body.data).toHaveProperty('id')
       expect(response.body.data).toHaveProperty('status', 'OPEN')
       expect(response.body.data).toHaveProperty('direction', 'BUY')
       expect(response.body.data).toHaveProperty('units', '1000')
@@ -121,7 +121,7 @@ describe('Trades API Integration Tests', () => {
         })
         .expect(201)
 
-      expect(response.body.data).toHaveProperty('trade_id')
+      expect(response.body.data).toHaveProperty('id')
       expect(response.body.data).toHaveProperty('status', 'PENDING')
       expect(response.body.data).toHaveProperty('order_type', 'ENTRY')
     })
@@ -156,7 +156,7 @@ describe('Trades API Integration Tests', () => {
           order_type: 'MARKET',
         })
 
-      tradeId = response.body.data.trade_id
+      tradeId = response.body.data.id
     })
 
     it('should close a trade successfully', async () => {
@@ -199,7 +199,7 @@ describe('Trades API Integration Tests', () => {
           order_type: 'MARKET',
         })
 
-      tradeId = response.body.data.trade_id
+      tradeId = response.body.data.id
     })
 
     it('should update stop loss and take profit', async () => {
@@ -243,7 +243,7 @@ describe('Trades API Integration Tests', () => {
           entry_rate: 1.085,
         })
 
-      entryOrderId = response.body.data.trade_id
+      entryOrderId = response.body.data.id
     })
 
     it('should cancel a pending entry order', async () => {
@@ -273,9 +273,9 @@ describe('Trades API Integration Tests', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200)
 
-      expect(Array.isArray(response.body.data.items)).toBe(true)
-      expect(response.body.data.items.length).toBeGreaterThan(0)
-      expect(response.body.data).toHaveProperty('has_more', false)
+      expect(Array.isArray(response.body.data)).toBe(true)
+      expect(response.body.data.length).toBeGreaterThan(0)
+      expect(response.body).toHaveProperty('has_more', false)
     })
 
     it('should support pagination', async () => {
@@ -284,9 +284,9 @@ describe('Trades API Integration Tests', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200)
 
-      expect(response.body.data.items.length).toBe(1)
-      expect(response.body.data).toHaveProperty('has_more', true)
-      expect(response.body.data).toHaveProperty('next_cursor')
+      expect(response.body.data.length).toBe(1)
+      expect(response.body).toHaveProperty('has_more', true)
+      expect(response.body).toHaveProperty('next_cursor')
     })
   })
 })

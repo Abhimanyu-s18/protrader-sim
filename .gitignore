@@ -8,6 +8,7 @@ dist
 build
 .turbo
 next-env.d.ts
+*.tsbuildinfo
 
 # Environment files
 .env
