@@ -1,9 +1,9 @@
+import type { Server as SocketIOServer } from 'socket.io'
 import WebSocket from 'ws'
 import { setCachedPrice } from './redis.js'
 import { calcBidAsk } from './calculations.js'
 import { createLogger } from './logger.js'
 import { emitPriceUpdate } from './socket.js'
-import { io } from '../index.js'
 
 const log = createLogger('market-data')
 
@@ -19,8 +19,18 @@ const HEARTBEAT_INTERVAL_MS = 30000
 let ws: WebSocket | null = null
 let reconnectAttempts = 0
 let heartbeatTimer: NodeJS.Timeout | null = null
+let reconnectTimer: NodeJS.Timeout | null = null
 let isConnected = false
 let subscribedSymbols = new Set<string>()
+let ioRef: SocketIOServer | null = null
+let instrumentCache = new Map<
+  string,
+  {
+    symbol: string
+    spreadPips: number
+    pipDecimalPlaces: number
+  }
+>()
 
 // ── Twelve Data Message Types ──────────────────────────────────
 interface TwelveDataAuthMessage {
@@ -46,11 +56,13 @@ interface TwelveDataPriceUpdate {
 }
 
 // ── Connection Management ──────────────────────────────────────
-export function startMarketData(): void {
+export function startMarketData(socketIO: SocketIOServer): void {
   if (!TWELVE_DATA_API_KEY) {
     log.error('TWELVE_DATA_API_KEY not configured — skipping market data connection')
     return
   }
+
+  ioRef = socketIO
 
   log.info('Starting market data pipeline')
   connect()
@@ -64,6 +76,11 @@ export function stopMarketData(): void {
     heartbeatTimer = null
   }
 
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+
   if (ws) {
     ws.close()
     ws = null
@@ -71,6 +88,7 @@ export function stopMarketData(): void {
 
   isConnected = false
   reconnectAttempts = 0
+  ioRef = null
 }
 
 function connect(): void {
@@ -131,7 +149,13 @@ function connect(): void {
     // Reconnect if not intentional close
     if (code !== 1000 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       reconnectAttempts++
-      setTimeout(connect, RECONNECT_INTERVAL_MS * reconnectAttempts)
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer)
+      }
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null
+        connect()
+      }, RECONNECT_INTERVAL_MS * reconnectAttempts)
     }
   })
 
@@ -153,10 +177,25 @@ async function subscribeToAllInstruments(): Promise<void> {
   const { prisma } = await import('./prisma.js')
 
   const instruments = await prisma.instrument.findMany({
-    select: { symbol: true, twelveDataSymbol: true },
+    select: {
+      symbol: true,
+      twelveDataSymbol: true,
+      spreadPips: true,
+      pipDecimalPlaces: true,
+    },
   })
 
-  const symbols = instruments.map((inst) => inst.twelveDataSymbol || inst.symbol)
+  instrumentCache = new Map()
+  const symbols = instruments.map((inst) => {
+    const symbol = inst.twelveDataSymbol || inst.symbol
+    instrumentCache.set(symbol, {
+      symbol: inst.symbol,
+      spreadPips: inst.spreadPips,
+      pipDecimalPlaces: inst.pipDecimalPlaces,
+    })
+    return symbol
+  })
+
   subscribedSymbols = new Set(symbols)
 
   log.info({ symbolCount: symbols.length }, 'Subscribing to instruments')
@@ -187,17 +226,7 @@ export async function processPriceUpdate(
 ): Promise<void> {
   try {
     // Find our internal symbol
-    const { prisma } = await import('./prisma.js')
-    const instrument = await prisma.instrument.findFirst({
-      where: {
-        OR: [{ twelveDataSymbol }, { symbol: twelveDataSymbol }],
-      },
-      select: {
-        symbol: true,
-        spreadPips: true,
-        pipDecimalPlaces: true,
-      },
-    })
+    const instrument = instrumentCache.get(twelveDataSymbol)
 
     if (!instrument) {
       log.debug({ twelveDataSymbol }, 'Received price for unknown instrument')
@@ -228,7 +257,11 @@ export async function processPriceUpdate(
     await setCachedPrice(symbol, priceData)
 
     // Broadcast via Socket.io
-    emitPriceUpdate(io, symbol, priceData)
+    if (ioRef) {
+      emitPriceUpdate(ioRef, symbol, priceData)
+    } else {
+      log.warn('Socket.io instance is not available for emitPriceUpdate')
+    }
 
     log.debug(
       { symbol, price: price.toFixed(5), bid: bidScaled.toString(), ask: askScaled.toString() },
