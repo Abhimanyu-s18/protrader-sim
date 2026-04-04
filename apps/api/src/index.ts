@@ -34,6 +34,7 @@ import './workers/rollover.js'
 import './workers/email.js'
 import './workers/notification.js'
 import './workers/kyc-reminder.js'
+import { shutdownNotificationWorker } from './workers/notification.js'
 
 const log = createLogger('server')
 
@@ -234,11 +235,11 @@ if (isEntrypoint()) {
 
     try {
       // Initialize and register Socket.io once server is running
-      const io = initSocketServer(httpServer)
+      const socketServer = initSocketServer(httpServer)
 
       // Start market data pipeline (Twelve Data WebSocket → Redis → Socket.io)
       log.info('Starting market data pipeline...')
-      await startMarketData(io)
+      await startMarketData(socketServer)
       log.info('Market data pipeline started successfully')
     } catch (err) {
       const msg = `Failed to start market data pipeline: ${err instanceof Error ? err.message : String(err)}`
@@ -330,6 +331,13 @@ async function shutdown(signal: string): Promise<void> {
     log.info('Prisma disconnected')
   } catch (err) {
     log.error({ err }, 'Error disconnecting Prisma')
+  }
+
+  // Close notification worker
+  try {
+    await shutdownNotificationWorker()
+  } catch (err) {
+    log.error({ err }, 'Error closing notification worker')
   }
 
   // Close Redis

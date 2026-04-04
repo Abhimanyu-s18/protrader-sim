@@ -14,20 +14,47 @@ export type EmailJobData =
   | { type: 'verify-email'; to: string; fullName: string; verifyToken: string }
   | { type: 'password-reset'; to: string; fullName: string; resetToken: string }
   | { type: 'password-changed'; to: string; fullName: string }
-  | { type: 'deposit-confirmed'; to: string; fullName: string; amountFormatted: string; currency: string }
+  | {
+      type: 'deposit-confirmed'
+      to: string
+      fullName: string
+      amountFormatted: string
+      currency: string
+    }
   | { type: 'deposit-rejected'; to: string; fullName: string; reason?: string }
   | { type: 'kyc-approved'; to: string; fullName: string }
   | { type: 'kyc-rejected'; to: string; fullName: string; reason?: string }
   | { type: 'kyc-reminder'; to: string; fullName: string }
-  | { type: 'margin-call'; to: string; fullName: string; marginLevelPct: string; equityFormatted: string }
+  | {
+      type: 'margin-call'
+      to: string
+      fullName: string
+      marginLevelPct: string
+      equityFormatted: string
+    }
   | { type: 'stop-out'; to: string; fullName: string; balanceFormatted: string }
-  | { type: 'withdrawal-approved'; to: string; fullName: string; amountFormatted: string; walletAddress: string }
+  | {
+      type: 'withdrawal-approved'
+      to: string
+      fullName: string
+      amountFormatted: string
+      walletAddress: string
+    }
   | { type: 'withdrawal-rejected'; to: string; fullName: string; reason?: string }
 
 /**
  * Generate a plain-text email body for the given job type.
  * Replace with React Email templates in Phase 5.
  */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function buildEmail(data: EmailJobData): { subject: string; html: string } | null {
   const apiUrl = process.env['AUTH_APP_URL'] ?? 'http://localhost:3001'
   const platformUrl = process.env['PLATFORM_URL'] ?? 'http://localhost:3002'
@@ -37,18 +64,18 @@ function buildEmail(data: EmailJobData): { subject: string; html: string } | nul
     case 'verify-email':
       return {
         subject: 'Welcome to ProTraderSim — Verify your email',
-        html: `<p>Hi ${data.fullName},</p>
+        html: `<p>Hi ${escapeHtml(data.fullName)},</p>
 <p>Welcome to ProTraderSim! Please verify your email address by clicking the link below:</p>
-<p><a href="${apiUrl}/verify-email?token=${data.verifyToken}">Verify Email</a></p>
+<p><a href="${apiUrl}/verify-email?token=${encodeURIComponent(data.verifyToken)}">Verify Email</a></p>
 <p>This link expires in 24 hours.</p>`,
       }
 
     case 'password-reset':
       return {
         subject: 'ProTraderSim — Reset your password',
-        html: `<p>Hi ${data.fullName},</p>
+        html: `<p>Hi ${escapeHtml(data.fullName)},</p>
 <p>We received a request to reset your ProTraderSim password. Click the link below (valid for 1 hour):</p>
-<p><a href="${apiUrl}/reset-password?token=${data.resetToken}">Reset Password</a></p>
+<p><a href="${apiUrl}/reset-password?token=${encodeURIComponent(data.resetToken)}">Reset Password</a></p>
 <p>If you did not request this, you can safely ignore this email.</p>`,
       }
 
@@ -135,6 +162,15 @@ function buildEmail(data: EmailJobData): { subject: string; html: string } | nul
   }
 }
 
+function maskEmail(email: string): string {
+  const atIndex = email.indexOf('@')
+  if (atIndex === -1) return '***'
+  const localPart = email.slice(0, atIndex)
+  const domain = email.slice(atIndex)
+  const maskedLocal = localPart.length > 2 ? `${localPart.slice(0, 2)}***` : '***'
+  return maskedLocal + domain
+}
+
 export let emailWorker: Worker<EmailJobData> | null = null
 
 if (process.env['NODE_ENV'] !== 'test') {
@@ -151,31 +187,49 @@ if (process.env['NODE_ENV'] !== 'test') {
 
       const resendKey = process.env['RESEND_API_KEY']
       if (!resendKey) {
-        log.warn({ type: data.type, to: data.to }, 'RESEND_API_KEY not set — email not sent')
+        log.warn(
+          { type: data.type, to: maskEmail(data.to) },
+          'RESEND_API_KEY not set — email not sent',
+        )
         return
       }
 
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${resendKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: process.env['EMAIL_FROM'] ?? 'ProTraderSim <noreply@protrader.com>',
-          to: data.to,
-          subject: email.subject,
-          html: email.html,
-        }),
-      })
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10000)
 
-      if (!response.ok) {
-        const body = await response.text()
-        log.error({ status: response.status, body, type: data.type }, 'Resend API error')
-        throw new Error(`Resend API returned ${response.status}`)
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${resendKey}`,
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            from: process.env['EMAIL_FROM'] ?? 'ProTraderSim <noreply@protrader.com>',
+            to: data.to,
+            subject: email.subject,
+            html: email.html,
+          }),
+        })
+
+        clearTimeout(timeout)
+
+        if (!response.ok) {
+          const body = await response.text()
+          log.error({ status: response.status, body, type: data.type }, 'Resend API error')
+          throw new Error(`Resend API returned ${response.status}`)
+        }
+
+        log.info({ type: data.type, to: maskEmail(data.to) }, 'Email sent successfully')
+      } catch (error) {
+        clearTimeout(timeout)
+        if (error instanceof Error && error.name === 'AbortError') {
+          log.error({ type: data.type, to: maskEmail(data.to) }, 'Resend API request timed out')
+          throw new Error('Resend API request timed out')
+        }
+        throw error
       }
-
-      log.info({ type: data.type, to: data.to }, 'Email sent successfully')
     },
     {
       connection: getRedis(),

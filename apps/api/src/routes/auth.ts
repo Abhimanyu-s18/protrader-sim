@@ -1,6 +1,6 @@
 import { Router, type Router as ExpressRouter } from 'express'
 import { z } from 'zod'
-import bcrypt from 'bcryptjs'
+import { hash, compare } from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import { prisma } from '../lib/prisma.js'
 import { getRedis } from '../lib/redis.js'
@@ -87,7 +87,7 @@ authRouter.post('/register', async (req, res, next) => {
     }
 
     // Hash password
-    const passwordHash = await bcrypt.hash(password, 12)
+    const passwordHash = await hash(password, 12)
 
     // Generate account_number and lead_id via DB functions
     const [{ generate_account_number: accountNumber }] = await prisma.$queryRaw<
@@ -188,7 +188,7 @@ authRouter.post('/login', async (req, res, next) => {
       },
     })
 
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (!user || !(await compare(password, user.passwordHash))) {
       next(new AppError('INVALID_CREDENTIALS', 'Invalid email or password.', 401))
       return
     }
@@ -389,7 +389,7 @@ authRouter.post('/reset-password', async (req, res, next) => {
       return
     }
 
-    const passwordHash = await bcrypt.hash(password, 12)
+    const passwordHash = await hash(password, 12)
     await prisma.user.update({ where: { id: BigInt(userId) }, data: { passwordHash } })
 
     // Invalidate all sessions
@@ -435,13 +435,13 @@ authRouter.post('/change-password', requireAuth, async (req, res, next) => {
       return
     }
 
-    const valid = await bcrypt.compare(current_password, user.passwordHash)
+    const valid = await compare(current_password, user.passwordHash)
     if (!valid) {
       next(Errors.validation({ current_password: ['Current password is incorrect.'] }))
       return
     }
 
-    const newHash = await bcrypt.hash(new_password, 12)
+    const newHash = await hash(new_password, 12)
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: newHash } })
     // Invalidate all sessions on password change
     await prisma.session.deleteMany({ where: { userId: user.id } })

@@ -3,24 +3,40 @@ import { prisma } from '../lib/prisma.js'
 import { getRedis } from '../lib/redis.js'
 import { createLogger } from '../lib/logger.js'
 import { QUEUES } from '../lib/queues.js'
-import { getSocketIO, emitToUser } from '../lib/socket.js'
+import { emitToUser } from '../lib/socket.js'
 
 const log = createLogger('notification-worker')
 
+export type NotificationType = 'info' | 'warning' | 'error'
+
 export interface NotificationJobData {
   userId: string
-  type: string
+  type: NotificationType
   title: string
   message: string
 }
 
 export let notificationWorker: Worker<NotificationJobData> | null = null
 
+export async function shutdownNotificationWorker(): Promise<void> {
+  if (notificationWorker) {
+    log.info('Shutting down notification worker...')
+    await notificationWorker.close()
+    log.info('Notification worker closed')
+    notificationWorker = null
+  }
+}
+
 if (process.env['NODE_ENV'] !== 'test') {
   notificationWorker = new Worker<NotificationJobData>(
     QUEUES.NOTIFICATION,
     async (job: Job<NotificationJobData>) => {
       const { userId, type, title, message } = job.data
+
+      // Validate userId before conversion
+      if (!userId || !/^\d+$/.test(userId)) {
+        throw new Error(`Invalid userId: ${userId}. Must be a string of digits.`)
+      }
 
       const notification = await prisma.notification.create({
         data: {
@@ -32,9 +48,8 @@ if (process.env['NODE_ENV'] !== 'test') {
       })
 
       // Emit real-time event to the user's Socket.io room
-      const io = getSocketIO()
-      if (io) {
-        emitToUser(io, userId, 'notification:new', {
+      try {
+        emitToUser(userId, 'notification:new', {
           id: notification.id.toString(),
           type: notification.type,
           title: notification.title,
@@ -42,6 +57,11 @@ if (process.env['NODE_ENV'] !== 'test') {
           createdAt: notification.createdAt.toISOString(),
           readAt: null,
         })
+      } catch (err) {
+        log.error(
+          { err, userId, notificationId: notification.id.toString() },
+          'Failed to emit notification event',
+        )
       }
 
       log.info({ notificationId: notification.id.toString(), userId, type }, 'Notification created')

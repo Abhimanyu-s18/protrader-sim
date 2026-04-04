@@ -35,6 +35,15 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
   }
 }
 
+// ── getAuthenticatedUser ───────────────────────────────────────────
+// Helper to get the authenticated user from request (safe after requireAuth)
+export function getAuthenticatedUser(req: Request): JwtPayload {
+  if (!req.user) {
+    throw new Error('User not authenticated')
+  }
+  return req.user
+}
+
 // ── requireKYC ────────────────────────────────────────────────────
 // Blocks traders who haven't completed KYC. Must run after requireAuth.
 export function requireKYC(req: Request, _res: Response, next: NextFunction): void {

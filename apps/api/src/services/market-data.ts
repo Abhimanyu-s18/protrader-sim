@@ -1,7 +1,13 @@
 import type { Prisma } from '@prisma/client'
 import WebSocket from 'ws'
 import { prisma, withSerializableRetry } from '../lib/prisma.js'
-import { getRedis, getCachedPrice, setCachedPrice, removeMarginWatch, addMarginWatch } from '../lib/redis.js'
+import {
+  getRedis,
+  getCachedPrice,
+  setCachedPrice,
+  removeMarginWatch,
+  addMarginWatch,
+} from '../lib/redis.js'
 import {
   calcBidAsk,
   calcPnlCents,
@@ -195,10 +201,11 @@ async function getCachedPendingOrders(instrumentId: string): Promise<
     let cacheTtl = PENDING_ORDERS_CACHE_TTL_SECONDS
     const expiringOrders = orders.filter((o) => o.expiryAt !== null)
     if (expiringOrders.length > 0) {
-      const nearestExpiry = expiringOrders.reduce(
-        (earliest: Date, o) => (o.expiryAt! < earliest ? o.expiryAt! : earliest),
-        expiringOrders[0]!.expiryAt!,
-      )
+      const firstOrder = expiringOrders[0]!
+      const nearestExpiry = expiringOrders.reduce((earliest: Date, o) => {
+        if (o.expiryAt && o.expiryAt < earliest) return o.expiryAt
+        return earliest
+      }, firstOrder.expiryAt!)
 
       const secondsUntilExpiry = Math.max(
         1,
@@ -492,16 +499,21 @@ async function processTick(tick: TickData): Promise<void> {
 
   // Broadcast via Socket.io
   if (ioRef) {
-    emitPriceUpdate(ioRef, inst.symbol, priceData)
+    emitPriceUpdate(inst.symbol, priceData)
   }
 
   // Run price-triggered checks in parallel
-  const checkNames = ['checkStopLossTakeProfit', 'checkEntryOrders', 'checkAlerts', 'checkMarginLevels']
+  const checkNames = [
+    'checkStopLossTakeProfit',
+    'checkEntryOrders',
+    'checkAlerts',
+    'checkMarginLevels',
+  ]
   const results = await Promise.allSettled([
     checkStopLossTakeProfit(inst, bidScaled, askScaled),
     checkEntryOrders(inst, bidScaled, askScaled),
     checkAlerts(inst, midScaled),
-    checkMarginLevels(inst, bidScaled, askScaled),
+    checkMarginLevels(inst),
   ])
 
   // Log any rejected checks instead of silently swallowing errors
@@ -550,18 +562,14 @@ export function getMarketDataStatus(): {
  * - margin level < instrument.marginCallBps → emit margin:call + notify
  * - margin level < instrument.stopOutBps   → force-close the most losing open trade
  */
-async function checkMarginLevels(
-  inst: InstrumentInfo,
-  bidScaled: bigint,
-  askScaled: bigint,
-): Promise<void> {
+async function checkMarginLevels(inst: InstrumentInfo): Promise<void> {
   const redis = getRedis()
   const userIds = await redis.smembers(`margin_watch:${inst.id}`)
   if (userIds.length === 0) return
 
   for (const userId of userIds) {
     try {
-      await checkUserMarginLevel(userId, inst, bidScaled, askScaled)
+      await checkUserMarginLevel(userId, inst)
     } catch (err) {
       log.error({ err, userId, symbol: inst.symbol }, 'Failed to check margin level for user')
     }
@@ -573,12 +581,7 @@ async function checkMarginLevels(
  * Closes the largest losing trade if margin level falls below stopOutBps.
  * Emits margin:call if margin level falls below marginCallBps.
  */
-async function checkUserMarginLevel(
-  userIdStr: string,
-  triggerInst: InstrumentInfo,
-  _bidScaled: bigint,
-  _askScaled: bigint,
-): Promise<void> {
+async function checkUserMarginLevel(userIdStr: string, triggerInst: InstrumentInfo): Promise<void> {
   const userId = BigInt(userIdStr)
 
   // Fetch balance and all open trades in one pass
@@ -616,6 +619,7 @@ async function checkUserMarginLevel(
   let totalUsedMargin = 0n
   let mostLosingTradeId: bigint | null = null
   let mostLosingPnl = 0n
+  const priceCache = new Map<string, { mid_scaled: string }>()
 
   for (const trade of openTrades) {
     const cached = await getCachedPrice(trade.instrument.symbol)
@@ -625,6 +629,8 @@ async function checkUserMarginLevel(
       totalUsedMargin += trade.marginRequiredCents
       continue
     }
+
+    priceCache.set(trade.instrument.symbol, cached)
 
     const tradeMid = BigInt(cached.mid_scaled)
     const { bidScaled: tradeBid, askScaled: tradeAsk } = calcBidAsk(
@@ -664,7 +670,7 @@ async function checkUserMarginLevel(
     if (mostLosingTradeId) {
       const trade = openTrades.find((t) => t.id === mostLosingTradeId)
       if (trade) {
-        const cached = await getCachedPrice(trade.instrument.symbol)
+        const cached = priceCache.get(trade.instrument.symbol)
         if (cached) {
           const tradeMid = BigInt(cached.mid_scaled)
           const { bidScaled, askScaled } = calcBidAsk(
@@ -683,36 +689,21 @@ async function checkUserMarginLevel(
             marginCallBps: trade.instrument.marginCallBps,
             stopOutBps: trade.instrument.stopOutBps,
           }
-          await closeTradeWithReason(trade, stopOutInstInfo, bidScaled, askScaled, 'STOP_OUT', userIdStr)
-          log.info(
-            { userId: userIdStr, tradeId: mostLosingTradeId.toString(), marginLevelBps: marginLevelBps.toString() },
-            'Stop-out executed',
+          await closeTradeWithReason(
+            trade,
+            stopOutInstInfo,
+            bidScaled,
+            askScaled,
+            'STOP_OUT',
+            userIdStr,
           )
         }
       }
     }
-
-    if (ioRef) {
-      emitToUser(ioRef, userIdStr, 'margin:stop_out', {
-        margin_level_bps: marginLevelBps.toString(),
-        equity_cents: equityCents.toString(),
-        used_margin_cents: totalUsedMargin.toString(),
-      })
-    }
-
-    // Create stop-out notification
-    await prisma.notification.create({
-      data: {
-        userId,
-        type: 'STOP_OUT',
-        title: 'Stop Out Executed',
-        message: `Your margin level reached ${(marginLevelBps / 100n).toString()}%. A position has been closed to protect your account.`,
-      },
-    })
   } else if (marginLevelBps <= marginCallBps) {
     // Margin call: notify user but don't close yet
     if (ioRef) {
-      emitToUser(ioRef, userIdStr, 'margin:call', {
+      emitToUser(userIdStr, 'margin:call', {
         margin_level_bps: marginLevelBps.toString(),
         equity_cents: equityCents.toString(),
         used_margin_cents: totalUsedMargin.toString(),
@@ -939,7 +930,6 @@ async function closeTradeWithReason(
   // Notify user via Socket.io
   if (ioRef) {
     emitToUser(
-      ioRef,
       userIdStr,
       'trade:closed',
       serializeBigInt({
@@ -1142,7 +1132,6 @@ async function executeEntryOrder(
     if (ioRef) {
       try {
         emitToUser(
-          ioRef,
           order.userId.toString(),
           'trade:opened',
           serializeBigInt({
@@ -1234,7 +1223,6 @@ async function checkAlerts(inst: InstrumentInfo, midScaled: bigint): Promise<voi
     // Notify user via Socket.io
     if (ioRef) {
       emitToUser(
-        ioRef,
         alert.userId.toString(),
         'alert:triggered',
         serializeBigInt({

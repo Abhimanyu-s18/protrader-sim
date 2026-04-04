@@ -63,32 +63,42 @@ let _io: SocketIOServer | null = null
 
 /** Called by index.ts after the Socket.io server is created. */
 export function setSocketServer(io: SocketIOServer): void {
+  if (_io !== null) {
+    throw new Error('Socket.io server already initialized')
+  }
   _io = io
 }
 
-/** Returns the active Socket.io server, or null before startup. */
-export function getSocketIO(): SocketIOServer | null {
+/** Returns whether the Socket.io server has been initialized. */
+export function isSocketIOReady(): boolean {
+  return _io !== null
+}
+
+/** Returns the active Socket.io server, throws if not initialized. */
+export function getSocketIO(): SocketIOServer {
+  if (_io === null) {
+    throw new Error('Socket.io server not initialized')
+  }
   return _io
 }
 
 // ── Emit helpers (used by services) ──────────────────────────────
 
 // Broadcast price update to all subscribers of a symbol
-export function emitPriceUpdate(
-  io: SocketIOServer,
-  symbol: string,
-  data: PriceUpdatePayload,
-): void {
+export function emitPriceUpdate(symbol: string, data: PriceUpdatePayload): void {
+  const io = getSocketIO()
   io.to(`prices:${symbol}`).emit('price:update', data)
 }
 
 // Send private event to a specific trader
-export function emitToUser(io: SocketIOServer, userId: string, event: string, data: unknown): void {
+export function emitToUser(userId: string, event: string, data: unknown): void {
+  const io = getSocketIO()
   io.to(`user:${userId}`).emit(event, data)
 }
 
 // Send to all admin panel connections
-export function emitToAdmin(io: SocketIOServer, event: string, data: unknown): void {
+export function emitToAdmin(event: string, data: unknown): void {
+  const io = getSocketIO()
   io.to('admin:panel').emit(event, data)
 }
 

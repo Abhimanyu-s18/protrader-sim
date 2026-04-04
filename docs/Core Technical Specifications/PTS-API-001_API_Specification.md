@@ -153,7 +153,7 @@
 6. **VALIDATION BEFORE TRANSACTION:** Validate SL/TP placement (min_stop_distance enforced)
 7. **BEGIN DB TRANSACTION (with row-level lock):**
    - `SELECT balance_cents, unrealized_pnl_cents, used_margin_cents FROM account_state WHERE user_id = $1 FOR UPDATE` (acquire lock on user row)
-   - Recalculate available_cents = (balance_cents + unrealized_pnl_cents) - used_margin_cents _UNDER LOCK_
+   - Recalculate **available_cents** = (balance_cents + unrealized_pnl_cents) - used_margin_cents **UNDER LOCK**
    - Validate: available_cents >= margin_cents → else 409 INSUFFICIENT_MARGIN
    - INSERT trades record (order_type, direction, units, open_rate_scaled, etc.)
    - INSERT ib_commissions if agent assigned

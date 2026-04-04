@@ -45,6 +45,7 @@ export default function ForgotPasswordPage() {
             <Input
               label="Email"
               type="email"
+              autoComplete="email"
               {...register('email')}
               error={errors.email?.message}
             />

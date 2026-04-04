@@ -8,6 +8,14 @@ import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('deposits')
 
+const NowPaymentsResponseSchema = z.object({
+  payment_id: z.union([z.string(), z.number()]),
+  pay_address: z.string(),
+  pay_amount: z.string(),
+  pay_currency: z.string(),
+  order_id: z.string(),
+})
+
 export const depositsRouter: ExpressRouter = Router()
 depositsRouter.use(requireAuth)
 
@@ -38,43 +46,70 @@ async function createNowPaymentsPayment(
     return null
   }
 
+  const apiUrl = process.env['API_URL']
+  if (!apiUrl) {
+    throw new Error('API_URL is not configured for NowPayments IPN callback')
+  }
+
+  let ipnCallbackUrl: string
+  try {
+    ipnCallbackUrl = new URL('/v1/webhooks/nowpayments', apiUrl).toString()
+  } catch (err) {
+    throw new Error(`Invalid API_URL for NowPayments IPN callback: ${apiUrl}`)
+  }
+
   const payCurrency = NOWPAYMENTS_CURRENCY_MAP[cryptoCurrency] ?? cryptoCurrency.toLowerCase()
   const priceAmount = Number(amountCents) / 100 // convert cents → dollars
 
-  const response = await fetch('https://api.nowpayments.io/v1/payment', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      price_amount: priceAmount,
-      price_currency: 'usd',
-      pay_currency: payCurrency,
-      order_id: depositId.toString(),
-      order_description: `ProTraderSim deposit #${depositId.toString()}`,
-      ipn_callback_url: `${process.env['API_URL'] ?? ''}/v1/webhooks/nowpayments`,
-    }),
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
 
-  if (!response.ok) {
-    const body = (await response.text()) as string
-    log.error({ status: response.status, body }, 'NowPayments API error')
-    throw new Error(`NowPayments API returned ${response.status}`)
-  }
+  try {
+    const response = await fetch('https://api.nowpayments.io/v1/payment', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        price_amount: priceAmount,
+        price_currency: 'usd',
+        pay_currency: payCurrency,
+        order_id: depositId.toString(),
+        order_description: `ProTraderSim deposit #${depositId.toString()}`,
+        ipn_callback_url: ipnCallbackUrl,
+      }),
+      signal: controller.signal,
+    })
 
-  const data = (await response.json()) as {
-    payment_id: string
-    pay_address: string
-    pay_amount: string
-    pay_currency: string
-    order_id: string
-  }
+    if (!response.ok) {
+      const body = (await response.text()) as string
+      log.error({ status: response.status, body }, 'NowPayments API error')
+      throw new Error(`NowPayments API returned ${response.status}`)
+    }
 
-  return {
-    pay_address: data.pay_address,
-    pay_amount: data.pay_amount,
-    payment_id: data.payment_id,
+    const validationResult = NowPaymentsResponseSchema.safeParse(await response.json())
+    if (!validationResult.success) {
+      log.error(
+        { errors: validationResult.error.flatten() },
+        'NowPayments response validation failed',
+      )
+      throw new Error('NowPayments response missing required fields')
+    }
+
+    const data = validationResult.data
+    return {
+      pay_address: data.pay_address,
+      pay_amount: data.pay_amount,
+      payment_id: String(data.payment_id),
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('NowPayments request timed out after 10 seconds')
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
   }
 }
 
@@ -90,8 +125,8 @@ depositsRouter.post('/', requireKYC, async (req, res, next) => {
     const { amount_cents, crypto_currency } = body.data
     const userId = BigInt(req.user!.user_id)
 
-    // Create deposit record — store our deposit.id as nowpaymentsInvoiceId so the
-    // IPN webhook can look it up by order_id (which we set to deposit.id.toString())
+    // Create deposit record. The NowPayments order_id will be set to deposit.id.toString()
+    // so the IPN webhook can look it up later by deposit id.
     const deposit = await prisma.deposit.create({
       data: {
         userId,
@@ -102,29 +137,48 @@ depositsRouter.post('/', requireKYC, async (req, res, next) => {
       },
     })
 
-    // Link deposit to NowPayments using our deposit ID as the lookup key
-    await prisma.deposit.update({
-      where: { id: deposit.id },
-      data: { nowpaymentsInvoiceId: deposit.id.toString() },
-    })
-
     // Call NowPayments API to create the payment (non-fatal if not configured)
     let payAddress: string | null = null
     let payAmount: string | null = null
     try {
-      const payment = await createNowPaymentsPayment(deposit.id, deposit.amountCents, crypto_currency)
+      const payment = await createNowPaymentsPayment(
+        deposit.id,
+        deposit.amountCents,
+        crypto_currency,
+      )
       if (payment) {
         payAddress = payment.pay_address
         payAmount = payment.pay_amount
         log.info(
           { depositId: deposit.id.toString(), paymentId: payment.payment_id },
-          'NowPayments payment created',
+          'Updating deposit with NowPayments payment_id',
         )
+        try {
+          await prisma.deposit.update({
+            where: { id: deposit.id },
+            data: {
+              nowpaymentsPaymentId: payment.payment_id,
+            },
+          })
+          log.info(
+            { depositId: deposit.id.toString(), paymentId: payment.payment_id },
+            'NowPayments payment linked to deposit',
+          )
+        } catch (updateErr) {
+          log.error(
+            {
+              err: updateErr,
+              depositId: deposit.id.toString(),
+              paymentId: payment.payment_id,
+            },
+            'Failed to link NowPayments payment to deposit - manual reconciliation needed via order_id',
+          )
+        }
       }
     } catch (err) {
       log.error({ err, depositId: deposit.id.toString() }, 'Failed to create NowPayments payment')
-      // Don't fail the request — deposit record is created, admin can process manually
     }
+    // Don't fail the request — deposit record is created, admin can process manually
 
     res.status(201).json(
       serializeBigInt({

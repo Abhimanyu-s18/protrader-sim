@@ -35,7 +35,7 @@
 - [x] Submits to POST /v1/auth/forgot-password
 - [x] Shows success message regardless of whether email exists (security best practice)
 
-**Status**: Fully implemented. Implements secure error enumeration prevention.
+**Status**: Fully implemented. Implements secure user enumeration prevention.
 
 ---
 
@@ -117,7 +117,7 @@ All required endpoints in `apps/auth/src/lib/api.ts`:
 ## Recommendations & Next Steps
 
 1. **Add Logo to Auth Pages**: Import logo image, display in header of each page
-2. **Session Token Fallback**: Update `@protrader/utils/createApiClient()` to check sessionStorage (already done)
+2. **Session Token Fallback**: Implemented in `@protrader/utils/createApiClient()` to check sessionStorage as fallback
 3. **Email Notification Setup**: Queue emails via BullMQ for registration, password reset, verification
 4. **Rate Limiting**: Implement per-IP rate limits on auth endpoints (10/15min)
 5. **Password Reset TTL**: Verify Redis expiry on password reset tokens (currently 1h)

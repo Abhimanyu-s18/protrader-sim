@@ -27,8 +27,28 @@ export const kycReminderQueue = new Queue(QUEUES.KYC_REMINDER, connection)
 export const depositConfirmQueue = new Queue(QUEUES.DEPOSIT_CONFIRM, connection)
 export const pnlSnapshotQueue = new Queue(QUEUES.PNL_SNAPSHOT, connection)
 export const reportQueue = new Queue(QUEUES.REPORT_GENERATOR, connection)
-export const emailQueue = new Queue(QUEUES.EMAIL, connection)
-export const notificationQueue = new Queue(QUEUES.NOTIFICATION, connection)
+export const emailQueue = new Queue(QUEUES.EMAIL, {
+  ...connection,
+  defaultJobOptions: {
+    attempts: 5,
+    backoff: {
+      type: 'exponential',
+      delay: 2000,
+    },
+    removeOnComplete: { age: 24 * 60 * 60 },
+    removeOnFail: { age: 7 * 24 * 60 * 60 },
+  },
+})
+export const notificationQueue = new Queue(QUEUES.NOTIFICATION, {
+  ...connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: 'fixed',
+      delay: 5000,
+    },
+  },
+})
 
 // ── Scheduled jobs (cron) ─────────────────────────────────────────
 export async function scheduleRecurringJobs(): Promise<void> {

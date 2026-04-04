@@ -7,13 +7,39 @@ import tsEslintPlugin from '@typescript-eslint/eslint-plugin'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
+const commonRules = {
+  'no-console': ['warn', { allow: ['warn', 'error'] }],
+  'prefer-const': 'error',
+  'no-var': 'error',
+  'object-shorthand': 'error',
+  'prefer-template': 'error',
+}
+
 /** @type {import("eslint").Linter.Config[]} */
 export default [
   {
     ignores: ['node_modules/**', '.next/**', 'dist/**', '*.config.js', '*.config.ts'],
   },
   {
-    files: ['**/*.{js,jsx,ts,tsx}'],
+    files: ['**/*.{js,jsx}'],
+    plugins: {
+      '@next/next': nextPlugin,
+    },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
+      ...commonRules,
+    },
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: 'module',
+      },
+    },
+  },
+  {
+    files: ['**/*.{ts,tsx}'],
     plugins: {
       '@next/next': nextPlugin,
       '@typescript-eslint': tsEslintPlugin,
@@ -28,11 +54,7 @@ export default [
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
       '@typescript-eslint/no-non-null-assertion': 'error',
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
-      'prefer-const': 'error',
-      'no-var': 'error',
-      'object-shorthand': 'error',
-      'prefer-template': 'error',
+      ...commonRules,
     },
     languageOptions: {
       parser: tsParser,

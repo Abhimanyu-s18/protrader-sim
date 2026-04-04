@@ -1,8 +1,9 @@
 import { Router, type Router as ExpressRouter } from 'express'
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { prisma, withSerializableRetry } from '../lib/prisma.js'
-import { requireAuth, requireKYC } from '../middleware/auth.js'
+import { requireAuth, requireKYC, getAuthenticatedUser } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
 import {
   calcBidAsk,
@@ -89,7 +90,7 @@ tradesRouter.post('/', requireKYC, async (req, res, next) => {
       expiry_at,
     } = body.data
 
-    const userIdParam = req.user!.user_id
+    const userIdParam = getAuthenticatedUser(req).user_id
     const userId = parseBigInt(userIdParam)
     if (!userId) {
       next(Errors.validation({ userId: ['Invalid user ID'] }))

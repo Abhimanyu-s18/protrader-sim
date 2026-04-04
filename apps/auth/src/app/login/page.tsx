@@ -44,14 +44,16 @@ export default function LoginPage() {
       const token = response.access_token
       if (!token) throw new Error('Missing auth token from response')
 
-      localStorage.setItem('access_token', token)
       if (data.remember_me) {
+        localStorage.setItem('access_token', token)
         sessionStorage.removeItem('access_token')
       } else {
         sessionStorage.setItem('access_token', token)
+        localStorage.removeItem('access_token')
       }
 
-      window.location.href = 'https://platform.protrader.io/dashboard'
+      const authUrl = process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:3002'
+      window.location.href = `${authUrl}/dashboard`
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {

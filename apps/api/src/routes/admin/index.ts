@@ -143,6 +143,18 @@ adminRouter.post('/users/:id/adjustment', async (req, res, next) => {
 })
 
 // ── KYC ──────────────────────────────────────────────────────────
+adminRouter.get('/kyc/count', async (req, res, next) => {
+  try {
+    const { status } = req.query as Record<string, string>
+    const count = await prisma.kycDocument.count({
+      where: status ? { status: status as never } : {},
+    })
+    res.json(serializeBigInt({ count }))
+  } catch (err) {
+    next(err)
+  }
+})
+
 adminRouter.get('/kyc', async (req, res, next) => {
   try {
     const { status = 'UPLOADED', cursor, limit = '50' } = req.query as Record<string, string>
@@ -218,6 +230,18 @@ adminRouter.put('/kyc/:doc_id', async (req, res, next) => {
 })
 
 // ── DEPOSITS ─────────────────────────────────────────────────────
+adminRouter.get('/deposits/count', async (req, res, next) => {
+  try {
+    const { status } = req.query as Record<string, string>
+    const count = await prisma.deposit.count({
+      where: status ? { status: status as never } : {},
+    })
+    res.json(serializeBigInt({ count }))
+  } catch (err) {
+    next(err)
+  }
+})
+
 adminRouter.get('/deposits', async (req, res, next) => {
   try {
     const { status, cursor, limit = '50' } = req.query as Record<string, string>

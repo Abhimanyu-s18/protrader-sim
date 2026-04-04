@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -21,16 +22,33 @@ const ResetPasswordSchema = z
 type ResetPasswordForm = z.infer<typeof ResetPasswordSchema>
 
 export default function ResetPasswordPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'ok' | 'error'>('idle')
   const [apiError, setApiError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
-    // Parse token from URL on client side only
-    const params = new URLSearchParams(window.location.search)
-    setToken(params.get('token'))
-  }, [])
+    const tokenParam = searchParams?.get('token') ?? null
+    setToken(tokenParam)
+    setInitialized(true)
+  }, [searchParams])
+
+  useEffect(() => {
+    if (status === 'ok') {
+      redirectTimeoutRef.current = setTimeout(() => {
+        router.push('/login')
+      }, 2000)
+    }
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current)
+      }
+    }
+  }, [status, router])
 
   const {
     register,
@@ -51,7 +69,6 @@ export default function ResetPasswordPage() {
     try {
       await resetPassword(token, data.password)
       setStatus('ok')
-      setTimeout(() => (window.location.href = '/login'), 2000)
     } catch (err) {
       setApiError(err instanceof Error ? err.message : 'Reset password failed')
       setStatus('error')
@@ -65,7 +82,7 @@ export default function ResetPasswordPage() {
       <Card className="w-full max-w-md space-y-4">
         <h1 className="text-dark text-2xl font-semibold">Set a new password</h1>
 
-        {!token ? (
+        {initialized && !token ? (
           <p className="text-danger text-sm">
             Reset token is missing. Please use the link from your email.
           </p>

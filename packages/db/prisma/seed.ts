@@ -4,7 +4,7 @@
  */
 
 import { PrismaClient, AssetClass, StaffRole } from '@prisma/client'
-import { hash } from 'bcryptjs'
+import { hash } from 'bcrypt'
 
 const prisma = new PrismaClient()
 
@@ -18,7 +18,7 @@ async function main() {
   const tlHash = await hash('TeamLeader@123', 12)
   const agentHash = await hash('Agent@1234567', 12)
 
-  const superAdmin = await prisma.staff.upsert({
+  await prisma.staff.upsert({
     where: { email: 'superadmin@protrader.com' },
     update: {},
     create: {

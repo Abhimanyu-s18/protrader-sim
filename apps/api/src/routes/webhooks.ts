@@ -28,6 +28,15 @@ webhooksRouter.post('/nowpayments', async (req, res, next) => {
     // Verify HMAC-SHA512 signature
     const payload = JSON.stringify(req.body, Object.keys(req.body as object).sort())
     const expectedSig = crypto.createHmac('sha512', ipnSecret).update(payload).digest('hex')
+
+    // Validate incoming signature before conversion
+    const hexRegex = /^[0-9a-fA-F]+$/
+    if (!hexRegex.test(signature) || signature.length % 2 !== 0) {
+      log.error({ signatureLength: signature.length }, 'Invalid hex signature format')
+      res.status(400).json({ error: 'Invalid signature format' })
+      return
+    }
+
     const sigBuffer = Buffer.from(signature, 'hex')
     const expectedBuffer = Buffer.from(expectedSig, 'hex')
     if (

@@ -1,4 +1,5 @@
 export { sendEmail } from './send'
+export { PasswordChangedEmail } from './templates/PasswordChanged'
 export { WelcomeEmail } from './templates/Welcome'
 export { KycApprovedEmail } from './templates/KycApproved'
 export { KycRejectedEmail } from './templates/KycRejected'

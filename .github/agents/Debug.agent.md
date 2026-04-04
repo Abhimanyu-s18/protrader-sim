@@ -294,7 +294,7 @@ await prisma.$transaction(async (tx) => {
 
 ## Debug Report Format
 
-````markdown
+```markdown
 ## Debug Report: [Error Name / Ticket ID]
 
 ### Symptom
@@ -322,14 +322,7 @@ await prisma.$transaction(async (tx) => {
 **Category**: [Logic Error | Type Error | Race Condition | Config Error | etc.]
 
 ### Fix Applied
-
-```typescript
-// Location: [file path]
-// Before:
-;// After:
-[code][code]
 ```
-````
 
 ### Verification
 

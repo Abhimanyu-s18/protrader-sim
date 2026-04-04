@@ -1,18 +1,27 @@
 import { Router, type Router as ExpressRouter } from 'express'
 import { prisma } from '../../lib/prisma.js'
 import { requireAuth, requireRole } from '../../middleware/auth.js'
+import { Errors } from '../../middleware/errorHandler.js'
 import { serializeBigInt, formatCents } from '../../lib/calculations.js'
 
 export const ibRouter: ExpressRouter = Router()
 ibRouter.use(requireAuth)
 ibRouter.use(requireRole('IB_TEAM_LEADER', 'AGENT', 'SUPER_ADMIN', 'ADMIN'))
 
-// GET /v1/ib/traders — agent's assigned traders
+// GET /v1/ib/traders — agent's assigned traders (paginated)
 ibRouter.get('/traders', async (req, res, next) => {
   try {
     const agentId = BigInt(req.user!.user_id)
+    const { cursor, limit = '50' } = req.query as Record<string, string>
+    const take = Math.min(parseInt(limit, 10), 200)
+
+    // Validate cursor
+    if (cursor && !/^\d+$/.test(cursor)) {
+      return next(Errors.badRequest('Invalid cursor parameter'))
+    }
+
     const traders = await prisma.user.findMany({
-      where: { agentId },
+      where: { agentId, ...(cursor ? { id: { lt: BigInt(cursor) } } : {}) },
       select: {
         id: true,
         fullName: true,
@@ -23,8 +32,17 @@ ibRouter.get('/traders', async (req, res, next) => {
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
+      take: take + 1,
     })
-    res.json(serializeBigInt(traders))
+    const hasMore = traders.length > take
+    const data = hasMore ? traders.slice(0, take) : traders
+    res.json(
+      serializeBigInt({
+        data,
+        next_cursor: hasMore ? data[data.length - 1]?.id.toString() : null,
+        has_more: hasMore,
+      }),
+    )
   } catch (err) {
     next(err)
   }
@@ -39,14 +57,12 @@ ibRouter.get('/commissions', async (req, res, next) => {
 
     // Validate status
     if (status && !['PENDING', 'PAID'].includes(status)) {
-      res.status(400).json({ error: 'Invalid status parameter' })
-      return
+      return next(Errors.badRequest('Invalid status parameter'))
     }
 
     // Validate cursor
     if (cursor && !/^\d+$/.test(cursor)) {
-      res.status(400).json({ error: 'Invalid cursor parameter' })
-      return
+      return next(Errors.badRequest('Invalid cursor parameter'))
     }
 
     const commissions = await prisma.ibCommission.findMany({
@@ -71,7 +87,7 @@ ibRouter.get('/commissions', async (req, res, next) => {
     })
     const hasMore = commissions.length > take
     const data = hasMore ? commissions.slice(0, take) : commissions
-    res.json(
+    return res.json(
       serializeBigInt({
         data,
         next_cursor: hasMore ? data[data.length - 1]?.id.toString() : null,
@@ -79,7 +95,7 @@ ibRouter.get('/commissions', async (req, res, next) => {
       }),
     )
   } catch (err) {
-    next(err)
+    return next(err)
   }
 })
 

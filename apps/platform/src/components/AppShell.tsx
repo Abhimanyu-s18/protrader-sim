@@ -1,0 +1,76 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import Sidebar from './Sidebar'
+import { useSocket } from '../hooks/useSocket'
+
+/** Reads the token from storage (client-side only). */
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token')
+}
+
+function isTokenValid(token: string): boolean {
+  const parts = token.split('.')
+  if (parts.length !== 3 || !parts[1]) return false
+
+  try {
+    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payloadJson = atob(payloadBase64)
+    const payloadText = decodeURIComponent(
+      payloadJson
+        .split('')
+        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
+        .join(''),
+    )
+    const payload = JSON.parse(payloadText) as { exp?: number }
+
+    return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now()
+  } catch {
+    return false
+  }
+}
+
+interface AppShellProps {
+  children: React.ReactNode
+}
+
+/**
+ * Authenticated app shell: reads the access token, redirects to auth on missing/expired,
+ * and initialises the Socket.io connection for the entire session.
+ */
+export default function AppShell({ children }: AppShellProps) {
+  const [token, setToken] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const t = getToken()
+    const authUrl = process.env['NEXT_PUBLIC_AUTH_URL'] ?? 'http://localhost:3001'
+
+    if (!t || !isTokenValid(t)) {
+      window.location.href = `${authUrl}/login`
+      return
+    }
+
+    setToken(t)
+    setReady(true)
+  }, [])
+
+  // Initialise Socket.io once we have a token
+  useSocket(token)
+
+  if (!ready) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-950">
+        <span className="text-sm text-gray-400">Loading…</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-screen bg-gray-950 text-white">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto">{children}</main>
+    </div>
+  )
+}

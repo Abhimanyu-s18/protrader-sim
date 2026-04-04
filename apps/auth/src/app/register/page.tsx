@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,8 +23,8 @@ const RegisterSchema = z
     confirm_password: z.string().min(1, 'Confirm your password'),
     country: z.string().min(2, 'Country is required'),
     phone: z.string().min(6, 'Phone is required'),
-    terms_accepted: z.literal(true, {
-      errorMap: () => ({ message: 'You must accept the terms and conditions' }),
+    terms_accepted: z.boolean().refine((val) => val === true, {
+      message: 'You must accept the terms and conditions',
     }),
   })
   .refine((data) => data.password === data.confirm_password, {
@@ -50,6 +51,7 @@ const getStrength = (password: string) => {
 }
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [isSubmitted, setSubmitted] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -68,7 +70,7 @@ export default function RegisterPage() {
       confirm_password: '',
       country: '',
       phone: '',
-      terms_accepted: true,
+      terms_accepted: false,
     },
   })
 
@@ -105,7 +107,7 @@ export default function RegisterPage() {
             We sent a verification link to the email you provided. Please follow the link to
             activate your account.
           </p>
-          <Button className="mt-6" onClick={() => (window.location.href = '/login')}>
+          <Button className="mt-6" onClick={() => router.push('/login')}>
             Back to login
           </Button>
         </Card>
@@ -151,10 +153,14 @@ export default function RegisterPage() {
           />
 
           <div>
-            <label className="text-dark mb-1 block text-sm font-medium">Country</label>
+            <label htmlFor="country" className="text-dark mb-1 block text-sm font-medium">
+              Country
+            </label>
             <select
+              id="country"
               className="border-surface-border focus:border-primary w-full rounded border px-3 py-2 text-sm"
               {...register('country')}
+              aria-describedby={errors.country ? 'country-error' : undefined}
             >
               <option value="">Select country</option>
               {COUNTRIES.map((country) => (
@@ -163,22 +169,26 @@ export default function RegisterPage() {
                 </option>
               ))}
             </select>
-            {errors.country && <p className="text-danger text-xs">{errors.country.message}</p>}
+            {errors.country && (
+              <p id="country-error" role="alert" className="text-danger mt-1 text-xs">
+                {errors.country.message}
+              </p>
+            )}
           </div>
-
-          <Input label="Phone" type="tel" {...register('phone')} error={errors.phone?.message} />
-
-          <label className="text-dark inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              {...register('terms_accepted')}
-              className="border-primary h-4 w-4 rounded"
-            />
-            I agree to the{' '}
+          <div className="text-dark inline-flex items-center gap-2 text-sm">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="terms_accepted"
+                {...register('terms_accepted')}
+                className="border-primary h-4 w-4 rounded"
+              />
+              I agree to the
+            </label>
             <Link href="/terms" className="text-primary hover:underline">
               Terms of Service
             </Link>
-          </label>
+          </div>
           {errors.terms_accepted && (
             <p className="text-danger text-xs">{errors.terms_accepted.message}</p>
           )}

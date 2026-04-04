@@ -103,7 +103,7 @@ watchlistRouter.put('/reorder', async (req, res, next) => {
       select: { id: true },
     })
     if (existingItems.length !== order.length) {
-      res.status(400).json({ error: 'Invalid watchlist item IDs' })
+      next(Errors.badRequest('Invalid watchlist item IDs'))
       return
     }
 

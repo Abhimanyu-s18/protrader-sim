@@ -12,7 +12,10 @@ export function formatPrice(scaled: string | number | bigint, pipDecimalPlaces: 
   const s = typeof scaled === 'bigint' ? scaled : BigInt(scaled)
   const totalDecimals = 5
   const str = s.toString().padStart(totalDecimals + 1, '0')
-  return `${str.slice(0, -totalDecimals)}.${str.slice(-totalDecimals)}`
+  const full = `${str.slice(0, -totalDecimals)}.${str.slice(-totalDecimals)}`
+  // Trim to pipDecimalPlaces + 1 extra digit (e.g. 4 pip places → show 5 decimal digits)
+  const [integer, fraction = ''] = full.split('.')
+  return `${integer}.${fraction.slice(0, pipDecimalPlaces + 1)}`
 }
 
 export function formatPercentage(bps: string | number | bigint | null): string {
@@ -58,6 +61,8 @@ export function formatDateTime(dateStr: string): string {
 // ── API client factory ────────────────────────────────────────────
 export function createApiClient(baseURL: string) {
   async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+    // Prefer persistent login token from localStorage, falling back to sessionStorage
+    // for ephemeral sessions.
     const token =
       typeof window !== 'undefined'
         ? (localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token'))
@@ -81,12 +86,30 @@ export function createApiClient(baseURL: string) {
   }
 
   return {
-    get: <T>(path: string) => request<T>(path),
-    post: <T>(path: string, body: unknown) =>
-      request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
-    put: <T>(path: string, body: unknown) =>
-      request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
-    del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+    get: <T>(path: string, options?: { params?: Record<string, string> }) => {
+      const url = options?.params
+        ? `${path}?${new URLSearchParams(options.params).toString()}`
+        : path
+      return request<T>(url)
+    },
+    post: <T>(path: string, body: unknown, options?: { params?: Record<string, string> }) => {
+      const url = options?.params
+        ? `${path}?${new URLSearchParams(options.params).toString()}`
+        : path
+      return request<T>(url, { method: 'POST', body: JSON.stringify(body) })
+    },
+    put: <T>(path: string, body: unknown, options?: { params?: Record<string, string> }) => {
+      const url = options?.params
+        ? `${path}?${new URLSearchParams(options.params).toString()}`
+        : path
+      return request<T>(url, { method: 'PUT', body: JSON.stringify(body) })
+    },
+    del: <T>(path: string, options?: { params?: Record<string, string> }) => {
+      const url = options?.params
+        ? `${path}?${new URLSearchParams(options.params).toString()}`
+        : path
+      return request<T>(url, { method: 'DELETE' })
+    },
   }
 }
 
