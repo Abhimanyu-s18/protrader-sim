@@ -26,7 +26,9 @@ export function VerifyEmail({ fullName, verifyUrl, expirationHours }: VerifyEmai
         </Link>
       </Section>
 
-      <Text style={emailStyles.muted}>This link expires in {expirationHours} hours.</Text>
+      <Text style={emailStyles.muted}>
+        This link expires in {expirationHours} {expirationHours === 1 ? 'hour' : 'hours'}.
+      </Text>
 
       <Text style={emailStyles.muted}>
         If you didn't request this, you can safely ignore this email. Your account will remain

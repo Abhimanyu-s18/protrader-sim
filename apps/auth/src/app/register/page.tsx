@@ -182,6 +182,7 @@ export default function RegisterPage() {
                 id="terms_accepted"
                 {...register('terms_accepted')}
                 className="border-primary h-4 w-4 rounded"
+                aria-describedby={errors.terms_accepted ? 'terms-error' : undefined}
               />
               I agree to the
             </label>
@@ -190,7 +191,9 @@ export default function RegisterPage() {
             </Link>
           </div>
           {errors.terms_accepted && (
-            <p className="text-danger text-xs">{errors.terms_accepted.message}</p>
+            <p id="terms-error" role="alert" className="text-danger text-xs">
+              {errors.terms_accepted.message}
+            </p>
           )}
 
           {apiError && <p className="text-danger text-sm">{apiError}</p>}

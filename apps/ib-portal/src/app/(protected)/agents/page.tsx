@@ -11,9 +11,17 @@ function getUserRole(): string | null {
   try {
     const token = localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token')
     if (!token) return null
+
     const parts = token.split('.')
     if (parts.length < 2) return null
-    const payload = JSON.parse(atob(parts[1]!)) as { role?: string }
+
+    // Convert base64url to standard base64 before decoding
+    const payloadSegment = parts[1]
+    if (!payloadSegment) return null
+    const base64 = payloadSegment.replace(/-/g, '+').replace(/_/g, '/')
+    const pad = base64.length % 4
+    const padded = base64 + (pad === 2 ? '==' : pad === 3 ? '=' : '')
+    const payload = JSON.parse(atob(padded)) as { role?: string }
     return payload.role ?? null
   } catch {
     return null
@@ -48,7 +56,7 @@ export default function AgentsPage() {
       id: agent.id,
       fullName: agent.full_name,
       email: agent.email,
-      refCode: agent.ref_code,
+      ...(agent.ref_code && { refCode: agent.ref_code }),
       commissionRateBps: agent.commission_rate_bps,
       isActive: agent.is_active,
       createdAt: agent.created_at,
@@ -88,7 +96,7 @@ export default function AgentsPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-white">Agents</h1>
-        {agents && (
+        {totalAgents > 0 && (
           <span className="text-sm text-gray-400">
             {totalAgents} total • Page {currentPage} of {totalPages}
           </span>
@@ -100,7 +108,7 @@ export default function AgentsPage() {
           <p className="p-5 text-sm text-gray-400">Loading…</p>
         ) : isError ? (
           <p className="p-5 text-sm text-red-400">Failed to load agents.</p>
-        ) : !agents || agents.length === 0 ? (
+        ) : agents.length === 0 ? (
           <p className="p-5 text-sm text-gray-500">No agents found in your network.</p>
         ) : (
           <>

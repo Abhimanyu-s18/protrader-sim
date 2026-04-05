@@ -23,10 +23,11 @@ const PersonalSchema = z.object({
       .refine(
         (date) => {
           const today = new Date()
-          const age = today.getFullYear() - date.getFullYear()
           const monthDiff = today.getMonth() - date.getMonth()
           const dayDiff = today.getDate() - date.getDate()
-          return age > 18 || (age === 18 && (monthDiff > 0 || (monthDiff === 0 && dayDiff >= 0)))
+          const birthdayPassed = monthDiff > 0 || (monthDiff === 0 && dayDiff >= 0)
+          const age = today.getFullYear() - date.getFullYear() - (birthdayPassed ? 0 : 1)
+          return age >= 18
         },
         { message: 'You must be at least 18 years old' },
       ),
@@ -180,10 +181,10 @@ export default function KycPage() {
               onChange={(e) => setIdentityFile(e.target.files?.[0] ?? null)}
             />
             <div className="flex items-center justify-between gap-2">
-              <Button variant="secondary" onClick={() => setStep(2)} disabled={loading}>
+              <Button variant="secondary" onClick={() => setStep(1)} disabled={loading}>
                 Back
               </Button>
-              <Button loading={loading} onClick={() => uploadDoc(addressFile, 'ADDRESS')}>
+              <Button loading={loading} onClick={() => uploadDoc(identityFile, 'IDENTITY')}>
                 Upload & Continue
               </Button>
             </div>
@@ -202,10 +203,10 @@ export default function KycPage() {
               onChange={(e) => setAddressFile(e.target.files?.[0] ?? null)}
             />
             <div className="flex items-center justify-between gap-2">
-              <Button variant="secondary" onClick={() => setStep(1)} disabled={loading}>
+              <Button variant="secondary" onClick={() => setStep(2)} disabled={loading}>
                 Back
               </Button>
-              <Button loading={loading} onClick={() => uploadDoc(identityFile, 'IDENTITY')}>
+              <Button loading={loading} onClick={() => uploadDoc(addressFile, 'ADDRESS')}>
                 Upload & Continue
               </Button>
             </div>

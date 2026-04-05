@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { formatDateTime } from '@protrader/utils'
 import { api } from '../../../lib/api'
 import type { IbTrader } from '../../../types/ib'
@@ -38,19 +37,19 @@ function accountBadgeClass(status: string): string {
 
 /** Full trader list with KYC and account status badges. */
 export default function TradersPage() {
-  const [cursor, setCursor] = useState<string | null>(null)
-
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['ib', 'traders', cursor],
-    queryFn: () =>
+  const { data, isLoading, isError, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ['ib', 'traders'],
+    queryFn: ({ pageParam }) =>
       api.get<TradersResponse>('/v1/ib/traders', {
-        params: { limit: '50', ...(cursor ? { cursor } : {}) },
+        params: { limit: '50', ...(pageParam ? { cursor: pageParam } : {}) },
       }),
-    placeholderData: (previousData) => previousData,
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.next_cursor : undefined),
   })
 
-  const traders = data?.data ?? []
-  const hasMore = data?.has_more ?? false
+  const traders = data?.pages.flatMap((page) => page.data) ?? []
+  const loadedCount = traders.length
+  const hasMore = data?.pages[data.pages.length - 1]?.has_more ?? false
 
   return (
     <div className="space-y-6 p-6">
@@ -58,9 +57,9 @@ export default function TradersPage() {
         <h1 className="text-xl font-semibold text-white">Traders</h1>
         {data && (
           <span className="text-sm text-gray-400">
-            {data.data.length}
+            {loadedCount}
             {hasMore && '+'}
-            {' total'}
+            {' loaded'}
           </span>
         )}
       </div>
@@ -73,7 +72,7 @@ export default function TradersPage() {
             <p className="text-sm text-red-400">Failed to load traders.</p>
             <button
               type="button"
-              onClick={() => refetch()}
+              onClick={() => fetchNextPage()}
               className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
             >
               Retry

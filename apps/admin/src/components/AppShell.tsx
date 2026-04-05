@@ -14,7 +14,7 @@ function isValidToken(token: string): boolean {
   if (parts.length !== 3) return false
 
   try {
-    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payloadBase64 = (parts[1] ?? '').replace(/-/g, '+').replace(/_/g, '/')
     const payloadJson = atob(payloadBase64)
     const payloadText = decodeURIComponent(
       payloadJson

@@ -39,7 +39,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
 // Helper to get the authenticated user from request (safe after requireAuth)
 export function getAuthenticatedUser(req: Request): JwtPayload {
   if (!req.user) {
-    throw new Error('User not authenticated')
+    throw Errors.unauthorized()
   }
   return req.user
 }

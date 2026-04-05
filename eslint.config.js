@@ -6,7 +6,7 @@ module.exports = [
     ignores: ['node_modules/**', '.next/**', 'dist/**', '*.config.js', '*.config.ts'],
   },
   {
-    files: ['**/*.{js,jsx}'],
+    files: ['**/*.{js,jsx,ts,tsx}'],
     rules: {
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'prefer-const': 'error',

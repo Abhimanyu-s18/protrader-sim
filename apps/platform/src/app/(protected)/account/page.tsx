@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -21,17 +21,16 @@ import { formatMoney, formatDateTime } from '@protrader/utils'
 const CRYPTO_CURRENCIES = ['BTC', 'ETH', 'USDT', 'USDC', 'LTC'] as const
 
 const DepositSchema = z.object({
-  amount_cents: z.coerce
-    .number()
-    .int()
-    .positive('Enter a positive amount')
-    .min(1000, 'Minimum deposit is $10'),
+  amount: z.coerce.number().positive('Enter a positive amount').min(10, 'Minimum deposit is $10'),
   crypto_currency: z.enum(CRYPTO_CURRENCIES),
 })
 
 const WithdrawSchema = z
   .object({
-    amount_cents: z.coerce.number().int().positive('Enter a positive amount'),
+    amount: z.coerce
+      .number()
+      .positive('Enter a positive amount')
+      .min(10, 'Minimum withdrawal is $10'),
     crypto_currency: z.enum(CRYPTO_CURRENCIES),
     wallet_address: z.string().min(1, 'Wallet address is required'),
   })
@@ -41,24 +40,26 @@ const WithdrawSchema = z
       switch (data.crypto_currency) {
         case 'ETH':
         case 'USDC':
-          return /^0x[a-fA-F0-9]{40}$/.test(address) || 'Invalid Ethereum address format'
+          return /^0x[a-fA-F0-9]{40}$/.test(address)
         case 'BTC':
+          // Legacy (1...), P2SH (3...), and native SegWit (bc1...)
           return (
-            /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) || 'Invalid Bitcoin address format'
+            /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) ||
+            /^bc1[a-z0-9]{39,59}$/.test(address)
           )
         case 'USDT':
-          // USDT can be on multiple chains, but for simplicity, check if it's a valid ETH or BTC-like
           return (
             /^0x[a-fA-F0-9]{40}$/.test(address) ||
             /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) ||
-            'Invalid USDT address format'
+            /^T[a-zA-HJ-NP-Z1-9]{33}$/.test(address) // TRC-20
           )
         case 'LTC':
           return (
-            /^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$/.test(address) || 'Invalid Litecoin address format'
+            /^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$/.test(address) ||
+            /^ltc1[a-z0-9]{39,59}$/.test(address)
           )
         default:
-          return address.length >= 10 || 'Wallet address too short'
+          return address.length >= 10
       }
     },
     {
@@ -91,7 +92,7 @@ function StatusChip({ status }: { status: string }) {
   }
   return (
     <span
-      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${map[status] ?? 'text-gray-400'}`}
+      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${map[status] ?? 'bg-gray-800 text-gray-400'}`}
     >
       {status}
     </span>
@@ -111,7 +112,17 @@ export default function AccountPage() {
   const [withdrawError, setWithdrawError] = useState<string | null>(null)
   const [withdrawSuccess, setWithdrawSuccess] = useState(false)
 
-  const { data: metricsData } = useQuery({
+  useEffect(() => {
+    if (!withdrawSuccess) return
+    const timer = setTimeout(() => setWithdrawSuccess(false), 5000)
+    return () => clearTimeout(timer)
+  }, [withdrawSuccess])
+
+  const {
+    data: metricsData,
+    isLoading: metricsLoading,
+    isError: metricsError,
+  } = useQuery({
     queryKey: ['account-metrics'],
     queryFn: () => api.get<ApiResponse<AccountMetrics>>('/v1/users/me/metrics'),
     initialData: storeMetrics ? { data: storeMetrics } : undefined,
@@ -119,17 +130,29 @@ export default function AccountPage() {
     staleTime: 15_000,
   })
 
-  const { data: depositsData } = useQuery({
+  const {
+    data: depositsData,
+    isLoading: depositsLoading,
+    isError: depositsError,
+  } = useQuery({
     queryKey: ['deposits'],
     queryFn: () => api.get<{ data: Deposit[] }>('/v1/deposits?limit=10'),
   })
 
-  const { data: withdrawalsData } = useQuery({
+  const {
+    data: withdrawalsData,
+    isLoading: withdrawalsLoading,
+    isError: withdrawalsError,
+  } = useQuery({
     queryKey: ['withdrawals'],
     queryFn: () => api.get<{ data: Withdrawal[] }>('/v1/withdrawals?limit=10'),
   })
 
-  const { data: ledgerData } = useQuery({
+  const {
+    data: ledgerData,
+    isLoading: ledgerLoading,
+    isError: ledgerError,
+  } = useQuery({
     queryKey: ['ledger'],
     queryFn: () => api.get<{ data: LedgerTransaction[] }>('/v1/users/me/ledger?limit=20'),
   })
@@ -145,7 +168,10 @@ export default function AccountPage() {
 
   const createDeposit = useMutation({
     mutationFn: (data: DepositForm) =>
-      api.post<{ pay_address?: string; pay_amount?: string }>('/v1/deposits', data),
+      api.post<{ pay_address?: string; pay_amount?: string }>('/v1/deposits', {
+        amount_cents: Math.round(data.amount * 100),
+        crypto_currency: data.crypto_currency,
+      }),
     onMutate: () => {
       setDepositResult(null)
       setDepositError(null)
@@ -166,7 +192,12 @@ export default function AccountPage() {
   })
 
   const createWithdrawal = useMutation({
-    mutationFn: (data: WithdrawForm) => api.post<unknown>('/v1/withdrawals', data),
+    mutationFn: (data: WithdrawForm) =>
+      api.post<unknown>('/v1/withdrawals', {
+        amount_cents: Math.round(data.amount * 100),
+        crypto_currency: data.crypto_currency,
+        wallet_address: data.wallet_address,
+      }),
     onMutate: () => {
       setWithdrawSuccess(false)
       setWithdrawError(null)
@@ -190,22 +221,32 @@ export default function AccountPage() {
 
       {/* Balance summary */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        {[
-          { label: 'Balance', value: metrics?.balance_formatted },
-          { label: 'Equity', value: metrics?.equity_formatted },
-          { label: 'Unrealised P&L', value: metrics?.unrealized_pnl_formatted },
-          { label: 'Used Margin', value: metrics?.used_margin_formatted },
-          { label: 'Available', value: metrics?.available_formatted },
-          {
-            label: 'Margin Level',
-            value: metrics?.margin_level_pct ? `${metrics.margin_level_pct}%` : '—',
-          },
-        ].map(({ label, value }) => (
-          <div key={label} className="rounded-lg border border-gray-800 bg-gray-900 p-3">
-            <p className="text-xs text-gray-500">{label}</p>
-            <p className="mt-1 text-base font-semibold text-white">{value ?? '—'}</p>
+        {metricsLoading ? (
+          <div className="col-span-full rounded-lg border border-gray-800 bg-gray-900 p-3">
+            <p className="text-sm text-gray-400">Loading account metrics…</p>
           </div>
-        ))}
+        ) : metricsError ? (
+          <div className="col-span-full rounded-lg border border-gray-800 bg-gray-900 p-3">
+            <p className="text-sm text-red-400">Failed to load account metrics.</p>
+          </div>
+        ) : (
+          [
+            { label: 'Balance', value: metrics?.balance_formatted },
+            { label: 'Equity', value: metrics?.equity_formatted },
+            { label: 'Unrealised P&L', value: metrics?.unrealized_pnl_formatted },
+            { label: 'Used Margin', value: metrics?.used_margin_formatted },
+            { label: 'Available', value: metrics?.available_formatted },
+            {
+              label: 'Margin Level',
+              value: metrics?.margin_level_pct ? `${metrics.margin_level_pct}%` : '—',
+            },
+          ].map(({ label, value }) => (
+            <div key={label} className="rounded-lg border border-gray-800 bg-gray-900 p-3">
+              <p className="text-xs text-gray-500">{label}</p>
+              <p className="mt-1 text-base font-semibold text-white">{value ?? '—'}</p>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -218,24 +259,28 @@ export default function AccountPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="deposit-amount" className="mb-1 block text-xs text-gray-400">
-                  Amount (cents)
+                  Amount (USD)
                 </label>
                 <input
                   id="deposit-amount"
                   type="number"
-                  placeholder="e.g. 10000 = $100"
-                  {...depositForm.register('amount_cents')}
+                  step="0.01"
+                  placeholder="e.g. 100.00"
+                  {...depositForm.register('amount')}
                   className="w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white"
                 />
-                {depositForm.formState.errors.amount_cents && (
+                {depositForm.formState.errors.amount && (
                   <p className="mt-1 text-xs text-red-400">
-                    {depositForm.formState.errors.amount_cents.message}
+                    {depositForm.formState.errors.amount.message}
                   </p>
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-xs text-gray-400">Currency</label>
+                <label htmlFor="deposit-currency" className="mb-1 block text-xs text-gray-400">
+                  Currency
+                </label>
                 <select
+                  id="deposit-currency"
                   {...depositForm.register('crypto_currency')}
                   className="w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white"
                 >
@@ -283,21 +328,28 @@ export default function AccountPage() {
           >
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs text-gray-400">Amount (cents)</label>
+                <label htmlFor="withdraw-amount" className="mb-1 block text-xs text-gray-400">
+                  Amount (USD)
+                </label>
                 <input
+                  id="withdraw-amount"
                   type="number"
-                  {...withdrawForm.register('amount_cents')}
+                  step="0.01"
+                  {...withdrawForm.register('amount')}
                   className="w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white"
                 />
-                {withdrawForm.formState.errors.amount_cents && (
+                {withdrawForm.formState.errors.amount && (
                   <p className="mt-1 text-xs text-red-400">
-                    {withdrawForm.formState.errors.amount_cents.message}
+                    {withdrawForm.formState.errors.amount.message}
                   </p>
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-xs text-gray-400">Currency</label>
+                <label htmlFor="withdraw-currency" className="mb-1 block text-xs text-gray-400">
+                  Currency
+                </label>
                 <select
+                  id="withdraw-currency"
                   {...withdrawForm.register('crypto_currency')}
                   className="w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white"
                 >
@@ -310,8 +362,11 @@ export default function AccountPage() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs text-gray-400">Wallet Address</label>
+              <label htmlFor="withdraw-wallet" className="mb-1 block text-xs text-gray-400">
+                Wallet Address
+              </label>
               <input
+                id="withdraw-wallet"
                 type="text"
                 {...withdrawForm.register('wallet_address')}
                 className="w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-white"
@@ -344,7 +399,11 @@ export default function AccountPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Recent deposits */}
         <SectionCard title="Recent Deposits">
-          {deposits.length === 0 ? (
+          {depositsLoading ? (
+            <p className="text-sm text-gray-400">Loading deposits…</p>
+          ) : depositsError ? (
+            <p className="text-sm text-red-400">Failed to load deposits.</p>
+          ) : deposits.length === 0 ? (
             <p className="text-sm text-gray-500">No deposits yet</p>
           ) : (
             <table className="w-full">
@@ -380,7 +439,11 @@ export default function AccountPage() {
 
         {/* Recent withdrawals */}
         <SectionCard title="Recent Withdrawals">
-          {withdrawals.length === 0 ? (
+          {withdrawalsLoading ? (
+            <p className="text-sm text-gray-400">Loading withdrawals…</p>
+          ) : withdrawalsError ? (
+            <p className="text-sm text-red-400">Failed to load withdrawals.</p>
+          ) : withdrawals.length === 0 ? (
             <p className="text-sm text-gray-500">No withdrawals yet</p>
           ) : (
             <table className="w-full">
@@ -416,17 +479,17 @@ export default function AccountPage() {
       </div>
       {/* Ledger */}
       <SectionCard title="Transaction History">
-        {ledgerTxs.length === 0 ? (
+        {ledgerLoading ? (
+          <p className="text-sm text-gray-400">Loading transactions…</p>
+        ) : ledgerError ? (
+          <p className="text-sm text-red-400">Failed to load transactions.</p>
+        ) : ledgerTxs.length === 0 ? (
           <p className="text-sm text-gray-500">No transactions</p>
         ) : (
           <div className="space-y-2">
-            {(ledgerData?.data ?? []).map((tx) => {
-              const amountCents =
-                tx.amount_cents != null && tx.amount_cents !== '' ? Number(tx.amount_cents) : 0
-              const balanceAfterCents =
-                tx.balance_after_cents != null && tx.balance_after_cents !== ''
-                  ? Number(tx.balance_after_cents)
-                  : 0
+            {ledgerTxs.map((tx) => {
+              const amountCents = tx.amount_cents ? Number(tx.amount_cents) : 0
+              const balanceAfterCents = tx.balance_after_cents ? Number(tx.balance_after_cents) : 0
               const isPositive = amountCents >= 0
               return (
                 <div key={tx.id} className="flex items-center justify-between py-1">

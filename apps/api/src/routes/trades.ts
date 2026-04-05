@@ -1,5 +1,4 @@
 import { Router, type Router as ExpressRouter } from 'express'
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { prisma, withSerializableRetry } from '../lib/prisma.js'
@@ -212,7 +211,8 @@ tradesRouter.post('/', requireKYC, async (req, res, next) => {
           orderType: order_type,
           direction,
           units: unitsBig,
-          openRateScaled: order_type === 'ENTRY' ? entryRateScaled! : openRateScaled,
+          openRateScaled:
+            order_type === 'ENTRY' && entryRateScaled != null ? entryRateScaled : openRateScaled,
           entryRateScaled: order_type === 'ENTRY' ? entryRateScaled : null,
           stopLossScaled: slScaled,
           takeProfitScaled: tpScaled,
@@ -250,7 +250,7 @@ tradesRouter.post('/', requireKYC, async (req, res, next) => {
 
     // Track for margin monitoring (only open trades)
     if (order_type === 'MARKET') {
-      await addMarginWatch(instrumentId.toString(), req.user!.user_id)
+      await addMarginWatch(instrumentId.toString(), userIdParam)
     }
 
     res.status(201).json(
@@ -271,7 +271,7 @@ tradesRouter.get('/', async (req, res, next) => {
   try {
     const { status, cursor, limit = '50' } = req.query as Record<string, string>
 
-    const userIdParam = req.user!.user_id
+    const userIdParam = getAuthenticatedUser(req).user_id
     const userId = parseBigInt(userIdParam)
     if (!userId) {
       next(Errors.validation({ userId: ['Invalid user ID'] }))
@@ -341,7 +341,7 @@ tradesRouter.get('/:id', async (req, res, next) => {
       return
     }
 
-    const userIdParam = req.user!.user_id
+    const userIdParam = getAuthenticatedUser(req).user_id
     const userId = parseBigInt(userIdParam)
     if (!userId) {
       next(Errors.validation({ userId: ['Invalid user ID'] }))
@@ -365,7 +365,7 @@ tradesRouter.get('/:id', async (req, res, next) => {
 // ── POST /v1/trades/:id/close — Close open trade ─────────────────
 tradesRouter.post('/:id/close', requireKYC, async (req, res, next) => {
   try {
-    const userIdParam = req.user!.user_id
+    const userIdParam = getAuthenticatedUser(req).user_id
     const userId = parseBigInt(userIdParam)
     if (!userId) {
       next(Errors.validation({ userId: ['Invalid user ID'] }))
@@ -472,7 +472,7 @@ tradesRouter.post('/:id/close', requireKYC, async (req, res, next) => {
       ),
     )
 
-    await removeMarginWatch(trade.instrumentId.toString(), req.user!.user_id)
+    await removeMarginWatch(trade.instrumentId.toString(), userIdParam)
 
     res.json(
       serializeBigInt({
@@ -500,7 +500,7 @@ tradesRouter.put('/:id/sl-tp', async (req, res, next) => {
       return
     }
 
-    const userId = parseBigInt(req.user!.user_id)
+    const userId = parseBigInt(getAuthenticatedUser(req).user_id)
     if (!userId) {
       next(Errors.validation({ userId: ['Invalid user ID'] }))
       return
@@ -555,7 +555,7 @@ tradesRouter.put('/:id/trailing-stop', async (req, res, next) => {
       return
     }
 
-    const userId = parseBigInt(req.user!.user_id)
+    const userId = parseBigInt(getAuthenticatedUser(req).user_id)
     if (!userId) {
       next(Errors.validation({ userId: ['Invalid user ID'] }))
       return
@@ -599,7 +599,7 @@ tradesRouter.post('/:id/partial-close', requireKYC, async (req, res, next) => {
       return
     }
 
-    const userIdParam = req.user!.user_id
+    const userIdParam = getAuthenticatedUser(req).user_id
     const userId = parseBigInt(userIdParam)
     if (!userId) {
       next(Errors.validation({ userId: ['Invalid user ID'] }))
@@ -768,7 +768,7 @@ tradesRouter.delete('/:id', async (req, res, next) => {
       return
     }
 
-    const userIdParam = req.user!.user_id
+    const userIdParam = getAuthenticatedUser(req).user_id
     const userId = parseBigInt(userIdParam)
     if (!userId) {
       next(Errors.validation({ userId: ['Invalid user ID'] }))
@@ -776,7 +776,8 @@ tradesRouter.delete('/:id', async (req, res, next) => {
     }
 
     const trade = await prisma.trade.findFirst({
-      where: { id: tradeId, userId, status: 'PENDING' },
+      where: { id: tradeId, userId },
+      include: { instrument: true },
     })
     if (!trade) {
       next(Errors.notFound('Trade'))

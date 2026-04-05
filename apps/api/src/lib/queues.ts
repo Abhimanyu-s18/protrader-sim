@@ -47,6 +47,8 @@ export const notificationQueue = new Queue(QUEUES.NOTIFICATION, {
       type: 'fixed',
       delay: 5000,
     },
+    removeOnComplete: { age: 24 * 60 * 60 },
+    removeOnFail: { age: 7 * 24 * 60 * 60 },
   },
 })
 

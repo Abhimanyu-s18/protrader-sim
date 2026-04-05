@@ -31,7 +31,6 @@ export default [
       ...commonRules,
     },
     languageOptions: {
-      parser: tsParser,
       parserOptions: {
         ecmaVersion: 2022,
         sourceType: 'module',

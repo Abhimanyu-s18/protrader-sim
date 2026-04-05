@@ -28,6 +28,7 @@ export function PriceDisplay({
       return () => clearTimeout(timer)
     }
     prevValueRef.current = value
+    return undefined
   }, [value, flash])
 
   return (

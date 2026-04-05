@@ -1,5 +1,6 @@
 import { createApiClient } from '@protrader/utils'
 import type { KycStatus } from '@protrader/types'
+import { createLogger } from './logger'
 
 type ApiError = { message?: string; [key: string]: unknown }
 
@@ -20,6 +21,7 @@ type AuthResponse = {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000'
 const api = createApiClient(API_BASE_URL)
+const authLogger = createLogger('auth')
 
 const getToken = () =>
   typeof window !== 'undefined'
@@ -105,7 +107,7 @@ export const uploadKycDocument = async (
 
   if (!res.ok) {
     const err: ApiError = await res.json().catch((parseError) => {
-      console.error('Failed to parse error response', {
+      authLogger.error('Failed to parse KYC document upload error response', {
         status: res.status,
         statusText: res.statusText,
         parseError,

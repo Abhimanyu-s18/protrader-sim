@@ -14,16 +14,22 @@ const NAV_ITEMS = [
 ]
 
 async function logout() {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 5000)
   try {
     const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
     if (token) {
       await fetch(`${AUTH_URL}/logout`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
       })
     }
-  } catch {
-    // Continue with client-side cleanup even if server call fails
+  } catch (err) {
+    // Log or handle error, but always proceed with client-side logout
+    console.warn('Logout request failed or timed out:', err)
+  } finally {
+    clearTimeout(timeout)
   }
   localStorage.removeItem('access_token')
   sessionStorage.removeItem('access_token')
@@ -44,7 +50,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 space-y-1 px-3 py-2">
         {NAV_ITEMS.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/')
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
           return (
             <Link
               key={item.href}
@@ -65,6 +71,7 @@ export default function Sidebar() {
       {/* Logout */}
       <div className="border-t border-gray-800 px-3 py-3">
         <button
+          type="button"
           onClick={logout}
           className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
         >

@@ -34,7 +34,9 @@ function AlertStatusBadge({ status }: { status: string }) {
     CANCELLED: 'text-red-400 bg-red-900/30',
   }
   return (
-    <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${map[status] ?? ''}`}>
+    <span
+      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${map[status] || 'bg-gray-800 text-white'}`}
+    >
       {status}
     </span>
   )
@@ -99,7 +101,11 @@ export default function AlertsPage() {
     queryFn: () => api.get<{ data: Alert[] }>('/v1/alerts?limit=50'),
   })
 
-  const { data: instrumentsData, isError: isErrorInstruments } = useQuery({
+  const {
+    data: instrumentsData,
+    isLoading: isLoadingInstruments,
+    isError: isErrorInstruments,
+  } = useQuery({
     queryKey: ['instruments'],
     queryFn: () => api.get<{ data: Instrument[] }>('/v1/instruments?active=true&limit=100'),
   })
@@ -126,6 +132,9 @@ export default function AlertsPage() {
       reset()
       setFormError(null)
       void qc.invalidateQueries({ queryKey: ['alerts'] })
+    },
+    onError: (err: Error) => {
+      setFormError(err.message || 'Failed to create alert')
     },
   })
 
@@ -158,9 +167,10 @@ export default function AlertsPage() {
             <label className="mb-1 block text-xs text-gray-400">Symbol</label>
             <select
               {...register('symbol')}
-              className="rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white"
+              disabled={isLoadingInstruments}
+              className="rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white disabled:opacity-50"
             >
-              <option value="">Select…</option>
+              <option value="">{isLoadingInstruments ? 'Loading…' : 'Select…'}</option>
               {instruments.map((inst) => (
                 <option key={inst.id} value={inst.symbol}>
                   {inst.symbol}

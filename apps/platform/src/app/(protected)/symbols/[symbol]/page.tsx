@@ -68,6 +68,7 @@ export default function SymbolPage({ params }: { params: Promise<{ symbol: strin
     register,
     handleSubmit,
     watch,
+    reset,
     formState: { errors },
   } = useForm<OrderForm>({
     resolver: zodResolver(OrderSchema),
@@ -114,7 +115,7 @@ export default function SymbolPage({ params }: { params: Promise<{ symbol: strin
         order_type: data.order_type,
         direction: data.direction,
         units: data.units,
-        ...(data.entry_rate ? { entry_rate: data.entry_rate } : {}),
+        ...(data.order_type === 'ENTRY' && data.entry_rate ? { entry_rate: data.entry_rate } : {}),
         ...(data.stop_loss ? { stop_loss: data.stop_loss } : {}),
         ...(data.take_profit ? { take_profit: data.take_profit } : {}),
         ...(data.trailing_stop_pips ? { trailing_stop_pips: data.trailing_stop_pips } : {}),
@@ -122,6 +123,7 @@ export default function SymbolPage({ params }: { params: Promise<{ symbol: strin
     onSuccess: () => {
       setOrderSuccess('Trade opened successfully')
       setOrderError(null)
+      reset()
       void qc.invalidateQueries({ queryKey: ['trades'] })
       void qc.invalidateQueries({ queryKey: ['account-metrics'] })
     },
@@ -183,7 +185,7 @@ export default function SymbolPage({ params }: { params: Promise<{ symbol: strin
           <TradingChart
             symbol={symbol}
             candles={candles.map((c) => ({
-              time: c.time as unknown as UTCTimestamp,
+              time: c.time as UTCTimestamp,
               open: c.open,
               high: c.high,
               low: c.low,
@@ -267,6 +269,9 @@ export default function SymbolPage({ params }: { params: Promise<{ symbol: strin
                   {...register('entry_rate')}
                   className="w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-white"
                 />
+                {errors.entry_rate && (
+                  <p className="mt-1 text-xs text-red-400">{errors.entry_rate.message}</p>
+                )}
               </div>
             )}
 

@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@protrader/utils'
 import type { KycDocument, KycDocumentStatus, PaginatedResponse } from '@protrader/types'
@@ -33,21 +32,24 @@ function statusColor(status: KycDocumentStatus) {
 // ── Reject Modal ──────────────────────────────────────────────────────────
 interface RejectModalProps {
   docId: string
-  statusFilter: KycDocumentStatus | ''
   onClose: () => void
 }
 
-function RejectModal({ docId, statusFilter, onClose }: RejectModalProps) {
+function RejectModal({ docId, onClose }: RejectModalProps) {
   const qc = useQueryClient()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
+
+  onCloseRef.current = onClose
 
   const mutation = useMutation({
     mutationFn: () =>
       api.put(`/v1/admin/kyc/${docId}`, { status: 'REJECTED', rejection_reason: reason }),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['admin', 'kyc', statusFilter] })
+      void qc.invalidateQueries({ queryKey: ['admin', 'kyc'] })
       onClose()
     },
     onMutate: () => setError(''),
@@ -56,20 +58,40 @@ function RejectModal({ docId, statusFilter, onClose }: RejectModalProps) {
 
   // Focus management and keyboard handling
   useEffect(() => {
-    // Focus textarea on open
+    const previousFocus = document.activeElement as HTMLElement | null
     textareaRef.current?.focus()
 
-    // Handle Escape key
     const handleKeyDown = (evt: KeyboardEvent) => {
       if (evt.key === 'Escape') {
-        onClose()
+        onCloseRef.current()
+      }
+      if (evt.key === 'Tab') {
+        const dialog = dialogRef.current
+        if (!dialog) return
+        const focusable = dialog.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        )
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (evt.shiftKey) {
+          if (document.activeElement === first) {
+            evt.preventDefault()
+            last?.focus()
+          }
+        } else {
+          if (document.activeElement === last) {
+            evt.preventDefault()
+            first?.focus()
+          }
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
+      previousFocus?.focus()
     }
-  }, [onClose])
+  }, [])
 
   return (
     <div
@@ -78,6 +100,7 @@ function RejectModal({ docId, statusFilter, onClose }: RejectModalProps) {
       aria-hidden="false"
     >
       <div
+        ref={dialogRef}
         className="w-full max-w-md rounded-lg border border-gray-700 bg-gray-900 p-6"
         role="dialog"
         aria-modal="true"
@@ -126,6 +149,7 @@ export default function KycPage() {
   const [rejectDocId, setRejectDocId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const limit = 50
 
   function buildUrl() {
@@ -142,12 +166,14 @@ export default function KycPage() {
   const approveMutation = useMutation({
     mutationFn: (docId: string) => api.put(`/v1/admin/kyc/${docId}`, { status: 'APPROVED' }),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['admin', 'kyc', activeStatus, page] })
+      void qc.invalidateQueries({ queryKey: ['admin', 'kyc'] })
       setApprovingId(null)
+      setToast({ message: 'Document approved successfully', type: 'success' })
     },
     onError: (error: Error) => {
       console.error('Failed to approve KYC document:', error)
       setApprovingId(null)
+      setToast({ message: `Failed to approve document: ${error.message}`, type: 'error' })
     },
     onMutate: (docId: string) => {
       setApprovingId(docId)
@@ -161,7 +187,7 @@ export default function KycPage() {
     } catch (e) {
       const error = e instanceof Error ? e : new Error('Unknown error')
       console.error('Failed to preview document:', error)
-      alert(`Failed to load document preview: ${error.message}`)
+      setToast({ message: `Failed to load document preview: ${error.message}`, type: 'error' })
     }
   }
 
@@ -169,13 +195,29 @@ export default function KycPage() {
 
   return (
     <div className="space-y-4 p-6">
-      {rejectDocId && (
-        <RejectModal
-          docId={rejectDocId}
-          statusFilter={activeStatus}
-          onClose={() => setRejectDocId(null)}
-        />
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-[100] max-w-sm rounded-lg border px-4 py-3 text-sm shadow-lg backdrop-blur-sm ${
+            toast.type === 'success'
+              ? 'border-green-500/20 bg-green-900/90 text-green-200'
+              : 'border-red-500/20 bg-red-900/90 text-red-200'
+          }`}
+          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
+        >
+          {toast.message}
+          <button
+            onClick={() => setToast(null)}
+            className={`ml-3 hover:text-white ${
+              toast.type === 'success' ? 'text-green-400' : 'text-red-400'
+            }`}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
       )}
+      {rejectDocId && <RejectModal docId={rejectDocId} onClose={() => setRejectDocId(null)} />}
 
       <h1 className="text-2xl font-bold text-white">KYC Documents</h1>
 
@@ -184,7 +226,10 @@ export default function KycPage() {
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
-            onClick={() => setActiveStatus(tab.value)}
+            onClick={() => {
+              setActiveStatus(tab.value)
+              setPage(1)
+            }}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
               activeStatus === tab.value
                 ? 'border-b-2 border-blue-500 text-white'

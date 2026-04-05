@@ -15,6 +15,7 @@ import type {
   Withdrawal,
   AccountStatus,
   KycDocumentStatus,
+  KycStatus,
 } from '@protrader/types'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -23,11 +24,6 @@ interface UserDetailData {
   kyc_documents: KycDocument[]
   recent_deposits: Deposit[]
   recent_withdrawals: Withdrawal[]
-  metrics: {
-    balance_cents: string
-    equity_cents: string
-    unrealized_pnl_cents: string
-  }
 }
 
 // ── Schemas ────────────────────────────────────────────────────────────────
@@ -35,7 +31,11 @@ const adjustmentSchema = z.object({
   type: z.enum(['CREDIT', 'DEBIT']),
   amount_cents: z.preprocess(
     (val) => ((typeof val === 'number' && Number.isNaN(val)) || val === '' ? undefined : val),
-    z.number().int().positive('Amount must be positive'),
+    z
+      .number()
+      .int()
+      .positive('Amount must be positive')
+      .max(100_000_000, 'Amount exceeds maximum allowed'),
   ),
   description: z.string().min(1, 'Description is required'),
 })
@@ -52,6 +52,22 @@ function kycDocStatusColor(status: KycDocumentStatus) {
       return 'text-blue-400'
     case 'UPLOADED':
       return 'text-yellow-400'
+    default:
+      return 'text-gray-400'
+  }
+}
+
+function userKycStatusColor(status: KycStatus) {
+  switch (status) {
+    case 'APPROVED':
+      return 'text-green-400'
+    case 'REJECTED':
+      return 'text-red-400'
+    case 'PENDING':
+      return 'text-blue-400'
+    case 'ADDITIONAL_REQUIRED':
+      return 'text-yellow-400'
+    case 'NOT_STARTED':
     default:
       return 'text-gray-400'
   }
@@ -81,13 +97,18 @@ function RejectKycModal({ docId, userId, onClose }: RejectKycModalProps) {
   const [error, setError] = useState('')
   const dialogRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   useEffect(() => {
     triggerRef.current = document.activeElement as HTMLElement
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        onCloseRef.current()
       }
       if (e.key === 'Tab') {
         const dialog = dialogRef.current
@@ -117,7 +138,7 @@ function RejectKycModal({ docId, userId, onClose }: RejectKycModalProps) {
       document.removeEventListener('keydown', handleKeyDown)
       triggerRef.current?.focus()
     }
-  }, [onClose])
+  }, [])
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -181,8 +202,12 @@ function RejectKycModal({ docId, userId, onClose }: RejectKycModalProps) {
 /** User detail page: profile, status toggle, balance adjustment, KYC docs, deposits, withdrawals. */
 export default function UserDetailPage() {
   const params = useParams<{ id: string }>()
-  const userId = params.id
+  const userId = params.id ?? ''
   const qc = useQueryClient()
+
+  if (!userId) {
+    return <div className="p-6 text-sm text-red-400">Invalid user ID.</div>
+  }
 
   const [rejectDocId, setRejectDocId] = useState<string | null>(null)
   const [statusError, setStatusError] = useState('')
@@ -236,7 +261,8 @@ export default function UserDetailPage() {
       setAdjustmentSuccess('Balance adjustment applied.')
       reset()
       void qc.invalidateQueries({ queryKey: ['admin', 'user', userId] })
-    } catch {
+    } catch (err) {
+      console.error(`Failed to apply adjustment for user ${userId}:`, err)
       setAdjustmentError('Failed to apply adjustment.')
     }
   }
@@ -290,7 +316,7 @@ export default function UserDetailPage() {
           </div>
           <div>
             <p className="text-gray-400">KYC Status</p>
-            <p className={`font-medium ${kycDocStatusColor(user.kyc_status as KycDocumentStatus)}`}>
+            <p className={`font-medium ${userKycStatusColor(user.kyc_status)}`}>
               {user.kyc_status}
             </p>
           </div>
@@ -327,13 +353,15 @@ export default function UserDetailPage() {
         </div>
       </section>
 
-      {/* Balance Adjustment */}
       <section className="rounded-lg border border-gray-800 bg-gray-900 p-5">
         <h2 className="mb-4 text-lg font-semibold text-white">Balance Adjustment</h2>
-        <form onSubmit={handleSubmit(onAdjustmentSubmit)} className="max-w-md space-y-4">
+        <form onSubmit={handleSubmit(onAdjustmentSubmit)} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm text-gray-400">Type</label>
+            <label htmlFor="adjustment-type" className="mb-1 block text-sm text-gray-400">
+              Type
+            </label>
             <select
+              id="adjustment-type"
               {...register('type')}
               className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
             >
@@ -342,8 +370,11 @@ export default function UserDetailPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm text-gray-400">Amount (cents)</label>
+            <label htmlFor="adjustment-amount" className="mb-1 block text-sm text-gray-400">
+              Amount (cents)
+            </label>
             <input
+              id="adjustment-amount"
               type="number"
               {...register('amount_cents', { valueAsNumber: true })}
               className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
@@ -354,8 +385,11 @@ export default function UserDetailPage() {
             )}
           </div>
           <div>
-            <label className="mb-1 block text-sm text-gray-400">Description</label>
+            <label htmlFor="adjustment-description" className="mb-1 block text-sm text-gray-400">
+              Description
+            </label>
             <input
+              id="adjustment-description"
               type="text"
               {...register('description')}
               className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"

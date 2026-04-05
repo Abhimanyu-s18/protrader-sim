@@ -32,7 +32,6 @@ import { scheduleRecurringJobs } from './lib/queues.js'
 import { startMarketData, stopMarketData } from './services/market-data.js'
 import './workers/rollover.js'
 import './workers/email.js'
-import './workers/notification.js'
 import './workers/kyc-reminder.js'
 import { shutdownNotificationWorker } from './workers/notification.js'
 
@@ -336,6 +335,7 @@ async function shutdown(signal: string): Promise<void> {
   // Close notification worker
   try {
     await shutdownNotificationWorker()
+    log.info('Notification worker shutdown')
   } catch (err) {
     log.error({ err }, 'Error closing notification worker')
   }

@@ -1,7 +1,7 @@
 'use client'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useRef } from 'react'
+import { useRef, type ReactNode } from 'react'
 
 const createQueryClient = () =>
   new QueryClient({
@@ -17,7 +17,7 @@ const createQueryClient = () =>
     },
   })
 
-export function QueryClientProviderWrapper({ children }: { children: React.ReactNode }) {
+export function QueryClientProviderWrapper({ children }: { children: ReactNode }) {
   const queryClientRef = useRef<QueryClient>()
   if (!queryClientRef.current) {
     queryClientRef.current = createQueryClient()

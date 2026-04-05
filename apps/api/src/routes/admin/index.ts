@@ -143,15 +143,20 @@ adminRouter.post('/users/:id/adjustment', async (req, res, next) => {
 })
 
 // ── KYC ──────────────────────────────────────────────────────────
+const kycDocumentStatusSchema = z.enum(['UPLOADED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'ADDITIONAL_REQUIRED', 'EXPIRED'])
+
 adminRouter.get('/kyc/count', async (req, res, next) => {
   try {
-    const { status } = req.query as Record<string, string>
+    const parsed = z.object({ status: kycDocumentStatusSchema.optional() }).safeParse(req.query)
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid status parameter' })
+    }
     const count = await prisma.kycDocument.count({
-      where: status ? { status: status as never } : {},
+      where: parsed.data.status ? { status: parsed.data.status as never } : {},
     })
-    res.json(serializeBigInt({ count }))
+    return res.json(serializeBigInt({ count }))
   } catch (err) {
-    next(err)
+    return next(err)
   }
 })
 
@@ -230,15 +235,20 @@ adminRouter.put('/kyc/:doc_id', async (req, res, next) => {
 })
 
 // ── DEPOSITS ─────────────────────────────────────────────────────
+const depositStatusSchema = z.enum(['PENDING', 'CONFIRMING', 'COMPLETED', 'REJECTED', 'EXPIRED'])
+
 adminRouter.get('/deposits/count', async (req, res, next) => {
   try {
-    const { status } = req.query as Record<string, string>
+    const parsed = z.object({ status: depositStatusSchema.optional() }).safeParse(req.query)
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid status parameter' })
+    }
     const count = await prisma.deposit.count({
-      where: status ? { status: status as never } : {},
+      where: parsed.data.status ? { status: parsed.data.status as never } : {},
     })
-    res.json(serializeBigInt({ count }))
+    return res.json(serializeBigInt({ count }))
   } catch (err) {
-    next(err)
+    return next(err)
   }
 })
 

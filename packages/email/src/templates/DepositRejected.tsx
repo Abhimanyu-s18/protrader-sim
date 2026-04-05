@@ -13,7 +13,7 @@ export interface DepositRejectedEmailProps {
 export function DepositRejectedEmail({
   fullName,
   reason,
-  supportUrl = 'https://protrader.com/support',
+  supportUrl = process.env['SUPPORT_URL'] ?? 'https://protrader.com/support',
 }: DepositRejectedEmailProps) {
   return (
     <Layout preview="Your ProTraderSim deposit could not be processed">

@@ -78,7 +78,7 @@
 
 - [x] Centered card (Card component used on all pages)
 - [x] Tailwind styling (bg-surface, text-dark, spacing utilities applied)
-- [⚠️] Logo: **NOT IMPLEMENTED**
+- ⚠️ Logo: **NOT IMPLEMENTED**
 
 **Status**: Logo element missing from all auth pages. Recommend adding site logo/branding to auth layout.
 
@@ -114,14 +114,19 @@ All required endpoints in `apps/auth/src/lib/api.ts`:
 
 ---
 
+## Completed Recommendations
+
+- [x] **Session Token Fallback**: Implemented in `@protrader/utils/createApiClient()` to check sessionStorage as fallback
+
+---
+
 ## Recommendations & Next Steps
 
 1. **Add Logo to Auth Pages**: Import logo image, display in header of each page
-2. **Session Token Fallback**: Implemented in `@protrader/utils/createApiClient()` to check sessionStorage as fallback
-3. **Email Notification Setup**: Queue emails via BullMQ for registration, password reset, verification
-4. **Rate Limiting**: Implement per-IP rate limits on auth endpoints (10/15min)
-5. **Password Reset TTL**: Verify Redis expiry on password reset tokens (currently 1h)
-6. **KYC Email Notification**: Queue admin notification when KYC docs submitted
+2. **Email Notification Setup**: Queue emails via BullMQ for registration, password reset, verification
+3. **Rate Limiting**: Implement per-IP rate limits on auth endpoints (10/15min)
+4. **Password Reset TTL**: Verify Redis expiry on password reset tokens (currently 1h)
+5. **KYC Email Notification**: Queue admin notification when KYC docs submitted
 
 ---
 

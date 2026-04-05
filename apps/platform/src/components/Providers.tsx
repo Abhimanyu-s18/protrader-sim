@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
+const NON_RETRYABLE_STATUSES = new Set([400, 401, 403, 404, 409, 422])
+
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
@@ -19,7 +21,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                   ? (error as { status: number }).status
                   : undefined
 
-              if (status === 400 || status === 401 || status === 403 || status === 404) return false
+              if (status !== undefined && NON_RETRYABLE_STATUSES.has(status)) return false
               return failureCount < 2
             },
           },

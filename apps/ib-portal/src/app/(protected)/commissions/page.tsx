@@ -1,10 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { formatMoney, formatDateTime } from '@protrader/utils'
 import { api } from '../../../lib/api'
-import type { IbCommission, IbCommissionSummary, IbCommissionsResponse } from '../../../types/ib'
+import type {
+  IbCommission,
+  IbCommissionSummary,
+  IbCommissionSummaryApiResponse,
+  IbCommissionsResponse,
+} from '../../../types/ib'
 
 type StatusFilter = 'ALL' | 'PENDING' | 'PAID'
 
@@ -28,61 +33,46 @@ const TABS: { label: string; value: StatusFilter }[] = [
 /** Commissions page with summary totals, filter tabs, and paginated table. */
 export default function CommissionsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
-  const [cursor, setCursor] = useState<string | null>(null)
-  const [allItems, setAllItems] = useState<IbCommission[]>([])
 
-  const summaryQuery = useQuery({
+  const summaryQuery = useQuery<IbCommissionSummary>({
     queryKey: ['ib', 'commissions-summary'],
-    queryFn: () => api.get<IbCommissionSummary>('/v1/ib/commissions/summary'),
-  })
-
-  const commissionsQuery = useQuery({
-    queryKey: ['ib', 'commissions', statusFilter, cursor],
     queryFn: async () => {
-      const params = new URLSearchParams({ limit: '50' })
-      if (statusFilter !== 'ALL') params.set('status', statusFilter)
-      if (cursor) params.set('cursor', cursor)
-      const result = await api.get<IbCommissionsResponse>(`/v1/ib/commissions?${params.toString()}`)
-      return result
+      const raw = await api.get<IbCommissionSummaryApiResponse>('/v1/ib/commissions/summary')
+      return {
+        totalCents: raw.total_cents,
+        totalFormatted: raw.total_formatted,
+        pendingCents: raw.pending_cents,
+        pendingFormatted: raw.pending_formatted,
+        paidCents: raw.paid_cents,
+        paidFormatted: raw.paid_formatted,
+      }
     },
   })
 
-  // Sync query data to accumulated items
-  useEffect(() => {
-    if (commissionsQuery.data) {
-      if (!cursor) {
-        setAllItems(commissionsQuery.data.data)
-      } else {
-        setAllItems((prev) => [...prev, ...commissionsQuery.data.data])
-      }
-    }
-  }, [commissionsQuery.data, cursor])
-
-  // Sync query data to accumulated items
-  useEffect(() => {
-    if (commissionsQuery.data) {
-      if (!cursor) {
-        setAllItems(commissionsQuery.data.data)
-      } else {
-        setAllItems((prev) => [...prev, ...commissionsQuery.data.data])
-      }
-    }
-  }, [commissionsQuery.data, cursor])
+  const commissionsQuery = useInfiniteQuery({
+    queryKey: ['ib', 'commissions', statusFilter],
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const params = new URLSearchParams({ limit: '50' })
+      if (statusFilter !== 'ALL') params.set('status', statusFilter)
+      if (pageParam) params.set('cursor', pageParam)
+      const result = await api.get<IbCommissionsResponse>(`/v1/ib/commissions?${params.toString()}`)
+      return result
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    initialPageParam: undefined as string | undefined,
+  })
 
   function handleTabChange(tab: StatusFilter) {
     setStatusFilter(tab)
-    setCursor(null)
-    setAllItems([])
   }
 
   function handleLoadMore() {
-    if (commissionsQuery.data?.nextCursor) {
-      setCursor(commissionsQuery.data.nextCursor)
-    }
+    commissionsQuery.fetchNextPage()
   }
 
   const summary = summaryQuery.data
-  const hasMore = commissionsQuery.data?.hasMore ?? false
+  const commissions: IbCommission[] = commissionsQuery.data?.pages.flatMap((p) => p.data) ?? []
+  const hasMore = commissionsQuery.hasNextPage ?? false
 
   return (
     <div className="space-y-6 p-6">
@@ -140,44 +130,68 @@ export default function CommissionsPage() {
         aria-labelledby={`tab-${statusFilter}`}
         className="rounded-lg border border-gray-800 bg-gray-900"
       >
-        {commissionsQuery.isLoading && allItems.length === 0 ? (
+        {commissionsQuery.isLoading && commissions.length === 0 ? (
           <p className="p-5 text-sm text-gray-400">Loading…</p>
         ) : commissionsQuery.isError ? (
           <p className="p-5 text-sm text-red-400">Failed to load commissions.</p>
-        ) : allItems.length === 0 ? (
+        ) : commissions.length === 0 ? (
           <p className="p-5 text-sm text-gray-500">No commissions found.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800 text-left">
-                <th className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th
+                  scope="col"
+                  className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase"
+                >
                   Trader
                 </th>
-                <th className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th
+                  scope="col"
+                  className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase"
+                >
                   Symbol
                 </th>
-                <th className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th
+                  scope="col"
+                  className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase"
+                >
                   Direction
                 </th>
-                <th className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th
+                  scope="col"
+                  className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase"
+                >
                   Units
                 </th>
-                <th className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th
+                  scope="col"
+                  className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase"
+                >
                   Amount
                 </th>
-                <th className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th
+                  scope="col"
+                  className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase"
+                >
                   Rate (bps)
                 </th>
-                <th className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th
+                  scope="col"
+                  className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase"
+                >
                   Status
                 </th>
-                <th className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th
+                  scope="col"
+                  className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase"
+                >
                   Date
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {allItems.map((commission) => (
+              {commissions.map((commission) => (
                 <tr key={commission.id} className="hover:bg-gray-800/50">
                   <td className="px-5 py-3">
                     <p className="text-white">{commission.trader.fullName}</p>
@@ -217,14 +231,14 @@ export default function CommissionsPage() {
 
       {/* Footer */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{allItems.length} shown</p>
+        <p className="text-sm text-gray-500">{commissions.length} shown</p>
         {hasMore && (
           <button
             onClick={handleLoadMore}
-            disabled={commissionsQuery.isFetching}
+            disabled={commissionsQuery.isFetchingNextPage}
             className="rounded-md bg-gray-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-600 disabled:opacity-50"
           >
-            {commissionsQuery.isFetching ? 'Loading…' : 'Load more'}
+            {commissionsQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
           </button>
         )}
       </div>

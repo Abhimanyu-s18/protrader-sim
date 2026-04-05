@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const AUTH_URL = process.env['NEXT_PUBLIC_AUTH_URL'] ?? 'http://localhost:3001'
 
-const PUBLIC_PATHS = ['/_next', '/favicon.ico', '/api']
+const PUBLIC_PATHS = ['/_next/data', '/api']
 
 /**
  * Lightweight middleware: redirect unauthenticated requests to the auth app.
@@ -24,8 +24,9 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('access_token')?.value
 
   if (!token) {
-    const returnTo = encodeURIComponent(request.nextUrl.toString())
-    return NextResponse.redirect(`${AUTH_URL}/login?returnTo=${returnTo}`)
+    const url = new URL('/login', AUTH_URL)
+    url.searchParams.set('returnTo', request.nextUrl.toString())
+    return NextResponse.redirect(url.toString())
   }
 
   return NextResponse.next()

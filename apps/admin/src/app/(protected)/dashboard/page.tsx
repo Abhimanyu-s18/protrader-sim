@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { api } from '@/lib/api'
@@ -10,14 +11,17 @@ interface KpiCardProps {
   label: string
   value: string | number
   isLoading: boolean
+  isError?: boolean
 }
 
-function KpiCard({ label, value, isLoading }: KpiCardProps) {
+function KpiCard({ label, value, isLoading, isError }: KpiCardProps) {
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
       <p className="text-sm text-gray-400">{label}</p>
       {isLoading ? (
         <p className="mt-1 text-2xl font-bold text-gray-600">…</p>
+      ) : isError ? (
+        <p className="mt-1 text-2xl font-bold text-red-400">Failed to load</p>
       ) : (
         <p className="mt-1 text-2xl font-bold text-white">{value}</p>
       )}
@@ -43,23 +47,43 @@ interface CountResponse {
 }
 
 export default function DashboardPage() {
-  const { data: usersData, isLoading: usersLoading } = useQuery({
+  const {
+    data: usersData,
+    isLoading: usersLoading,
+    isError: usersError,
+    error: usersErrorObj,
+  } = useQuery({
     queryKey: ['admin', 'users', 'list'],
     queryFn: () => api.get<PaginatedResponse<User>>('/v1/admin/users?limit=10'),
   })
 
-  const { data: kycCountData, isLoading: kycLoading } = useQuery<CountResponse>({
+  const {
+    data: kycCountData,
+    isLoading: kycLoading,
+    isError: kycError,
+    error: kycErrorObj,
+  } = useQuery<CountResponse>({
     queryKey: ['admin', 'kyc', 'pending-count'],
     queryFn: () => api.get<CountResponse>('/v1/admin/kyc/count?status=UPLOADED'),
   })
 
-  const { data: depositsCountData, isLoading: depositsLoading } = useQuery<CountResponse>({
+  const {
+    data: depositsCountData,
+    isLoading: depositsLoading,
+    isError: depositsError,
+    error: depositsErrorObj,
+  } = useQuery<CountResponse>({
     queryKey: ['admin', 'deposits', 'pending-count'],
     queryFn: () => api.get<CountResponse>('/v1/admin/deposits/count?status=PENDING'),
   })
 
   const tzOffsetMinutes = new Date().getTimezoneOffset() * -1
-  const { data: todayCountData, isLoading: todayCountLoading } = useQuery<CountResponse>({
+  const {
+    data: todayCountData,
+    isLoading: todayCountLoading,
+    isError: todayCountError,
+    error: todayCountErrorObj,
+  } = useQuery<CountResponse>({
     queryKey: ['admin', 'users', 'today-count', tzOffsetMinutes],
     queryFn: () =>
       api.get<CountResponse>(`/v1/admin/users/today-count?tz_offset_minutes=${tzOffsetMinutes}`),
@@ -70,6 +94,31 @@ export default function DashboardPage() {
   const pendingKycCount = kycCountData?.count ?? 0
   const pendingDepositsCount = depositsCountData?.count ?? 0
 
+  // Log errors when they occur
+  useEffect(() => {
+    if (usersError && usersErrorObj) {
+      console.error('Failed to load users:', usersErrorObj)
+    }
+  }, [usersError, usersErrorObj])
+
+  useEffect(() => {
+    if (kycError && kycErrorObj) {
+      console.error('Failed to load KYC count:', kycErrorObj)
+    }
+  }, [kycError, kycErrorObj])
+
+  useEffect(() => {
+    if (depositsError && depositsErrorObj) {
+      console.error('Failed to load deposits count:', depositsErrorObj)
+    }
+  }, [depositsError, depositsErrorObj])
+
+  useEffect(() => {
+    if (todayCountError && todayCountErrorObj) {
+      console.error("Failed to load today's user count:", todayCountErrorObj)
+    }
+  }, [todayCountError, todayCountErrorObj])
+
   return (
     <div className="space-y-6 p-6">
       <h1 className="text-2xl font-bold text-white">Dashboard</h1>
@@ -79,17 +128,25 @@ export default function DashboardPage() {
           label="Total Users"
           value={usersData?.total_count ?? usersData?.data?.length ?? 0}
           isLoading={usersLoading}
+          isError={usersError}
         />
-        <KpiCard label="Pending KYC" value={pendingKycCount} isLoading={kycLoading} />
+        <KpiCard
+          label="Pending KYC"
+          value={pendingKycCount}
+          isLoading={kycLoading}
+          isError={kycError}
+        />
         <KpiCard
           label="Pending Deposits"
           value={pendingDepositsCount}
           isLoading={depositsLoading}
+          isError={depositsError}
         />
         <KpiCard
           label="Today's Registrations"
           value={todayCount}
-          isLoading={todayCountLoading || usersLoading}
+          isLoading={todayCountLoading}
+          isError={todayCountError}
         />
       </div>
 
@@ -111,10 +168,13 @@ export default function DashboardPage() {
       <div>
         <h2 className="mb-3 text-lg font-semibold text-white">Recent Registrations</h2>
         {usersLoading && <p className="text-sm text-gray-400">Loading…</p>}
-        {!usersLoading && recentUsers.length === 0 && (
+        {!usersLoading && usersError && (
+          <p className="text-sm text-red-400">Failed to load users.</p>
+        )}
+        {!usersLoading && !usersError && recentUsers.length === 0 && (
           <p className="text-sm text-gray-500">No users found.</p>
         )}
-        {recentUsers.length > 0 && (
+        {!usersLoading && !usersError && recentUsers.length > 0 && (
           <div className="overflow-x-auto rounded-lg border border-gray-800">
             <table className="w-full text-sm">
               <thead>

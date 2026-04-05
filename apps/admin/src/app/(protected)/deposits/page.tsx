@@ -31,6 +31,71 @@ function statusColor(status: DepositStatus) {
   }
 }
 
+// ── Modal Component ───────────────────────────────────────────────────────
+interface ModalProps {
+  titleId: string
+  onClose: () => void
+  children: React.ReactNode
+  className?: string
+}
+
+function Modal({ titleId, onClose, children, className }: ModalProps) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
+    const modal = document.querySelector(`[aria-labelledby="${titleId}"]`) as HTMLElement
+    if (!modal) return
+
+    const focusableElements = modal.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    )
+    const firstElement = focusableElements[0] as HTMLElement
+    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            lastElement.focus()
+            e.preventDefault()
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            firstElement.focus()
+            e.preventDefault()
+          }
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleTab)
+    firstElement?.focus()
+
+    return () => document.removeEventListener('keydown', handleTab)
+  }, [titleId])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className={`w-full max-w-md rounded-lg border border-gray-700 bg-gray-900 p-6 ${className || ''}`}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // ── Approve Modal ─────────────────────────────────────────────────────────
 interface ApproveModalProps {
   depositId: string
@@ -42,16 +107,6 @@ function ApproveModal({ depositId, statusFilter, onClose }: ApproveModalProps) {
   const qc = useQueryClient()
   const [bonusCents, setBonusCents] = useState('')
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -72,35 +127,35 @@ function ApproveModal({ depositId, statusFilter, onClose }: ApproveModalProps) {
   })
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-lg border border-gray-700 bg-gray-900 p-6">
-        <h3 className="mb-4 text-lg font-semibold text-white">Approve Deposit</h3>
-        <label className="mb-1 block text-sm text-gray-400">Bonus (cents, optional)</label>
-        <input
-          type="number"
-          value={bonusCents}
-          onChange={(e) => setBonusCents(e.target.value)}
-          placeholder="e.g. 1000 = $10.00"
-          className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
-        />
-        {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
-        <div className="mt-4 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="rounded-md bg-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-600"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending}
-            className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-          >
-            {mutation.isPending ? 'Approving…' : 'Approve'}
-          </button>
-        </div>
+    <Modal titleId="approve-modal-title" onClose={onClose}>
+      <h3 id="approve-modal-title" className="mb-4 text-lg font-semibold text-white">
+        Approve Deposit
+      </h3>
+      <label className="mb-1 block text-sm text-gray-400">Bonus (cents, optional)</label>
+      <input
+        type="number"
+        value={bonusCents}
+        onChange={(e) => setBonusCents(e.target.value)}
+        placeholder="e.g. 1000 = $10.00"
+        className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+      />
+      {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
+      <div className="mt-4 flex justify-end gap-3">
+        <button
+          onClick={onClose}
+          className="rounded-md bg-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-600"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => mutation.mutate()}
+          disabled={mutation.isPending}
+          className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+        >
+          {mutation.isPending ? 'Approving…' : 'Approve'}
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -116,21 +171,8 @@ function RejectModal({ depositId, statusFilter, onClose }: RejectModalProps) {
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
-
   const mutation = useMutation({
     mutationFn: () => {
-      if (!reason.trim()) {
-        return Promise.reject(new Error('Rejection reason is required'))
-      }
       return api.put(`/v1/admin/deposits/${depositId}`, {
         action: 'REJECT',
         rejection_reason: reason,
@@ -140,45 +182,45 @@ function RejectModal({ depositId, statusFilter, onClose }: RejectModalProps) {
       void qc.invalidateQueries({ queryKey: ['admin', 'deposits', statusFilter] })
       onClose()
     },
-    onError: () => setError('Failed to reject deposit.'),
+    onError: (error) => setError(error?.message || 'Failed to reject deposit.'),
   })
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-lg border border-gray-700 bg-gray-900 p-6">
-        <h3 className="mb-4 text-lg font-semibold text-white">Reject Deposit</h3>
-        <label className="mb-1 block text-sm text-gray-400">Rejection reason</label>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={3}
-          className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-red-500 focus:outline-none"
-          placeholder="Enter reason…"
-        />
-        {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
-        <div className="mt-4 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="rounded-md bg-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-600"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              if (!reason.trim()) {
-                setError('Please enter a rejection reason')
-                return
-              }
-              mutation.mutate()
-            }}
-            disabled={mutation.isPending}
-            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {mutation.isPending ? 'Rejecting…' : 'Reject'}
-          </button>
-        </div>
+    <Modal titleId="reject-modal-title" onClose={onClose}>
+      <h3 id="reject-modal-title" className="mb-4 text-lg font-semibold text-white">
+        Reject Deposit
+      </h3>
+      <label className="mb-1 block text-sm text-gray-400">Rejection reason</label>
+      <textarea
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={3}
+        className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-red-500 focus:outline-none"
+        placeholder="Enter reason…"
+      />
+      {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
+      <div className="mt-4 flex justify-end gap-3">
+        <button
+          onClick={onClose}
+          className="rounded-md bg-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-600"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            if (!reason.trim()) {
+              setError('Please enter a rejection reason')
+              return
+            }
+            mutation.mutate()
+          }}
+          disabled={mutation.isPending}
+          className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+        >
+          {mutation.isPending ? 'Rejecting…' : 'Reject'}
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -202,8 +244,8 @@ export default function DepositsPage() {
   })
 
   const deposits: Deposit[] = data?.data ?? []
-  const nextCursor = (data as PaginatedResponse<Deposit> | undefined)?.next_cursor ?? null
-  const hasMore = (data as PaginatedResponse<Deposit> | undefined)?.has_more ?? false
+  const nextCursor = data?.next_cursor ?? null
+  const hasMore = data?.has_more ?? false
 
   return (
     <div className="space-y-4 p-6">
@@ -225,20 +267,28 @@ export default function DepositsPage() {
       <h1 className="text-2xl font-bold text-white">Deposits</h1>
 
       {/* Filter tabs */}
-      <div className="flex flex-wrap gap-1 border-b border-gray-800">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setActiveStatus(tab.value)}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeStatus === tab.value
-                ? 'border-b-2 border-blue-500 text-white'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-1 border-b border-gray-800" role="tablist">
+        {STATUS_TABS.map((tab) => {
+          const tabId = tab.value || 'all'
+          return (
+            <button
+              key={tab.value}
+              id={`tab-${tabId}`}
+              role="tab"
+              aria-selected={activeStatus === tab.value}
+              tabIndex={activeStatus === tab.value ? 0 : -1}
+              aria-controls={`tabpanel-${tabId}`}
+              onClick={() => setActiveStatus(tab.value)}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeStatus === tab.value
+                  ? 'border-b-2 border-blue-500 text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
 
       {isLoading && <p className="text-sm text-gray-400">Loading…</p>}
@@ -248,7 +298,11 @@ export default function DepositsPage() {
       )}
 
       {deposits.length > 0 && (
-        <>
+        <div
+          role="tabpanel"
+          id={`tabpanel-${activeStatus || 'all'}`}
+          aria-labelledby={`tab-${activeStatus || 'all'}`}
+        >
           <div className="overflow-x-auto rounded-lg border border-gray-800">
             <table className="w-full text-sm">
               <thead>
@@ -315,7 +369,7 @@ export default function DepositsPage() {
               Next
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

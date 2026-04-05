@@ -9,6 +9,7 @@ import type { WsPriceUpdate, WsAccountMetrics } from '@protrader/types'
 const API_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:4000'
 
 let socketInstance: Socket | null = null
+const activeSubscriptions = new Set<string>()
 
 /** Returns a singleton Socket.io connection, creating it on first call. */
 let currentToken: string | null = null
@@ -18,6 +19,7 @@ function getSocket(token: string): Socket {
 
   if (needsNewSocket) {
     socketInstance?.disconnect()
+    activeSubscriptions.clear()
     currentToken = token
     socketInstance = io(API_URL, {
       auth: { token },
@@ -54,11 +56,17 @@ export function useSocket(token: string | null): void {
       console.error('[socket] connection error', err.message)
     })
 
+    socket.on('connect', () => {
+      if (activeSubscriptions.size > 0) {
+        socket.emit('subscribe:prices', { symbols: Array.from(activeSubscriptions) })
+      }
+    })
+
     return () => {
       socket.off('prices:update')
       socket.off('account:metrics')
       socket.off('connect_error')
-      socket.disconnect()
+      socket.off('connect')
     }
   }, [token, applyWsUpdate, updatePrice])
 }
@@ -73,6 +81,21 @@ export function subscribePrices(symbols: string[]) {
     }
     return
   }
+
+  symbols.forEach((s) => activeSubscriptions.add(s))
+
+  if (!socketInstance.connected) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        `[socket] subscribePrices called while socket disconnected. Connecting and deferring subscribe for symbols: ${symbols.join(
+          ', ',
+        )}`,
+      )
+    }
+    socketInstance.connect()
+    return
+  }
+
   socketInstance.emit('subscribe:prices', { symbols })
 }
 
@@ -86,6 +109,13 @@ export function unsubscribePrices(symbols: string[]) {
     }
     return
   }
+
+  symbols.forEach((s) => activeSubscriptions.delete(s))
+
+  if (!socketInstance.connected) {
+    return
+  }
+
   socketInstance.emit('unsubscribe:prices', { symbols })
 }
 

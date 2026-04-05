@@ -1,6 +1,14 @@
 import { Hr, Link, Section, Text } from '@react-email/components'
 import { Layout, emailStyles } from '../components/Layout'
 
+const bulletStyle = { ...emailStyles.body, margin: '0 0 6px', paddingLeft: '16px' }
+
+const bulletItems = [
+  'Complete your KYC identity verification',
+  'Fund your simulated trading account',
+  'Trade Forex, commodities, and indices in real market conditions',
+]
+
 export interface WelcomeEmailProps {
   fullName: string
   verifyUrl: string
@@ -31,15 +39,11 @@ export function WelcomeEmail({ fullName, verifyUrl }: WelcomeEmailProps) {
       <Hr style={emailStyles.divider} />
 
       <Text style={emailStyles.body}>Once verified, you'll be able to:</Text>
-      <Text style={{ ...emailStyles.body, margin: '0 0 6px', paddingLeft: '16px' }}>
-        &#x2022; Complete your KYC identity verification
-      </Text>
-      <Text style={{ ...emailStyles.body, margin: '0 0 6px', paddingLeft: '16px' }}>
-        &#x2022; Fund your simulated trading account
-      </Text>
-      <Text style={{ ...emailStyles.body, margin: '0 0 16px', paddingLeft: '16px' }}>
-        &#x2022; Trade Forex, commodities, and indices in real market conditions
-      </Text>
+      {bulletItems.map((item) => (
+        <Text key={item} style={bulletStyle}>
+          &#x2022; {item}
+        </Text>
+      ))}
 
       <Text style={emailStyles.muted}>
         If you didn't create a ProTraderSim account, you can safely ignore this email.

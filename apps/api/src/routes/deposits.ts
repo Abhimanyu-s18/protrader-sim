@@ -48,7 +48,8 @@ async function createNowPaymentsPayment(
 
   const apiUrl = process.env['API_URL']
   if (!apiUrl) {
-    throw new Error('API_URL is not configured for NowPayments IPN callback')
+    log.warn('API_URL not set — skipping payment creation')
+    return null
   }
 
   let ipnCallbackUrl: string
@@ -83,7 +84,7 @@ async function createNowPaymentsPayment(
     })
 
     if (!response.ok) {
-      const body = (await response.text()) as string
+      const body = await response.text()
       log.error({ status: response.status, body }, 'NowPayments API error')
       throw new Error(`NowPayments API returned ${response.status}`)
     }

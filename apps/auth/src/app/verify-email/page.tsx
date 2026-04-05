@@ -58,6 +58,7 @@ export default function VerifyEmailPage() {
               const baseUrl = process.env.NEXT_PUBLIC_PLATFORM_URL
               if (!baseUrl) {
                 console.error('NEXT_PUBLIC_PLATFORM_URL is not configured')
+                alert('Unable to navigate to platform. Please contact support.')
                 return
               }
               window.location.href = `${baseUrl}/dashboard`

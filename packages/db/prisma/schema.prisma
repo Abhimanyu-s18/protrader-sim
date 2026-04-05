@@ -199,7 +199,6 @@ model User {
 
   @@index([email])
   @@index([kycStatus, lastKycReminderSentAt])
-  @@index([kycStatus])
   @@index([agentId])
   @@map("users")
 }

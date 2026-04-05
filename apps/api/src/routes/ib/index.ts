@@ -11,9 +11,15 @@ ibRouter.use(requireRole('IB_TEAM_LEADER', 'AGENT', 'SUPER_ADMIN', 'ADMIN'))
 // GET /v1/ib/traders — agent's assigned traders (paginated)
 ibRouter.get('/traders', async (req, res, next) => {
   try {
-    const agentId = BigInt(req.user!.user_id)
+    const user = req.user
+    if (!user) return next(Errors.unauthorized())
+    const agentId = BigInt(user.user_id)
     const { cursor, limit = '50' } = req.query as Record<string, string>
-    const take = Math.min(parseInt(limit, 10), 200)
+    const parsedLimit = parseInt(limit, 10)
+    if (Number.isNaN(parsedLimit) || parsedLimit < 1) {
+      return next(Errors.badRequest('Invalid limit parameter'))
+    }
+    const take = Math.min(parsedLimit, 200)
 
     // Validate cursor
     if (cursor && !/^\d+$/.test(cursor)) {
@@ -31,7 +37,7 @@ ibRouter.get('/traders', async (req, res, next) => {
         accountStatus: true,
         createdAt: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { id: 'desc' },
       take: take + 1,
     })
     const hasMore = traders.length > take
@@ -51,9 +57,15 @@ ibRouter.get('/traders', async (req, res, next) => {
 // GET /v1/ib/commissions — agent commissions
 ibRouter.get('/commissions', async (req, res, next) => {
   try {
-    const agentId = BigInt(req.user!.user_id)
+    const user = req.user
+    if (!user) return next(Errors.unauthorized())
+    const agentId = BigInt(user.user_id)
     const { status, cursor, limit = '50' } = req.query as Record<string, string>
-    const take = Math.min(parseInt(limit, 10), 200)
+    const parsedLimit = parseInt(limit, 10)
+    if (Number.isNaN(parsedLimit) || parsedLimit < 1) {
+      return next(Errors.badRequest('Invalid limit parameter'))
+    }
+    const take = Math.min(parsedLimit, 200)
 
     // Validate status
     if (status && !['PENDING', 'PAID'].includes(status)) {
@@ -82,7 +94,7 @@ ibRouter.get('/commissions', async (req, res, next) => {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { id: 'desc' },
       take: take + 1,
     })
     const hasMore = commissions.length > take
@@ -102,7 +114,9 @@ ibRouter.get('/commissions', async (req, res, next) => {
 // GET /v1/ib/commissions/summary
 ibRouter.get('/commissions/summary', async (req, res, next) => {
   try {
-    const agentId = BigInt(req.user!.user_id)
+    const user = req.user
+    if (!user) return next(Errors.unauthorized())
+    const agentId = BigInt(user.user_id)
     const [total, pending, paid] = await Promise.all([
       prisma.ibCommission.aggregate({ where: { agentId }, _sum: { amountCents: true } }),
       prisma.ibCommission.aggregate({
@@ -135,8 +149,10 @@ ibRouter.get('/commissions/summary', async (req, res, next) => {
 // GET /v1/ib/network-stats
 ibRouter.get('/network-stats', async (req, res, next) => {
   try {
-    const agentId = BigInt(req.user!.user_id)
-    const role = req.user!.role
+    const user = req.user
+    if (!user) return next(Errors.unauthorized())
+    const agentId = BigInt(user.user_id)
+    const role = user.role
 
     let traderIds: bigint[] = []
     if (role === 'AGENT') {
@@ -183,7 +199,9 @@ ibRouter.get('/network-stats', async (req, res, next) => {
 // GET /v1/ib/agents — Team Leader only
 ibRouter.get('/agents', requireRole('IB_TEAM_LEADER', 'SUPER_ADMIN'), async (req, res, next) => {
   try {
-    const tlId = BigInt(req.user!.user_id)
+    const user = req.user
+    if (!user) return next(Errors.unauthorized())
+    const tlId = BigInt(user.user_id)
     const agents = await prisma.staff.findMany({
       where: { teamLeaderId: tlId, role: 'AGENT' },
       select: {
@@ -212,14 +230,18 @@ ibRouter.get('/agents', requireRole('IB_TEAM_LEADER', 'SUPER_ADMIN'), async (req
       }),
     ])
 
-    const validTraderCounts = traderCounts.filter((tc) => tc.agentId != null)
-    const validCommissionSums = commissionSums.filter((cs) => cs.agentId != null)
+    const validTraderCounts = traderCounts.filter(
+      (tc): tc is (typeof traderCounts)[number] & { agentId: bigint } => tc.agentId != null,
+    )
+    const validCommissionSums = commissionSums.filter(
+      (cs): cs is (typeof commissionSums)[number] & { agentId: bigint } => cs.agentId != null,
+    )
 
     const traderCountMap = new Map(
-      validTraderCounts.map((tc) => [tc.agentId!.toString(), tc._count]),
+      validTraderCounts.map((tc) => [tc.agentId.toString(), tc._count]),
     )
     const commissionSumMap = new Map(
-      validCommissionSums.map((cs) => [cs.agentId!.toString(), cs._sum.amountCents ?? 0n]),
+      validCommissionSums.map((cs) => [cs.agentId.toString(), cs._sum.amountCents ?? 0n]),
     )
 
     const enriched = agents.map((agent) => ({

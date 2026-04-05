@@ -21,9 +21,14 @@ export let notificationWorker: Worker<NotificationJobData> | null = null
 export async function shutdownNotificationWorker(): Promise<void> {
   if (notificationWorker) {
     log.info('Shutting down notification worker...')
-    await notificationWorker.close()
-    log.info('Notification worker closed')
-    notificationWorker = null
+    try {
+      await notificationWorker.close()
+      log.info('Notification worker closed')
+    } catch (err) {
+      log.error({ err }, 'Error closing notification worker')
+    } finally {
+      notificationWorker = null
+    }
   }
 }
 

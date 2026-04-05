@@ -3,7 +3,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { formatMoney, formatDateTime } from '@protrader/utils'
 import { api } from '../../../lib/api'
-import type { IbNetworkStats, IbCommissionSummary, IbTrader } from '../../../types/ib'
+import type {
+  IbNetworkStats,
+  IbCommissionSummary,
+  IbNetworkStatsApiResponse,
+  IbCommissionSummaryApiResponse,
+  IbTrader,
+} from '../../../types/ib'
 
 function kycBadgeClass(status: string): string {
   switch (status) {
@@ -64,7 +70,7 @@ function StatusBadge({ status, type }: { status: string; type: 'kyc' | 'account'
   return (
     <span
       className={`inline-flex items-center gap-1 font-medium ${statusClass}`}
-      aria-label={getStatusLabel()}
+      title={getStatusLabel()}
     >
       <span aria-hidden="true">{getStatusIcon()}</span>
       <span>{status}</span>
@@ -88,14 +94,32 @@ function KpiCard({ label, value }: KpiCardProps) {
 
 /** Dashboard page — KPI cards, commission summary, recent traders. */
 export default function DashboardPage() {
-  const statsQuery = useQuery({
+  const statsQuery = useQuery<IbNetworkStats>({
     queryKey: ['ib', 'network-stats'],
-    queryFn: () => api.get<IbNetworkStats>('/v1/ib/network-stats'),
+    queryFn: async () => {
+      const raw = await api.get<IbNetworkStatsApiResponse>('/v1/ib/network-stats')
+      return {
+        totalTraders: raw.total_traders,
+        activeTraders: raw.active_traders,
+        totalTradeVolume: raw.total_trade_volume,
+        pendingCommissionCents: raw.pending_commission_cents,
+      }
+    },
   })
 
-  const summaryQuery = useQuery({
+  const summaryQuery = useQuery<IbCommissionSummary>({
     queryKey: ['ib', 'commissions-summary'],
-    queryFn: () => api.get<IbCommissionSummary>('/v1/ib/commissions/summary'),
+    queryFn: async () => {
+      const raw = await api.get<IbCommissionSummaryApiResponse>('/v1/ib/commissions/summary')
+      return {
+        totalCents: raw.total_cents,
+        totalFormatted: raw.total_formatted,
+        pendingCents: raw.pending_cents,
+        pendingFormatted: raw.pending_formatted,
+        paidCents: raw.paid_cents,
+        paidFormatted: raw.paid_formatted,
+      }
+    },
   })
 
   const tradersQuery = useQuery({
@@ -118,13 +142,13 @@ export default function DashboardPage() {
         <p className="text-sm text-red-400">Failed to load network stats.</p>
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard label="Total Traders" value={stats?.total_traders ?? 0} />
-          <KpiCard label="Active Traders" value={stats?.active_traders ?? 0} />
+          <KpiCard label="Total Traders" value={stats?.totalTraders ?? 0} />
+          <KpiCard label="Active Traders" value={stats?.activeTraders ?? 0} />
           <KpiCard
             label="Pending Commission"
-            value={formatMoney(stats?.pending_commission_cents ?? 0)}
+            value={formatMoney(stats?.pendingCommissionCents ?? 0)}
           />
-          <KpiCard label="Total Trade Volume" value={formatMoney(stats?.total_trade_volume ?? 0)} />
+          <KpiCard label="Total Trade Volume" value={formatMoney(stats?.totalTradeVolume ?? 0)} />
         </div>
       )}
 
@@ -142,19 +166,19 @@ export default function DashboardPage() {
             <div>
               <p className="text-xs text-gray-500">Total Earned</p>
               <p className="mt-1 text-lg font-semibold text-white">
-                {summary?.total_formatted ?? '—'}
+                {summary?.totalFormatted ?? '—'}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Pending</p>
               <p className="mt-1 text-lg font-semibold text-yellow-400">
-                {summary?.pending_formatted ?? '—'}
+                {summary?.pendingFormatted ?? '—'}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Paid</p>
               <p className="mt-1 text-lg font-semibold text-green-400">
-                {summary?.paid_formatted ?? '—'}
+                {summary?.paidFormatted ?? '—'}
               </p>
             </div>
           </div>
@@ -176,6 +200,7 @@ export default function DashboardPage() {
           <p className="p-5 text-sm text-gray-500">No traders yet.</p>
         ) : (
           <table className="w-full text-sm">
+            <caption className="sr-only">Recent traders and account statuses</caption>
             <thead>
               <tr className="border-b border-gray-800 text-left">
                 <th className="px-5 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase">

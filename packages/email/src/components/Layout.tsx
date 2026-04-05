@@ -195,8 +195,7 @@ export const emailStyles = {
     margin: '0 0 16px',
     lineHeight: '1.6',
   },
-  button: {
-    backgroundColor: BRAND.accent,
+  baseButton: {
     borderRadius: '6px',
     color: BRAND.white,
     display: 'block',
@@ -206,30 +205,15 @@ export const emailStyles = {
     textDecoration: 'none',
     textAlign: 'center' as const,
     margin: '24px 0',
+  },
+  button: {
+    backgroundColor: BRAND.accent,
   },
   warningButton: {
     backgroundColor: '#f59e0b',
-    borderRadius: '6px',
-    color: BRAND.white,
-    display: 'block',
-    fontSize: '15px',
-    fontWeight: '600',
-    padding: '14px 28px',
-    textDecoration: 'none',
-    textAlign: 'center' as const,
-    margin: '24px 0',
   },
   dangerButton: {
     backgroundColor: '#ef4444',
-    borderRadius: '6px',
-    color: BRAND.white,
-    display: 'block',
-    fontSize: '15px',
-    fontWeight: '600',
-    padding: '14px 28px',
-    textDecoration: 'none',
-    textAlign: 'center' as const,
-    margin: '24px 0',
   },
   infoBox: {
     backgroundColor: '#f8fafc',

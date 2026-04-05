@@ -1,7 +1,7 @@
 'use client'
 
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@protrader/utils'
@@ -35,12 +35,10 @@ const ACCOUNT_STATUSES: AccountStatus[] = ['ACTIVE', 'INACTIVE', 'SUSPENDED']
 
 /** Users list page with search, status filter, and cursor pagination. */
 export default function UsersPage() {
-  const router = useRouter()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<AccountStatus | ''>('')
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const prevDebouncedRef = useRef(debouncedSearch)
 
   // Debounce search input by 300ms — only updates debouncedSearch
   useEffect(() => {
@@ -52,13 +50,6 @@ export default function UsersPage() {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
   }, [search])
-
-  // Track debouncedSearch changes — useInfiniteQuery auto-refetches on key change
-  useEffect(() => {
-    if (prevDebouncedRef.current !== debouncedSearch) {
-      prevDebouncedRef.current = debouncedSearch
-    }
-  }, [debouncedSearch])
 
   // Reset on filter change
   useEffect(() => {
@@ -109,6 +100,7 @@ export default function UsersPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as AccountStatus | '')}
+          aria-label="Filter users by account status"
           className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
         >
           <option value="">All statuses</option>
@@ -138,18 +130,10 @@ export default function UsersPage() {
             </thead>
             <tbody>
               {allUsers.map((user) => (
-                <tr
+                <Link
                   key={user.id}
-                  onClick={() => router.push(`/users/${user.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      router.push(`/users/${user.id}`)
-                    }
-                  }}
-                  tabIndex={0}
-                  role="link"
-                  className="cursor-pointer border-b border-gray-800 bg-gray-900 hover:bg-gray-800"
+                  href={`/users/${user.id}`}
+                  className="table-row cursor-pointer border-b border-gray-800 bg-gray-900 hover:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none focus:ring-inset"
                 >
                   <td className="px-4 py-3 font-mono text-gray-300">{user.account_number}</td>
                   <td className="px-4 py-3 text-white">{user.full_name}</td>
@@ -165,7 +149,7 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-400">{formatDateTime(user.created_at)}</td>
-                </tr>
+                </Link>
               ))}
             </tbody>
           </table>

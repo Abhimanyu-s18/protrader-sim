@@ -15,6 +15,17 @@ export function PasswordChangedEmail({
   changedAt,
   supportUrl = 'https://protrader.com/support',
 }: PasswordChangedEmailProps) {
+  const date = new Date(changedAt)
+  const formattedDate = isNaN(date.getTime())
+    ? 'recently'
+    : date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+
   return (
     <Layout preview="Your ProTraderSim password has been changed">
       <Text style={emailStyles.h1}>Password changed</Text>
@@ -26,7 +37,7 @@ export function PasswordChangedEmail({
 
       <div style={emailStyles.infoBox}>
         <Text style={emailStyles.infoBoxText}>
-          &#x2705; Password updated successfully on {new Date(changedAt).toUTCString()}
+          &#x2705; Password updated successfully on {formattedDate}
         </Text>
       </div>
 

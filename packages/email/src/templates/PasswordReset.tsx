@@ -10,7 +10,7 @@ interface PasswordResetEmailProps {
  * Password reset request email. Link expires in 1 hour.
  */
 export function PasswordResetEmail({ fullName, resetUrl }: PasswordResetEmailProps) {
-  const isValidUrl = resetUrl.startsWith('https://')
+  const isValidUrl = resetUrl?.startsWith('https://') ?? false
   const safeUrl = isValidUrl ? resetUrl : undefined
 
   return (

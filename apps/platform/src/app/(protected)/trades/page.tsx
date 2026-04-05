@@ -9,6 +9,21 @@ import { formatMoney, formatDateTime } from '@protrader/utils'
 
 type Tab = 'open' | 'pending' | 'closed'
 
+const HEADERS: Record<Tab, string[]> = {
+  open: ['Symbol', 'Dir', 'Units', 'Open Rate', 'Opened At', 'Unrealised P&L', ''],
+  pending: ['Symbol', 'Dir', 'Units', 'Entry Rate', 'Expires At', ''],
+  closed: [
+    'Symbol',
+    'Dir',
+    'Units',
+    'Open Rate',
+    'Close Rate',
+    'Closed At',
+    'Reason',
+    'Realised P&L',
+  ],
+}
+
 // ── DirectionBadge component ──────────────────────────────────────
 
 function DirectionBadge({ direction }: { direction: 'BUY' | 'SELL' }) {
@@ -129,6 +144,8 @@ function ClosedTradeRow({ trade }: { trade: Trade }) {
 
 export default function TradesPage() {
   const [tab, setTab] = useState<Tab>('open')
+  const [closingIds, setClosingIds] = useState<Set<string>>(new Set())
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
   const qc = useQueryClient()
 
   const { data: openData, isLoading: openLoading } = useQuery({
@@ -157,9 +174,20 @@ export default function TradesPage() {
 
   const closeTrade = useMutation({
     mutationFn: (id: string) => api.del<unknown>(`/v1/trades/${id}`),
-    onSuccess: () => {
+    onMutate: (id) =>
+      setClosingIds((prev) => {
+        const next = new Set(prev)
+        next.add(id)
+        return next
+      }),
+    onSettled: (_data, _error, id) => {
       void qc.invalidateQueries({ queryKey: ['trades'] })
       void qc.invalidateQueries({ queryKey: ['account-metrics'] })
+      setClosingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     },
     onError: (err: Error) => {
       console.error('Failed to close trade', err)
@@ -168,7 +196,9 @@ export default function TradesPage() {
 
   const cancelTrade = useMutation({
     mutationFn: (id: string) => api.del<unknown>(`/v1/trades/${id}/cancel`),
+    onMutate: (id) => setCancellingId(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['trades', 'pending'] }),
+    onSettled: () => setCancellingId(null),
     onError: (err: Error) => {
       console.error('Failed to cancel trade', err)
     },
@@ -185,16 +215,45 @@ export default function TradesPage() {
     (tab === 'pending' && pendingLoading) ||
     (tab === 'closed' && closedLoading)
 
+  const handleTabKeyDown = (e: React.KeyboardEvent) => {
+    const tabKeys = tabs.map((t) => t.key)
+    const currentIndex = tabKeys.indexOf(tab)
+    let nextIndex = currentIndex
+    if (e.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % tabKeys.length
+    } else if (e.key === 'ArrowLeft') {
+      nextIndex = (currentIndex - 1 + tabKeys.length) % tabKeys.length
+    } else if (e.key === 'Home') {
+      nextIndex = 0
+    } else if (e.key === 'End') {
+      nextIndex = tabKeys.length - 1
+    } else {
+      return
+    }
+    e.preventDefault()
+    const nextTab = tabKeys[nextIndex]
+    if (nextTab) {
+      setTab(nextTab)
+      document.getElementById(`tab-${nextTab}`)?.focus()
+    }
+  }
+
   return (
     <div className="space-y-4 p-6">
       <h1 className="text-xl font-semibold text-white">Trades</h1>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-800">
+      <div className="flex gap-1 border-b border-gray-800" role="tablist">
         {tabs.map(({ key, label }) => (
           <button
             key={key}
+            role="tab"
+            id={`tab-${key}`}
+            aria-selected={tab === key}
+            aria-controls={`panel-${key}`}
+            tabIndex={tab === key ? 0 : -1}
             onClick={() => setTab(key)}
+            onKeyDown={handleTabKeyDown}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
               tab === key
                 ? 'border-b-2 border-blue-500 text-white'
@@ -207,7 +266,12 @@ export default function TradesPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-gray-800 bg-gray-900">
+      <div
+        className="rounded-lg border border-gray-800 bg-gray-900"
+        role="tabpanel"
+        id={`panel-${tab}`}
+        aria-labelledby={`tab-${tab}`}
+      >
         {isLoading ? (
           <p className="py-8 text-center text-sm text-gray-500">Loading…</p>
         ) : (
@@ -215,54 +279,24 @@ export default function TradesPage() {
             <table className="w-full">
               <thead>
                 <tr>
-                  {tab === 'open' &&
-                    ['Symbol', 'Dir', 'Units', 'Open Rate', 'Opened At', 'Unrealised P&L', ''].map(
-                      (h, idx) => (
-                        <th
-                          key={h || `col-${idx}`}
-                          className="px-4 pt-4 pb-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase"
-                        >
-                          {h}
-                        </th>
-                      ),
-                    )}
-                  {tab === 'pending' &&
-                    ['Symbol', 'Dir', 'Units', 'Entry Rate', 'Expires At', ''].map((h, idx) => (
-                      <th
-                        key={h || `col-${idx}`}
-                        className="px-4 pt-4 pb-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  {tab === 'closed' &&
-                    [
-                      'Symbol',
-                      'Dir',
-                      'Units',
-                      'Open Rate',
-                      'Close Rate',
-                      'Closed At',
-                      'Reason',
-                      'Realised P&L',
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 pt-4 pb-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase"
-                      >
-                        {h}
-                      </th>
-                    ))}
+                  {HEADERS[tab].map((h, idx) => (
+                    <th
+                      key={h || `col-${idx}`}
+                      className="px-4 pt-4 pb-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="px-4">
+              <tbody>
                 {tab === 'open' &&
                   (openData?.data ?? []).map((t) => (
                     <OpenTradeRow
                       key={t.id}
                       trade={t}
                       onClose={(id) => closeTrade.mutate(id)}
-                      isClosing={closeTrade.isPending}
+                      isClosing={closingIds.has(t.id)}
                     />
                   ))}
                 {tab === 'pending' &&
@@ -271,7 +305,7 @@ export default function TradesPage() {
                       key={t.id}
                       trade={t}
                       onCancel={(id) => cancelTrade.mutate(id)}
-                      isCancelling={cancelTrade.isPending}
+                      isCancelling={cancellingId === t.id}
                     />
                   ))}
                 {tab === 'closed' &&

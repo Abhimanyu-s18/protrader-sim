@@ -85,31 +85,22 @@ export function createApiClient(baseURL: string) {
     return res.json() as Promise<T>
   }
 
+  function buildUrl(path: string, params?: Record<string, string>): string {
+    if (!params || Object.keys(params).length === 0) return path
+    const qs = new URLSearchParams(params).toString()
+    const separator = path.includes('?') ? '&' : '?'
+    return `${path}${separator}${qs}`
+  }
+
   return {
-    get: <T>(path: string, options?: { params?: Record<string, string> }) => {
-      const url = options?.params
-        ? `${path}?${new URLSearchParams(options.params).toString()}`
-        : path
-      return request<T>(url)
-    },
-    post: <T>(path: string, body: unknown, options?: { params?: Record<string, string> }) => {
-      const url = options?.params
-        ? `${path}?${new URLSearchParams(options.params).toString()}`
-        : path
-      return request<T>(url, { method: 'POST', body: JSON.stringify(body) })
-    },
-    put: <T>(path: string, body: unknown, options?: { params?: Record<string, string> }) => {
-      const url = options?.params
-        ? `${path}?${new URLSearchParams(options.params).toString()}`
-        : path
-      return request<T>(url, { method: 'PUT', body: JSON.stringify(body) })
-    },
-    del: <T>(path: string, options?: { params?: Record<string, string> }) => {
-      const url = options?.params
-        ? `${path}?${new URLSearchParams(options.params).toString()}`
-        : path
-      return request<T>(url, { method: 'DELETE' })
-    },
+    get: <T>(path: string, options?: { params?: Record<string, string> }) =>
+      request<T>(buildUrl(path, options?.params)),
+    post: <T>(path: string, body: unknown, options?: { params?: Record<string, string> }) =>
+      request<T>(buildUrl(path, options?.params), { method: 'POST', body: JSON.stringify(body) }),
+    put: <T>(path: string, body: unknown, options?: { params?: Record<string, string> }) =>
+      request<T>(buildUrl(path, options?.params), { method: 'PUT', body: JSON.stringify(body) }),
+    del: <T>(path: string, options?: { params?: Record<string, string> }) =>
+      request<T>(buildUrl(path, options?.params), { method: 'DELETE' }),
   }
 }
 

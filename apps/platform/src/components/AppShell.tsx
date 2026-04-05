@@ -16,7 +16,11 @@ function isTokenValid(token: string): boolean {
 
   try {
     const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-    const payloadJson = atob(payloadBase64)
+    const padded = payloadBase64.padEnd(
+      payloadBase64.length + ((4 - (payloadBase64.length % 4)) % 4),
+      '=',
+    )
+    const payloadJson = atob(padded)
     const payloadText = decodeURIComponent(
       payloadJson
         .split('')

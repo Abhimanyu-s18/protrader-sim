@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { href: '/account', label: 'Account', icon: '◎' },
   { href: '/alerts', label: 'Alerts', icon: '◉' },
   { href: '/settings', label: 'Settings', icon: '⚙' },
-]
+] as const
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -26,12 +26,14 @@ export default function Sidebar() {
         method: 'POST',
         credentials: 'include',
       })
-    } catch {
-      // Continue with client-side cleanup even if API call fails
+    } catch (error) {
+      console.error('Sidebar: Failed to logout', error)
     }
     localStorage.removeItem('access_token')
     sessionStorage.removeItem('access_token')
     window.location.href = `${AUTH_URL}/login`
+    // Fallback: reset state if redirect doesn't happen within 2 seconds
+    setTimeout(() => setIsLoggingOut(false), 2000)
   }
 
   return (
@@ -44,11 +46,12 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 space-y-1 px-3 py-2">
         {NAV_ITEMS.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/')
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? 'page' : undefined}
               className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                 active
                   ? 'bg-blue-600 text-white'
@@ -68,6 +71,8 @@ export default function Sidebar() {
           type="button"
           onClick={logout}
           disabled={isLoggingOut}
+          aria-busy={isLoggingOut}
+          aria-disabled={isLoggingOut}
           className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-800 hover:text-white ${
             isLoggingOut ? 'cursor-not-allowed opacity-50' : ''
           }`}

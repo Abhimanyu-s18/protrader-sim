@@ -6,6 +6,7 @@ import {
   type IChartApi,
   type ISeriesApi,
   type CandlestickData,
+  type UTCTimestamp,
 } from 'lightweight-charts'
 import { usePriceStore } from '../stores/priceStore'
 
@@ -67,9 +68,17 @@ export default function TradingChart({ symbol, candles }: TradingChartProps) {
       chart.remove()
       chartRef.current = null
       seriesRef.current = null
+      lastCandleRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, candles])
+
+  const lastCandleRef = useRef<{
+    time: UTCTimestamp
+    open: number
+    high: number
+    low: number
+    close: number
+  } | null>(null)
 
   // Push live price tick as the latest candle close
   useEffect(() => {
@@ -86,17 +95,36 @@ export default function TradingChart({ symbol, candles }: TradingChartProps) {
       return
     }
 
+    const maxSafe = BigInt(Number.MAX_SAFE_INTEGER)
+    if (midScaled > maxSafe || midScaled < -maxSafe) {
+      console.warn(
+        '[TradingChart] mid_scaled exceeds MAX_SAFE_INTEGER, precision may be lost:',
+        midScaled.toString(),
+      )
+    }
     const midFloat = Number(midScaled) / MID_SCALE_FACTOR
-    const tsSeconds = Math.floor(
-      Date.now() / 1000,
-    ) as unknown as import('lightweight-charts').UTCTimestamp
-    seriesRef.current.update({
-      time: tsSeconds,
-      open: midFloat,
-      high: midFloat,
-      low: midFloat,
-      close: midFloat,
-    })
+    const tsSeconds = Math.floor(Date.now() / 1000) as UTCTimestamp
+    const lastCandle = lastCandleRef.current
+
+    const updatedCandle =
+      lastCandle && lastCandle.time === tsSeconds
+        ? {
+            time: tsSeconds,
+            open: lastCandle.open,
+            high: Math.max(lastCandle.high, midFloat),
+            low: Math.min(lastCandle.low, midFloat),
+            close: midFloat,
+          }
+        : {
+            time: tsSeconds,
+            open: midFloat,
+            high: midFloat,
+            low: midFloat,
+            close: midFloat,
+          }
+
+    lastCandleRef.current = updatedCandle
+    seriesRef.current.update(updatedCandle)
   }, [price])
 
   return <div ref={containerRef} className="h-full w-full" />
