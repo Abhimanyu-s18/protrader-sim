@@ -1,25 +1,47 @@
 import { Worker, type Job } from 'bullmq'
+import { render } from '@react-email/components'
+import React from 'react'
 import { getRedis } from '../lib/redis.js'
 import { createLogger } from '../lib/logger.js'
 import { QUEUES } from '../lib/queues.js'
+import {
+  WelcomeEmail,
+  VerifyEmail,
+  PasswordResetEmail,
+  PasswordChangedEmail,
+  DepositConfirmedEmail,
+  DepositRejectedEmail,
+  KycApprovedEmail,
+  KycRejectedEmail,
+  KycReminderEmail,
+  MarginCallEmail,
+  StopOutEmail,
+  WithdrawalApprovedEmail,
+  WithdrawalRejectedEmail,
+  AlertTriggeredEmail,
+} from '@protrader/email'
 
 const log = createLogger('email-worker')
 
+const AUTH_APP_URL = process.env['AUTH_APP_URL'] ?? 'http://localhost:3001'
+const PLATFORM_URL = process.env['PLATFORM_URL'] ?? 'http://localhost:3002'
+const SUPPORT_URL = process.env['SUPPORT_URL'] ?? 'https://protrader.com/support'
+
 /**
  * Job data shapes for each email type.
- * Add new types here as email templates are built in Phase 5.
  */
 export type EmailJobData =
   | { type: 'welcome'; to: string; fullName: string; verifyToken: string }
   | { type: 'verify-email'; to: string; fullName: string; verifyToken: string }
   | { type: 'password-reset'; to: string; fullName: string; resetToken: string }
-  | { type: 'password-changed'; to: string; fullName: string }
+  | { type: 'password-changed'; to: string; fullName: string; changedAt?: string }
   | {
       type: 'deposit-confirmed'
       to: string
       fullName: string
       amountFormatted: string
       currency: string
+      txId?: string
     }
   | { type: 'deposit-rejected'; to: string; fullName: string; reason?: string }
   | { type: 'kyc-approved'; to: string; fullName: string }
@@ -39,122 +61,168 @@ export type EmailJobData =
       fullName: string
       amountFormatted: string
       walletAddress: string
+      txHash?: string
     }
   | { type: 'withdrawal-rejected'; to: string; fullName: string; reason?: string }
+  | {
+      type: 'alert-triggered'
+      to: string
+      fullName: string
+      symbol: string
+      priceLevel: string
+      currentPrice: string
+      direction: 'above' | 'below'
+    }
 
 /**
- * Generate a plain-text email body for the given job type.
- * Replace with React Email templates in Phase 5.
+ * Build a React Email element and subject for the given job type.
+ * Returns null if the type is unrecognised.
  */
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-function buildEmail(data: EmailJobData): { subject: string; html: string } | null {
-  const apiUrl = process.env['AUTH_APP_URL'] ?? 'http://localhost:3001'
-  const platformUrl = process.env['PLATFORM_URL'] ?? 'http://localhost:3002'
-
+function buildEmailElement(
+  data: EmailJobData,
+): { subject: string; element: React.ReactElement } | null {
   switch (data.type) {
     case 'welcome':
+      return {
+        subject: 'Welcome to ProTraderSim — verify your email',
+        element: React.createElement(WelcomeEmail, {
+          fullName: data.fullName,
+          verifyUrl: `${AUTH_APP_URL}/verify-email?token=${encodeURIComponent(data.verifyToken)}`,
+        }),
+      }
+
     case 'verify-email':
       return {
-        subject: 'Welcome to ProTraderSim — Verify your email',
-        html: `<p>Hi ${escapeHtml(data.fullName)},</p>
-<p>Welcome to ProTraderSim! Please verify your email address by clicking the link below:</p>
-<p><a href="${apiUrl}/verify-email?token=${encodeURIComponent(data.verifyToken)}">Verify Email</a></p>
-<p>This link expires in 24 hours.</p>`,
+        subject: 'ProTraderSim — verify your email address',
+        element: React.createElement(VerifyEmail, {
+          fullName: data.fullName,
+          verifyUrl: `${AUTH_APP_URL}/verify-email?token=${encodeURIComponent(data.verifyToken)}`,
+          expirationHours: 24,
+        }),
       }
 
     case 'password-reset':
       return {
-        subject: 'ProTraderSim — Reset your password',
-        html: `<p>Hi ${escapeHtml(data.fullName)},</p>
-<p>We received a request to reset your ProTraderSim password. Click the link below (valid for 1 hour):</p>
-<p><a href="${apiUrl}/reset-password?token=${encodeURIComponent(data.resetToken)}">Reset Password</a></p>
-<p>If you did not request this, you can safely ignore this email.</p>`,
+        subject: 'ProTraderSim — reset your password',
+        element: React.createElement(PasswordResetEmail, {
+          fullName: data.fullName,
+          resetUrl: `${AUTH_APP_URL}/reset-password?token=${encodeURIComponent(data.resetToken)}`,
+        }),
       }
 
     case 'password-changed':
       return {
-        subject: 'ProTraderSim — Your password has been changed',
-        html: `<p>Hi ${data.fullName},</p>
-<p>Your ProTraderSim password was successfully changed. If you did not make this change, please contact support immediately.</p>`,
+        subject: 'ProTraderSim — your password has been changed',
+        element: React.createElement(PasswordChangedEmail, {
+          fullName: data.fullName,
+          changedAt: data.changedAt ?? new Date().toISOString(),
+          supportUrl: SUPPORT_URL,
+        }),
       }
 
     case 'deposit-confirmed':
       return {
-        subject: 'ProTraderSim — Deposit confirmed',
-        html: `<p>Hi ${data.fullName},</p>
-<p>Your deposit of ${data.amountFormatted} (${data.currency}) has been confirmed and added to your trading account.</p>
-<p><a href="${platformUrl}/account">View your account</a></p>`,
+        subject: 'ProTraderSim — deposit confirmed',
+        element: React.createElement(DepositConfirmedEmail, {
+          fullName: data.fullName,
+          amountFormatted: data.amountFormatted,
+          currency: data.currency,
+          platformUrl: PLATFORM_URL,
+          ...(data.txId !== undefined ? { txId: data.txId } : {}),
+        }),
       }
 
     case 'deposit-rejected':
       return {
-        subject: 'ProTraderSim — Deposit not processed',
-        html: `<p>Hi ${data.fullName},</p>
-<p>Unfortunately your deposit could not be processed${data.reason ? `: ${data.reason}` : ''}. Please contact support if you need assistance.</p>`,
+        subject: 'ProTraderSim — deposit not processed',
+        element: React.createElement(DepositRejectedEmail, {
+          fullName: data.fullName,
+          supportUrl: SUPPORT_URL,
+          ...(data.reason !== undefined ? { reason: data.reason } : {}),
+        }),
       }
 
     case 'kyc-approved':
       return {
-        subject: 'ProTraderSim — Your account is verified',
-        html: `<p>Hi ${data.fullName},</p>
-<p>Your identity verification has been approved. Your account is now fully active and you can start trading.</p>
-<p><a href="${platformUrl}/dashboard">Go to dashboard</a></p>`,
+        subject: 'ProTraderSim — your account is verified',
+        element: React.createElement(KycApprovedEmail, {
+          fullName: data.fullName,
+          platformUrl: PLATFORM_URL,
+        }),
       }
 
     case 'kyc-rejected':
       return {
         subject: 'ProTraderSim — KYC verification update',
-        html: `<p>Hi ${data.fullName},</p>
-<p>Unfortunately your KYC submission could not be approved${data.reason ? `: ${data.reason}` : ''}.</p>
-<p>Please <a href="${apiUrl}/kyc">resubmit your documents</a> to complete verification.</p>`,
+        element: React.createElement(KycRejectedEmail, {
+          fullName: data.fullName,
+          kycUrl: `${AUTH_APP_URL}/kyc`,
+          ...(data.reason !== undefined ? { reason: data.reason } : {}),
+        }),
       }
 
     case 'kyc-reminder':
       return {
-        subject: 'ProTraderSim — Complete your identity verification',
-        html: `<p>Hi ${data.fullName},</p>
-<p>You're almost ready to trade. Complete your identity verification to activate your account.</p>
-<p><a href="${apiUrl}/kyc">Verify identity now</a></p>`,
+        subject: 'ProTraderSim — complete your identity verification',
+        element: React.createElement(KycReminderEmail, {
+          fullName: data.fullName,
+          kycUrl: `${AUTH_APP_URL}/kyc`,
+        }),
       }
 
     case 'margin-call':
       return {
-        subject: 'ProTraderSim — Urgent: Margin call warning',
-        html: `<p>Hi ${data.fullName},</p>
-<p><strong>Your margin level has dropped to ${data.marginLevelPct}%.</strong></p>
-<p>Your current equity is ${data.equityFormatted}. Please deposit additional funds or close some positions to avoid automatic stop-out.</p>
-<p><a href="${platformUrl}/account">Manage your account</a></p>`,
+        subject: 'ProTraderSim — urgent: margin call warning',
+        element: React.createElement(MarginCallEmail, {
+          fullName: data.fullName,
+          marginLevelPct: data.marginLevelPct,
+          equityFormatted: data.equityFormatted,
+          platformUrl: PLATFORM_URL,
+        }),
       }
 
     case 'stop-out':
       return {
-        subject: 'ProTraderSim — Position closed due to stop-out',
-        html: `<p>Hi ${data.fullName},</p>
-<p>Your margin level fell below the minimum required level. A position has been automatically closed to protect your account.</p>
-<p>Your current balance is ${data.balanceFormatted}.</p>
-<p><a href="${platformUrl}/trades">View trade history</a></p>`,
+        subject: 'ProTraderSim — position closed due to stop-out',
+        element: React.createElement(StopOutEmail, {
+          fullName: data.fullName,
+          balanceFormatted: data.balanceFormatted,
+          platformUrl: PLATFORM_URL,
+        }),
       }
 
     case 'withdrawal-approved':
       return {
-        subject: 'ProTraderSim — Withdrawal approved',
-        html: `<p>Hi ${data.fullName},</p>
-<p>Your withdrawal of ${data.amountFormatted} has been approved and sent to ${data.walletAddress}.</p>`,
+        subject: 'ProTraderSim — withdrawal approved',
+        element: React.createElement(WithdrawalApprovedEmail, {
+          fullName: data.fullName,
+          amountFormatted: data.amountFormatted,
+          walletAddress: data.walletAddress,
+          ...(data.txHash !== undefined ? { txHash: data.txHash } : {}),
+        }),
       }
 
     case 'withdrawal-rejected':
       return {
-        subject: 'ProTraderSim — Withdrawal update',
-        html: `<p>Hi ${data.fullName},</p>
-<p>Your withdrawal request could not be processed${data.reason ? `: ${data.reason}` : ''}. Please contact support if you need assistance.</p>`,
+        subject: 'ProTraderSim — withdrawal not processed',
+        element: React.createElement(WithdrawalRejectedEmail, {
+          fullName: data.fullName,
+          supportUrl: SUPPORT_URL,
+          ...(data.reason !== undefined ? { reason: data.reason } : {}),
+        }),
+      }
+
+    case 'alert-triggered':
+      return {
+        subject: `ProTraderSim — price alert: ${data.symbol}`,
+        element: React.createElement(AlertTriggeredEmail, {
+          fullName: data.fullName,
+          symbol: data.symbol,
+          priceLevel: data.priceLevel,
+          currentPrice: data.currentPrice,
+          direction: data.direction,
+          platformUrl: PLATFORM_URL,
+        }),
       }
 
     default:
@@ -179,8 +247,8 @@ if (process.env['NODE_ENV'] !== 'test') {
     async (job: Job<EmailJobData>) => {
       const data = job.data
 
-      const email = buildEmail(data)
-      if (!email) {
+      const built = buildEmailElement(data)
+      if (!built) {
         log.warn({ type: data.type }, 'No email template found for type — skipping')
         return
       }
@@ -193,6 +261,8 @@ if (process.env['NODE_ENV'] !== 'test') {
         )
         return
       }
+
+      const html = await render(built.element)
 
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 10000)
@@ -208,8 +278,8 @@ if (process.env['NODE_ENV'] !== 'test') {
           body: JSON.stringify({
             from: process.env['EMAIL_FROM'] ?? 'ProTraderSim <noreply@protrader.com>',
             to: data.to,
-            subject: email.subject,
-            html: email.html,
+            subject: built.subject,
+            html,
           }),
         })
 
