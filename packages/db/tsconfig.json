@@ -2,6 +2,7 @@
   "extends": "@protrader/config/tsconfig/base",
   "compilerOptions": {
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["./src/*"]
     },

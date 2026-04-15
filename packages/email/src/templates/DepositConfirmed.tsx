@@ -1,7 +1,7 @@
 import { Hr, Link, Section, Text } from '@react-email/components'
 import { Layout, emailStyles } from '../components/Layout'
 
-interface DepositConfirmedEmailProps {
+export interface DepositConfirmedEmailProps {
   fullName: string
   amountFormatted: string
   currency: string

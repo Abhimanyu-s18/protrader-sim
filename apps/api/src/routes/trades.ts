@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { prisma, withSerializableRetry } from '../lib/prisma.js'
 import { requireAuth, requireKYC, getAuthenticatedUser } from '../middleware/auth.js'
-import { Errors } from '../middleware/errorHandler.js'
+import { Errors, AppError } from '../middleware/errorHandler.js'
 import {
   calcBidAsk,
   calcMarginCents,
@@ -16,6 +16,7 @@ import {
   priceToScaled,
 } from '../lib/calculations.js'
 import { getCachedPrice, addMarginWatch, removeMarginWatch } from '../lib/redis.js'
+import { validateLeverage } from '../lib/leverage-limits.js'
 
 export const tradesRouter: ExpressRouter = Router()
 tradesRouter.use(requireAuth)
@@ -109,6 +110,42 @@ tradesRouter.post('/', requireKYC, async (req, res, next) => {
       return
     }
 
+    // Fetch user and validate leverage compliance
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      next(Errors.notFound('User'))
+      return
+    }
+
+    // Validate and map asset class to leverage validation type
+    const assetClassForLeverage = instrument.assetClass as
+      | 'FOREX'
+      | 'STOCK'
+      | 'INDEX'
+      | 'COMMODITY'
+      | 'CRYPTO'
+    if (!['FOREX', 'STOCK', 'INDEX', 'COMMODITY', 'CRYPTO'].includes(instrument.assetClass)) {
+      next(Errors.badRequest(`Unsupported asset class: ${instrument.assetClass}`))
+      return
+    }
+
+    // Validate leverage compliance
+    const leverageValidation = validateLeverage(
+      user.jurisdiction,
+      assetClassForLeverage,
+      instrument.leverage,
+    )
+    if (!leverageValidation.allowed) {
+      next(
+        new AppError(
+          'LEVERAGE_VIOLATION',
+          `Leverage Compliance Violation: ${leverageValidation.message}. Max allowed leverage for your jurisdiction is ${leverageValidation.maxLeverage}:1.`,
+          403,
+        ),
+      )
+      return
+    }
+
     // Check market hours
     const now = new Date()
     const dayOfWeek = now.getUTCDay() === 0 ? 7 : now.getUTCDay()
@@ -193,9 +230,8 @@ tradesRouter.post('/', requireKYC, async (req, res, next) => {
     const slScaled = stop_loss != null ? priceToScaled(stop_loss) : null
     const tpScaled = take_profit != null ? priceToScaled(take_profit) : null
 
-    // Look up agent for commission
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { agentId: true } })
-    const agent = user?.agentId
+    // Look up agent for commission (use already-fetched user)
+    const agent = user.agentId
       ? await prisma.staff.findUnique({
           where: { id: user.agentId },
           select: { id: true, commissionRateBps: true, teamLeaderId: true, overrideRateBps: true },

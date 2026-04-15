@@ -36,7 +36,7 @@ export function PasswordChangedEmail({
       </Text>
 
       <div style={emailStyles.infoBox}>
-        <Text style={emailStyles.infoBoxText}>
+        <Text style={emailStyles.boxText}>
           &#x2705; Password updated successfully on {formattedDate}
         </Text>
       </div>

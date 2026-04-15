@@ -32,7 +32,13 @@ const SUPPORT_URL = process.env['SUPPORT_URL'] ?? 'https://protrader.com/support
  */
 export type EmailJobData =
   | { type: 'welcome'; to: string; fullName: string; verifyToken: string }
-  | { type: 'verify-email'; to: string; fullName: string; verifyToken: string }
+  | {
+      type: 'verify-email'
+      to: string
+      fullName: string
+      verifyToken: string
+      expirationHours: number
+    }
   | { type: 'password-reset'; to: string; fullName: string; resetToken: string }
   | { type: 'password-changed'; to: string; fullName: string; changedAt?: string }
   | {
@@ -51,6 +57,10 @@ export type EmailJobData =
       type: 'margin-call'
       to: string
       fullName: string
+      /**
+       * Numeric string representing the margin level percentage WITHOUT the '%' symbol.
+       * Example: "50" (not "50%"). The '%' is appended automatically in the email template.
+       */
       marginLevelPct: string
       equityFormatted: string
     }
@@ -92,12 +102,18 @@ function buildEmailElement(
       }
 
     case 'verify-email':
+      const expirationHours =
+        typeof data.expirationHours === 'number' &&
+        Number.isFinite(data.expirationHours) &&
+        data.expirationHours > 0
+          ? data.expirationHours
+          : 24
       return {
         subject: 'ProTraderSim — verify your email address',
         element: React.createElement(VerifyEmail, {
           fullName: data.fullName,
           verifyUrl: `${AUTH_APP_URL}/verify-email?token=${encodeURIComponent(data.verifyToken)}`,
-          expirationHours: 24,
+          expirationHours,
         }),
       }
 

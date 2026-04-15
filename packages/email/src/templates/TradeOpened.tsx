@@ -13,6 +13,8 @@ export interface TradeOpenedEmailProps {
   takeProfit?: string
 }
 
+const boxTextWithMargin = { ...emailStyles.boxText, marginBottom: '6px' } as const
+
 /**
  * Optional confirmation sent when a trade is opened.
  */
@@ -27,7 +29,10 @@ export function TradeOpenedEmail({
   stopLoss,
   takeProfit,
 }: TradeOpenedEmailProps) {
-  const tradesUrl = `${platformUrl}/trades`
+  const tradesUrl = new URL(
+    'trades',
+    platformUrl.endsWith('/') ? platformUrl : `${platformUrl}/`,
+  ).toString()
   const directionColor = direction === 'BUY' ? '#22c55e' : '#ef4444'
 
   return (
@@ -38,34 +43,34 @@ export function TradeOpenedEmail({
         Your trade has been executed successfully. Here's a summary:
       </Text>
 
-      <div style={emailStyles.infoBox}>
-        <Text style={{ ...emailStyles.infoBoxText, marginBottom: '6px' }}>
+      <Section style={emailStyles.infoBox}>
+        <Text style={boxTextWithMargin}>
           <strong>Symbol:</strong> {symbol}
         </Text>
-        <Text style={{ ...emailStyles.infoBoxText, marginBottom: '6px' }}>
+        <Text style={boxTextWithMargin}>
           <strong>Direction:</strong>{' '}
           <span style={{ color: directionColor, fontWeight: '600' }}>{direction}</span>
         </Text>
-        <Text style={{ ...emailStyles.infoBoxText, marginBottom: '6px' }}>
+        <Text style={boxTextWithMargin}>
           <strong>Units:</strong> {units}
         </Text>
-        <Text style={{ ...emailStyles.infoBoxText, marginBottom: '6px' }}>
+        <Text style={boxTextWithMargin}>
           <strong>Open price:</strong> {openPrice}
         </Text>
         {stopLoss && (
-          <Text style={{ ...emailStyles.infoBoxText, marginBottom: '6px' }}>
+          <Text style={boxTextWithMargin}>
             <strong>Stop loss:</strong> {stopLoss}
           </Text>
         )}
         {takeProfit && (
-          <Text style={{ ...emailStyles.infoBoxText, marginBottom: '6px' }}>
+          <Text style={boxTextWithMargin}>
             <strong>Take profit:</strong> {takeProfit}
           </Text>
         )}
-        <Text style={{ ...emailStyles.infoBoxText, margin: '0' }}>
+        <Text style={{ ...emailStyles.boxText, margin: '0' }}>
           <strong>Opened at:</strong> {openTime}
         </Text>
-      </div>
+      </Section>
 
       <Section style={{ textAlign: 'center' }}>
         <Link href={tradesUrl} style={emailStyles.button}>

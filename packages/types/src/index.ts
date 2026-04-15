@@ -6,6 +6,18 @@ export type KycStatus = 'NOT_STARTED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'A
 export type AccountStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 export type StaffRole = 'SUPER_ADMIN' | 'ADMIN' | 'IB_TEAM_LEADER' | 'AGENT'
 export type AssetClass = 'FOREX' | 'STOCK' | 'INDEX' | 'COMMODITY' | 'CRYPTO'
+/**
+ * Jurisdiction - Regulatory region or authority
+ * - EU: European Union
+ * - UK: United Kingdom
+ * - US: United States
+ * - ASIC: Australian Securities and Investments Commission
+ * - DFSA: Dubai Financial Services Authority
+ * - SC: Seychelles Financial Services Authority (Seychelles Commission)
+ * - MU: Mauritius Financial Services Commission (FSC Mauritius)
+ * - OTHER: Other regulatory jurisdictions
+ */
+export type Jurisdiction = 'EU' | 'UK' | 'US' | 'ASIC' | 'DFSA' | 'SC' | 'MU' | 'OTHER'
 export type TradeDirection = 'BUY' | 'SELL'
 export type TradeStatus = 'OPEN' | 'CLOSED' | 'PENDING' | 'CANCELLED'
 export type OrderType = 'MARKET' | 'ENTRY'
@@ -86,6 +98,7 @@ export interface User {
   trading_experience?: string
   profession?: string
   language_preference: string
+  jurisdiction: Jurisdiction
   kyc_status: KycStatus
   account_status: AccountStatus
   email_verified: boolean

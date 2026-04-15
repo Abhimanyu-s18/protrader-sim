@@ -5,6 +5,7 @@
     "rootDir": "src",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    // Required for React Email templates used in email worker
     "jsx": "react-jsx",
     "types": ["jest", "node"]
   },

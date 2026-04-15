@@ -1,3 +1,40 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --color-buy: #1a7a3c;
+    --color-sell: #c0392b;
+    --color-bg-900: #1a2332;
+    --color-accent-10: rgba(232, 101, 10, 0.1);
+    --color-accent-primary: #e8650a;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 9999;
+    padding: 1rem;
+    background: #e8650a;
+    color: white;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 0 0 4px 0;
+  }
+
+  .skip-link:focus {
+    left: 0;
+  }
+}

@@ -1,6 +1,16 @@
 import { Hr, Link, Section, Text } from '@react-email/components'
 import { Layout, emailStyles } from '../components/Layout'
 
+/** Style for bullet items in this template */
+const bulletStyle = { ...emailStyles.body, margin: '0 0 6px', paddingLeft: '16px' } as const
+
+/** KYC resubmission requirements shown as bullet points */
+const kycRequirements = [
+  'Clear, in focus, and fully visible (no cropping)',
+  'Valid and not expired',
+  "Government-issued photo ID (passport, national ID, or driver's licence)",
+]
+
 export interface KycRejectedEmailProps {
   fullName: string
   reason?: string
@@ -11,7 +21,27 @@ export interface KycRejectedEmailProps {
  * Sent when KYC documents could not be approved.
  * Includes reason and resubmission link.
  */
+const DEFAULT_SUPPORT_EMAIL = 'support@protrader.com'
+const DEFAULT_HELP_CENTER_URL = 'https://protrader.com/help'
+
+function getSupportEmail(): string {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env['SUPPORT_EMAIL'] ?? DEFAULT_SUPPORT_EMAIL
+  }
+  return DEFAULT_SUPPORT_EMAIL
+}
+
+function getHelpCenterUrl(): string {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env['HELP_CENTER_URL'] ?? DEFAULT_HELP_CENTER_URL
+  }
+  return DEFAULT_HELP_CENTER_URL
+}
+
 export function KycRejectedEmail({ fullName, reason, kycUrl }: KycRejectedEmailProps) {
+  const supportEmail = getSupportEmail()
+  const helpCenterUrl = getHelpCenterUrl()
+
   return (
     <Layout preview="Action required: your ProTraderSim identity verification needs attention">
       <Text style={emailStyles.h1}>Verification update</Text>
@@ -23,24 +53,18 @@ export function KycRejectedEmail({ fullName, reason, kycUrl }: KycRejectedEmailP
 
       {reason && (
         <div style={emailStyles.dangerBox}>
-          <Text style={emailStyles.infoBoxText}>
+          <Text style={emailStyles.boxText}>
             <strong>Reason:</strong> {reason}
           </Text>
         </div>
       )}
 
-      <Text style={emailStyles.body}>
-        Please resubmit your documents making sure they are:
-      </Text>
-      <Text style={{ ...emailStyles.body, margin: '0 0 6px', paddingLeft: '16px' }}>
-        &#x2022; Clear, in focus, and fully visible (no cropping)
-      </Text>
-      <Text style={{ ...emailStyles.body, margin: '0 0 6px', paddingLeft: '16px' }}>
-        &#x2022; Valid and not expired
-      </Text>
-      <Text style={{ ...emailStyles.body, margin: '0 0 20px', paddingLeft: '16px' }}>
-        &#x2022; Government-issued photo ID (passport, national ID, or driver's licence)
-      </Text>
+      <Text style={emailStyles.body}>Please resubmit your documents making sure they are:</Text>
+      {kycRequirements.map((item) => (
+        <Text key={item} style={bulletStyle}>
+          &#x2022; {item}
+        </Text>
+      ))}
 
       <Section style={{ textAlign: 'center' }}>
         <Link href={kycUrl} style={emailStyles.button}>
@@ -51,7 +75,15 @@ export function KycRejectedEmail({ fullName, reason, kycUrl }: KycRejectedEmailP
       <Hr style={emailStyles.divider} />
 
       <Text style={emailStyles.muted}>
-        If you need help with the verification process, please contact our support team.
+        If you need help with the verification process, please contact our support team at{' '}
+        <Link href={`mailto:${supportEmail}`} style={emailStyles.link}>
+          {supportEmail}
+        </Link>{' '}
+        or visit our{' '}
+        <Link href={helpCenterUrl} style={emailStyles.link}>
+          Help Centre
+        </Link>
+        .
       </Text>
     </Layout>
   )

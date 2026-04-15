@@ -27,13 +27,30 @@ interface LayoutProps {
   children: ReactNode
 }
 
+const DEFAULT_SUPPORT_URL = 'https://protrader.com/support'
+const DEFAULT_PLATFORM_URL = 'https://app.protrader.com'
+
+function getSupportUrl(): string {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env['SUPPORT_URL'] ?? DEFAULT_SUPPORT_URL
+  }
+  return DEFAULT_SUPPORT_URL
+}
+
+function getPlatformUrl(): string {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env['PLATFORM_URL'] ?? DEFAULT_PLATFORM_URL
+  }
+  return DEFAULT_PLATFORM_URL
+}
+
 /**
  * Shared layout wrapper for all ProTraderSim transactional emails.
  * Provides consistent branding, header, footer, and unsubscribe notice.
  */
 export function Layout({ preview, children }: LayoutProps) {
-  const supportUrl = process.env['SUPPORT_URL'] ?? 'https://protrader.com/support'
-  const platformUrl = process.env['PLATFORM_URL'] ?? 'https://app.protrader.com'
+  const supportUrl = getSupportUrl()
+  const platformUrl = getPlatformUrl()
 
   return (
     <Html lang="en" dir="ltr">
@@ -235,7 +252,7 @@ export const emailStyles = {
     padding: '14px 16px',
     margin: '16px 0',
   },
-  infoBoxText: {
+  boxText: {
     color: BRAND.text,
     fontSize: '14px',
     margin: '0',

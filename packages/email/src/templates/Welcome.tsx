@@ -1,7 +1,7 @@
 import { Hr, Link, Section, Text } from '@react-email/components'
 import { Layout, emailStyles } from '../components/Layout'
 
-const bulletStyle = { ...emailStyles.body, margin: '0 0 6px', paddingLeft: '16px' }
+const bulletStyle = { ...emailStyles.body, margin: '0 0 6px', paddingLeft: '16px' } as const
 
 const bulletItems = [
   'Complete your KYC identity verification',
@@ -10,7 +10,7 @@ const bulletItems = [
 ]
 
 export interface WelcomeEmailProps {
-  fullName: string
+  fullName?: string
   verifyUrl: string
 }
 
@@ -20,9 +20,11 @@ export interface WelcomeEmailProps {
  */
 export function WelcomeEmail({ fullName, verifyUrl }: WelcomeEmailProps) {
   return (
-    <Layout preview={`Welcome to ProTraderSim, ${fullName} — verify your email to get started`}>
+    <Layout
+      preview={`Welcome to ProTraderSim, ${fullName || 'there'} — verify your email to get started`}
+    >
       <Text style={emailStyles.h1}>Welcome to ProTraderSim</Text>
-      <Text style={emailStyles.greeting}>Hi {fullName},</Text>
+      <Text style={emailStyles.greeting}>Hi {fullName || 'there'},</Text>
       <Text style={emailStyles.body}>
         Your account has been created. Before you can start trading, please verify your email
         address by clicking the button below.

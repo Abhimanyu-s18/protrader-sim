@@ -10,6 +10,7 @@ import {
   formatCents,
   serializeBigInt,
 } from '../lib/calculations.js'
+import { isCountryJurisdictionConsistent } from '../lib/jurisdiction.js'
 import { getCachedPrice } from '../lib/redis.js'
 
 export const usersRouter: ExpressRouter = Router()
@@ -30,6 +31,7 @@ usersRouter.get('/me', async (req, res, next) => {
         fullName: true,
         phone: true,
         country: true,
+        jurisdiction: true,
         addressLine1: true,
         addressCity: true,
         addressCountry: true,
@@ -62,6 +64,7 @@ const UpdateProfileSchema = z
   .object({
     full_name: z.string().min(2).max(255).optional(),
     phone: z.string().min(6).max(30).optional(),
+    country: z.string().min(2).max(100).optional(),
     address_line1: z.string().max(255).optional(),
     address_city: z.string().max(100).optional(),
     address_country: z.string().max(100).optional(),
@@ -88,11 +91,31 @@ usersRouter.put('/me', async (req, res, next) => {
       return
     }
 
+    // If country is being updated, validate that it's consistent with jurisdiction
+    if (body.data.country !== undefined) {
+      const user = await prisma.user.findUnique({
+        where: { id: BigInt(req.user!.user_id) },
+        select: { jurisdiction: true },
+      })
+
+      if (user && !isCountryJurisdictionConsistent(body.data.country, user.jurisdiction as any)) {
+        next(
+          Errors.validation({
+            country: [
+              'Country does not match your account jurisdiction. Contact support if you need to change your jurisdiction.',
+            ],
+          }),
+        )
+        return
+      }
+    }
+
     const updated = await prisma.user.update({
       where: { id: BigInt(req.user!.user_id) },
       data: {
         ...(body.data.full_name !== undefined && { fullName: body.data.full_name }),
         ...(body.data.phone !== undefined && { phone: body.data.phone }),
+        ...(body.data.country !== undefined && { country: body.data.country }),
         ...(body.data.address_line1 !== undefined && { addressLine1: body.data.address_line1 }),
         ...(body.data.address_city !== undefined && { addressCity: body.data.address_city }),
         ...(body.data.address_country !== undefined && {

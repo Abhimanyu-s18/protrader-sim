@@ -9,10 +9,10 @@ import { hash } from 'bcrypt'
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Starting ProTraderSim seed...')
+  console.warn('🌱 Starting ProTraderSim seed...')
 
   // ── STAFF ACCOUNTS ──────────────────────────────────────────────
-  console.log('👤 Seeding staff accounts...')
+  console.warn('👤 Seeding staff accounts...')
   const superAdminHash = await hash('SuperAdmin@123', 12)
   const adminHash = await hash('Admin@123456', 12)
   const tlHash = await hash('TeamLeader@123', 12)
@@ -73,14 +73,15 @@ async function main() {
   })
 
   // ── INSTRUMENTS — FOREX 40 pairs ────────────────────────────────
-  console.log('📊 Seeding 60 instruments...')
+  // Leverage updated for regulatory compliance (30:1 majors, 20:1 minors/exotics)
+  console.warn('📊 Seeding 60 instruments...')
   const forexPairs = [
-    // Major pairs
+    // Major pairs — COMPLIANT LEVERAGE: 30:1 (ESMA/ASIC/DFSA regulation)
     {
       symbol: 'EURUSD',
       displayName: 'Euro / US Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 30,
       spreadPips: 2,
       pipDp: 4,
       swapBuy: -5,
@@ -91,7 +92,7 @@ async function main() {
       symbol: 'GBPUSD',
       displayName: 'British Pound / US Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 30,
       spreadPips: 2,
       pipDp: 4,
       swapBuy: -4,
@@ -102,7 +103,7 @@ async function main() {
       symbol: 'USDJPY',
       displayName: 'US Dollar / Japanese Yen',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 30,
       spreadPips: 2,
       pipDp: 2,
       swapBuy: 2,
@@ -113,7 +114,7 @@ async function main() {
       symbol: 'AUDUSD',
       displayName: 'Australian Dollar / US Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 30,
       spreadPips: 2,
       pipDp: 4,
       swapBuy: -4,
@@ -124,7 +125,7 @@ async function main() {
       symbol: 'USDCAD',
       displayName: 'US Dollar / Canadian Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 30,
       spreadPips: 3,
       pipDp: 4,
       swapBuy: -3,
@@ -135,7 +136,7 @@ async function main() {
       symbol: 'USDCHF',
       displayName: 'US Dollar / Swiss Franc',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 30,
       spreadPips: 2,
       pipDp: 4,
       swapBuy: -1,
@@ -146,19 +147,19 @@ async function main() {
       symbol: 'NZDUSD',
       displayName: 'New Zealand Dollar / US Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 30,
       spreadPips: 3,
       pipDp: 4,
       swapBuy: -4,
       swapSell: 1,
       flagCode: 'NZ',
     },
-    // Minor pairs
+    // Minor pairs — COMPLIANT LEVERAGE: 20:1
     {
       symbol: 'EURGBP',
       displayName: 'Euro / British Pound',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 2,
       pipDp: 4,
       swapBuy: -5,
@@ -169,7 +170,7 @@ async function main() {
       symbol: 'EURJPY',
       displayName: 'Euro / Japanese Yen',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 3,
       pipDp: 2,
       swapBuy: -3,
@@ -180,7 +181,7 @@ async function main() {
       symbol: 'GBPJPY',
       displayName: 'British Pound / Japanese Yen',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 4,
       pipDp: 2,
       swapBuy: -2,
@@ -191,7 +192,7 @@ async function main() {
       symbol: 'AUDCAD',
       displayName: 'Australian Dollar / Canadian Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 4,
       pipDp: 4,
       swapBuy: -4,
@@ -202,7 +203,7 @@ async function main() {
       symbol: 'AUDCHF',
       displayName: 'Australian Dollar / Swiss Franc',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 4,
       pipDp: 4,
       swapBuy: -3,
@@ -213,7 +214,7 @@ async function main() {
       symbol: 'AUDJPY',
       displayName: 'Australian Dollar / Japanese Yen',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 3,
       pipDp: 2,
       swapBuy: -2,
@@ -224,7 +225,7 @@ async function main() {
       symbol: 'CADCHF',
       displayName: 'Canadian Dollar / Swiss Franc',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 5,
       pipDp: 4,
       swapBuy: -2,
@@ -235,7 +236,7 @@ async function main() {
       symbol: 'CADJPY',
       displayName: 'Canadian Dollar / Japanese Yen',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 4,
       pipDp: 2,
       swapBuy: -1,
@@ -246,7 +247,7 @@ async function main() {
       symbol: 'CHFJPY',
       displayName: 'Swiss Franc / Japanese Yen',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 4,
       pipDp: 2,
       swapBuy: -3,
@@ -257,7 +258,7 @@ async function main() {
       symbol: 'EURCHF',
       displayName: 'Euro / Swiss Franc',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 3,
       pipDp: 4,
       swapBuy: -6,
@@ -268,7 +269,7 @@ async function main() {
       symbol: 'EURAUD',
       displayName: 'Euro / Australian Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 4,
       pipDp: 4,
       swapBuy: -6,
@@ -279,7 +280,7 @@ async function main() {
       symbol: 'EURCAD',
       displayName: 'Euro / Canadian Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 4,
       pipDp: 4,
       swapBuy: -5,
@@ -290,7 +291,7 @@ async function main() {
       symbol: 'EURNZD',
       displayName: 'Euro / New Zealand Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 5,
       pipDp: 4,
       swapBuy: -7,
@@ -301,7 +302,7 @@ async function main() {
       symbol: 'GBPAUD',
       displayName: 'British Pound / Australian Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 5,
       pipDp: 4,
       swapBuy: -4,
@@ -312,7 +313,7 @@ async function main() {
       symbol: 'GBPCAD',
       displayName: 'British Pound / Canadian Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 5,
       pipDp: 4,
       swapBuy: -4,
@@ -323,7 +324,7 @@ async function main() {
       symbol: 'GBPCHF',
       displayName: 'British Pound / Swiss Franc',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 4,
       pipDp: 4,
       swapBuy: -3,
@@ -334,7 +335,7 @@ async function main() {
       symbol: 'GBPNZD',
       displayName: 'British Pound / New Zealand Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 6,
       pipDp: 4,
       swapBuy: -5,
@@ -345,7 +346,7 @@ async function main() {
       symbol: 'NZDCAD',
       displayName: 'New Zealand Dollar / Canadian Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 5,
       pipDp: 4,
       swapBuy: -4,
@@ -356,7 +357,7 @@ async function main() {
       symbol: 'NZDCHF',
       displayName: 'New Zealand Dollar / Swiss Franc',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 5,
       pipDp: 4,
       swapBuy: -3,
@@ -367,19 +368,19 @@ async function main() {
       symbol: 'NZDJPY',
       displayName: 'New Zealand Dollar / Japanese Yen',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 4,
       pipDp: 2,
       swapBuy: -2,
       swapSell: -5,
       flagCode: 'NZ',
     },
-    // Exotic pairs
+    // Exotic pairs — COMPLIANT LEVERAGE: 20:1 (conservative)
     {
       symbol: 'USDMXN',
       displayName: 'US Dollar / Mexican Peso',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 100,
       pipDp: 4,
       swapBuy: 40,
@@ -390,7 +391,7 @@ async function main() {
       symbol: 'USDSEK',
       displayName: 'US Dollar / Swedish Krona',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 30,
       pipDp: 4,
       swapBuy: -8,
@@ -401,7 +402,7 @@ async function main() {
       symbol: 'USDNOK',
       displayName: 'US Dollar / Norwegian Krone',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 30,
       pipDp: 4,
       swapBuy: -6,
@@ -412,7 +413,7 @@ async function main() {
       symbol: 'USDDKK',
       displayName: 'US Dollar / Danish Krone',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 25,
       pipDp: 4,
       swapBuy: -5,
@@ -423,7 +424,7 @@ async function main() {
       symbol: 'USDPLN',
       displayName: 'US Dollar / Polish Zloty',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 40,
       pipDp: 4,
       swapBuy: 10,
@@ -434,7 +435,7 @@ async function main() {
       symbol: 'USDTRY',
       displayName: 'US Dollar / Turkish Lira',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 150,
       pipDp: 4,
       swapBuy: 100,
@@ -445,7 +446,7 @@ async function main() {
       symbol: 'USDHUF',
       displayName: 'US Dollar / Hungarian Forint',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 80,
       pipDp: 4,
       swapBuy: 20,
@@ -456,7 +457,7 @@ async function main() {
       symbol: 'USDZAR',
       displayName: 'US Dollar / South African Rand',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 100,
       pipDp: 4,
       swapBuy: 50,
@@ -467,7 +468,7 @@ async function main() {
       symbol: 'USDSGD',
       displayName: 'US Dollar / Singapore Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 15,
       pipDp: 4,
       swapBuy: -2,
@@ -478,7 +479,7 @@ async function main() {
       symbol: 'USDHKD',
       displayName: 'US Dollar / Hong Kong Dollar',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 10,
       pipDp: 4,
       swapBuy: -3,
@@ -489,7 +490,7 @@ async function main() {
       symbol: 'EURHUF',
       displayName: 'Euro / Hungarian Forint',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 80,
       pipDp: 4,
       swapBuy: 15,
@@ -500,7 +501,7 @@ async function main() {
       symbol: 'EURTRY',
       displayName: 'Euro / Turkish Lira',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 150,
       pipDp: 4,
       swapBuy: 90,
@@ -511,7 +512,7 @@ async function main() {
       symbol: 'EURPLN',
       displayName: 'Euro / Polish Zloty',
       contractSize: 100000,
-      leverage: 500,
+      leverage: 20,
       spreadPips: 40,
       pipDp: 4,
       swapBuy: 8,
@@ -520,22 +521,23 @@ async function main() {
     },
   ]
 
+  // Stocks — 20:1 leverage (simulator environment, professional clients, or non-ESMA jurisdiction)
   const stocks = [
-    { symbol: 'AAPL', displayName: 'Apple Inc', leverage: 5, spreadPips: 10, pipDp: 2 },
-    { symbol: 'MSFT', displayName: 'Microsoft Corp', leverage: 5, spreadPips: 10, pipDp: 2 },
-    { symbol: 'GOOGL', displayName: 'Alphabet Inc', leverage: 5, spreadPips: 20, pipDp: 2 },
-    { symbol: 'AMZN', displayName: 'Amazon.com Inc', leverage: 5, spreadPips: 15, pipDp: 2 },
-    { symbol: 'TSLA', displayName: 'Tesla Inc', leverage: 5, spreadPips: 20, pipDp: 2 },
-    { symbol: 'META', displayName: 'Meta Platforms', leverage: 5, spreadPips: 15, pipDp: 2 },
-    { symbol: 'NVDA', displayName: 'NVIDIA Corp', leverage: 5, spreadPips: 20, pipDp: 2 },
-    { symbol: 'NFLX', displayName: 'Netflix Inc', leverage: 5, spreadPips: 20, pipDp: 2 },
-    { symbol: 'JPM', displayName: 'JPMorgan Chase', leverage: 5, spreadPips: 10, pipDp: 2 },
-    { symbol: 'BAC', displayName: 'Bank of America', leverage: 5, spreadPips: 5, pipDp: 2 },
-    { symbol: 'V', displayName: 'Visa Inc', leverage: 5, spreadPips: 10, pipDp: 2 },
-    { symbol: 'JNJ', displayName: 'Johnson & Johnson', leverage: 5, spreadPips: 10, pipDp: 2 },
-    { symbol: 'WMT', displayName: 'Walmart Inc', leverage: 5, spreadPips: 10, pipDp: 2 },
-    { symbol: 'XOM', displayName: 'Exxon Mobil', leverage: 5, spreadPips: 10, pipDp: 2 },
-    { symbol: 'BRKB', displayName: 'Berkshire Hathaway B', leverage: 5, spreadPips: 15, pipDp: 2 },
+    { symbol: 'AAPL', displayName: 'Apple Inc', leverage: 20, spreadPips: 10, pipDp: 2 },
+    { symbol: 'MSFT', displayName: 'Microsoft Corp', leverage: 20, spreadPips: 10, pipDp: 2 },
+    { symbol: 'GOOGL', displayName: 'Alphabet Inc', leverage: 20, spreadPips: 20, pipDp: 2 },
+    { symbol: 'AMZN', displayName: 'Amazon.com Inc', leverage: 20, spreadPips: 15, pipDp: 2 },
+    { symbol: 'TSLA', displayName: 'Tesla Inc', leverage: 20, spreadPips: 20, pipDp: 2 },
+    { symbol: 'META', displayName: 'Meta Platforms', leverage: 20, spreadPips: 15, pipDp: 2 },
+    { symbol: 'NVDA', displayName: 'NVIDIA Corp', leverage: 20, spreadPips: 20, pipDp: 2 },
+    { symbol: 'NFLX', displayName: 'Netflix Inc', leverage: 20, spreadPips: 20, pipDp: 2 },
+    { symbol: 'JPM', displayName: 'JPMorgan Chase', leverage: 20, spreadPips: 10, pipDp: 2 },
+    { symbol: 'BAC', displayName: 'Bank of America', leverage: 20, spreadPips: 5, pipDp: 2 },
+    { symbol: 'V', displayName: 'Visa Inc', leverage: 20, spreadPips: 10, pipDp: 2 },
+    { symbol: 'JNJ', displayName: 'Johnson & Johnson', leverage: 20, spreadPips: 10, pipDp: 2 },
+    { symbol: 'WMT', displayName: 'Walmart Inc', leverage: 20, spreadPips: 10, pipDp: 2 },
+    { symbol: 'XOM', displayName: 'Exxon Mobil', leverage: 20, spreadPips: 10, pipDp: 2 },
+    { symbol: 'BRKB', displayName: 'Berkshire Hathaway B', leverage: 20, spreadPips: 15, pipDp: 2 },
   ]
 
   const indices = [
@@ -575,7 +577,7 @@ async function main() {
     {
       symbol: 'XAUUSD',
       displayName: 'Gold vs US Dollar',
-      leverage: 50,
+      leverage: 100,
       spreadPips: 30,
       pipDp: 2,
       contractSize: 100,
@@ -583,7 +585,7 @@ async function main() {
     {
       symbol: 'USOIL',
       displayName: 'WTI Crude Oil',
-      leverage: 50,
+      leverage: 100,
       spreadPips: 5,
       pipDp: 2,
       contractSize: 1000,
@@ -779,7 +781,7 @@ async function main() {
   }
 
   // ── LEGAL DOCUMENTS ─────────────────────────────────────────────
-  console.log('📜 Seeding legal documents...')
+  console.warn('📜 Seeding legal documents...')
   const legalDocs = [
     { documentName: 'AML Policy', documentType: 'aml_policy', version: '1.0' },
     { documentName: 'Complaints Handling Procedure', documentType: 'complaints', version: '1.0' },
@@ -828,11 +830,11 @@ async function main() {
   // Count final seeded records
   const instrumentCount = await prisma.instrument.count()
   const staffCount = await prisma.staff.count()
-  console.log(`✅ Seed complete:`)
-  console.log(`   - ${instrumentCount} instruments (60 total)`)
-  console.log(`   - ${staffCount} staff accounts`)
-  console.log(`   - ${legalDocs.length} legal documents`)
-  console.log(`   - Swap rates for all Forex instruments`)
+  console.warn(`✅ Seed complete:`)
+  console.warn(`   - ${instrumentCount} instruments (60 total)`)
+  console.warn(`   - ${staffCount} staff accounts`)
+  console.warn(`   - ${legalDocs.length} legal documents`)
+  console.warn(`   - Swap rates for all Forex instruments`)
 }
 
 main()

@@ -25,7 +25,7 @@ export function WithdrawalRejectedEmail({
 
       {reason && (
         <div style={emailStyles.dangerBox}>
-          <Text style={emailStyles.infoBoxText}>
+          <Text style={emailStyles.boxText}>
             <strong>Reason:</strong> {reason}
           </Text>
         </div>

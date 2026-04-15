@@ -8,6 +8,8 @@ import { logger } from '../lib/logger.js'
 import { AppError, Errors } from '../middleware/errorHandler.js'
 import { requireAuth } from '../middleware/auth.js'
 import { serializeBigInt } from '../lib/calculations.js'
+import { deriveJurisdictionFromCountry } from '../lib/jurisdiction.js'
+import { emailQueue } from '../lib/queues.js'
 import crypto from 'crypto'
 
 export const authRouter: ExpressRouter = Router()
@@ -16,6 +18,7 @@ const JWT_PRIVATE_KEY = process.env['JWT_PRIVATE_KEY'] ?? ''
 const ACCESS_TOKEN_EXPIRY = '15m'
 const REFRESH_TOKEN_EXPIRY_DEFAULT = 7 * 24 * 60 * 60 // 7 days in seconds
 const REFRESH_TOKEN_EXPIRY_REMEMBER = 30 * 24 * 60 * 60 // 30 days
+const EMAIL_VERIFY_TOKEN_TTL_SECONDS = 24 * 60 * 60 // 24 hours in seconds
 
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/
 const PASSWORD_ERROR_MSG =
@@ -99,6 +102,9 @@ authRouter.post('/register', async (req, res, next) => {
       SELECT generate_lead_id()
     `
 
+    // Derive jurisdiction from country for compliance framework
+    const jurisdiction = deriveJurisdictionFromCountry(country)
+
     // Create user
     const user = await prisma.user.create({
       data: {
@@ -107,6 +113,7 @@ authRouter.post('/register', async (req, res, next) => {
         fullName: full_name,
         phone,
         country,
+        jurisdiction: jurisdiction as never,
         accountNumber,
         leadId,
         agentId,
@@ -124,12 +131,18 @@ authRouter.post('/register', async (req, res, next) => {
       },
     })
 
-    // Generate email verification token (24h TTL in Redis)
+    // Generate email verification token
     const verifyToken = crypto.randomBytes(32).toString('hex')
-    await getRedis().setex(`email_verify:${verifyToken}`, 86400, user.id.toString())
+    await getRedis().setex(
+      `email_verify:${verifyToken}`,
+      EMAIL_VERIFY_TOKEN_TTL_SECONDS,
+      user.id.toString(),
+    )
 
-    // TODO: Queue welcome email via emailQueue
-    // await emailQueue.add('welcome', { userId: user.id.toString(), email, verifyToken })
+    // Queue welcome email
+    emailQueue.add('welcome', { userId: user.id.toString(), email, verifyToken }).catch((err) => {
+      logger.error({ err, userId: user.id.toString() }, 'Failed to queue welcome email')
+    })
 
     // Issue tokens
     const accessToken = generateAccessToken({
@@ -351,11 +364,26 @@ authRouter.post('/forgot-password', async (req, res, next) => {
       return
     } // Always succeed to prevent enumeration
 
-    const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, fullName: true },
+    })
     if (user) {
       const resetToken = crypto.randomBytes(32).toString('hex')
       await getRedis().setex(`pwd_reset:${resetToken}`, 3600, user.id.toString()) // 1h TTL
-      // TODO: Queue password reset email
+
+      // Queue password reset email with reset link
+      const safeFullName = user.fullName || 'Valued User'
+      emailQueue
+        .add('password-reset', {
+          to: email,
+          fullName: safeFullName,
+          resetToken,
+          resetLinkExpiresIn: '1 hour',
+        })
+        .catch((err) => {
+          logger.error({ err, userId: user.id.toString() }, 'Failed to queue password-reset email')
+        })
     }
 
     res.json({ success: true, message: 'If that email exists, a reset link has been sent.' })
@@ -390,11 +418,41 @@ authRouter.post('/reset-password', async (req, res, next) => {
     }
 
     const passwordHash = await hash(password, 12)
-    await prisma.user.update({ where: { id: BigInt(userId) }, data: { passwordHash } })
+    const userBigInt = BigInt(userId)
+
+    // Fetch user record to get email and name
+    const user = await prisma.user.findUnique({
+      where: { id: userBigInt },
+      select: { id: true, email: true, fullName: true },
+    })
+    if (!user) {
+      next(Errors.notFound('User'))
+      return
+    }
+
+    // Update password
+    await prisma.user.update({ where: { id: userBigInt }, data: { passwordHash } })
 
     // Invalidate all sessions
-    await prisma.session.deleteMany({ where: { userId: BigInt(userId) } })
+    await prisma.session.deleteMany({ where: { userId: userBigInt } })
     await getRedis().del(`pwd_reset:${token}`)
+
+    // Queue password reset notification email (after token cleanup)
+    const safeFullName = user.fullName || 'Valued User'
+    const resetAt = new Date().toISOString()
+    emailQueue
+      .add('password-reset-confirmed', {
+        to: user.email,
+        fullName: safeFullName,
+        resetAt,
+        context: 'token-reset',
+      })
+      .catch((err) => {
+        logger.error(
+          { err, userId: user.id.toString() },
+          'Failed to queue password-reset-confirmed email',
+        )
+      })
 
     res.json({ success: true, message: 'Password reset successfully. Please log in again.' })
   } catch (err) {
@@ -428,7 +486,7 @@ authRouter.post('/change-password', requireAuth, async (req, res, next) => {
 
     const user = await prisma.user.findUnique({
       where: { id: BigInt(req.user!.user_id) },
-      select: { id: true, passwordHash: true },
+      select: { id: true, passwordHash: true, email: true, fullName: true },
     })
     if (!user) {
       next(Errors.unauthorized())
@@ -443,8 +501,21 @@ authRouter.post('/change-password', requireAuth, async (req, res, next) => {
 
     const newHash = await hash(new_password, 12)
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: newHash } })
+    const changedAt = new Date().toISOString()
     // Invalidate all sessions on password change
     await prisma.session.deleteMany({ where: { userId: user.id } })
+
+    // Queue password changed email
+    const safeFullName = user.fullName || 'Valued User'
+    emailQueue
+      .add('password-changed', {
+        to: user.email,
+        fullName: safeFullName,
+        changedAt,
+      })
+      .catch((err) => {
+        logger.error({ err, userId: user.id.toString() }, 'Failed to queue password-changed email')
+      })
 
     res.json({ success: true, message: 'Password changed successfully.' })
   } catch (err) {

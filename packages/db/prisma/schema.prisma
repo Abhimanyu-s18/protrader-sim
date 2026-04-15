@@ -148,9 +148,28 @@ enum SignalType {
   SELL
 }
 
+enum Jurisdiction {
+  // EU / UK regulated (ESMA/FCA): 30:1 max leverage on majors
+  EU
+  UK
+  // ASIC regulated (Australia): 30:1 max leverage on majors
+  AU
+  // DFSA regulated (UAE): 30:1 max leverage on majors
+  AE
+  // FSA Seychelles (offshore, moderate): 50:1 max (ProTraderSim primary)
+  SC
+  // FSC Mauritius (offshore, moderate): 50:1 max (ProTraderSim secondary)
+  MU
+  // US regulated (CFTC): limited leverage, typically 50:1 max on majors
+  US
+  // Other jurisdictions (default to 20:1 conservative)
+  OTHER
+}
+
 // ─────────────────────────────────────────────────────────────────
 // 3.1 USERS
 // Balance, equity, margin — NOT stored here. Computed from ledger.
+// Jurisdiction: determines trading leverage limits per regulatory framework.
 // ─────────────────────────────────────────────────────────────────
 model User {
   id                    BigInt        @id @default(autoincrement())
@@ -172,6 +191,8 @@ model User {
   motive                String?       @db.Text
   goal                  String?       @db.Text
   kycStatus             KycStatus     @default(NOT_STARTED) @map("kyc_status")
+  // Jurisdiction determines leverage limits and compliance framework
+  jurisdiction          Jurisdiction  @default(SC) @map("jurisdiction") // Default: Seychelles (FSA)
   accountStatus         AccountStatus @default(ACTIVE) @map("account_status")
   emailVerified         Boolean       @default(false) @map("email_verified")
   popupSoundEnabled     Boolean       @default(true) @map("popup_sound_enabled")
@@ -200,6 +221,7 @@ model User {
   @@index([email])
   @@index([kycStatus, lastKycReminderSentAt])
   @@index([agentId])
+  @@index([jurisdiction])
   @@map("users")
 }
 

@@ -11,7 +11,7 @@ export interface KycApprovedEmailProps {
  * Account is now fully active.
  */
 export function KycApprovedEmail({ fullName, platformUrl }: KycApprovedEmailProps) {
-  const dashboardUrl = `${platformUrl}/dashboard`
+  const dashboardUrl = `${platformUrl.replace(/\/+$/, '')}/dashboard`
 
   return (
     <Layout preview="Your ProTraderSim account is now verified and ready to trade">
@@ -23,7 +23,7 @@ export function KycApprovedEmail({ fullName, platformUrl }: KycApprovedEmailProp
       </Text>
 
       <div style={emailStyles.infoBox}>
-        <Text style={emailStyles.infoBoxText}>
+        <Text style={emailStyles.boxText}>
           &#x2705; KYC verification approved — account fully activated
         </Text>
       </div>

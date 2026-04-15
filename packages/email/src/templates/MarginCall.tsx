@@ -1,11 +1,32 @@
 import { Hr, Link, Section, Text } from '@react-email/components'
 import { Layout, emailStyles } from '../components/Layout'
 
+const bulletStyle = { ...emailStyles.body, margin: '0 0 6px', paddingLeft: '16px' } as const
+
+const stopOutActions = [
+  'Deposit additional funds to increase your margin',
+  'Close one or more open positions to free up margin',
+]
+
 export interface MarginCallEmailProps {
   fullName: string
+  /**
+   * Numeric string representing the margin level percentage WITHOUT the '%' symbol.
+   * Example: "50" (not "50%"). The '%' is appended automatically in the template.
+   */
   marginLevelPct: string
   equityFormatted: string
   platformUrl: string
+}
+
+function normalizeMarginLevel(marginLevelPct: string): string {
+  const trimmed = marginLevelPct?.trim() ?? ''
+  const normalized = trimmed.replace(/%$/, '').trim()
+  const numericValue = Number(normalized)
+  if (normalized === '' || isNaN(numericValue) || numericValue < 0) {
+    return ''
+  }
+  return normalized
 }
 
 /**
@@ -18,22 +39,27 @@ export function MarginCallEmail({
   equityFormatted,
   platformUrl,
 }: MarginCallEmailProps) {
-  const accountUrl = `${platformUrl}/account`
+  const displayName = fullName?.trim() || 'there'
+  const normalizedMarginLevel = normalizeMarginLevel(marginLevelPct)
+  const sanitizedPlatformUrl = (platformUrl ?? '').replace(/\/+$/, '')
+  const accountUrl = sanitizedPlatformUrl ? `${sanitizedPlatformUrl}/account` : ''
+
+  const marginDisplay = normalizedMarginLevel ? `${normalizedMarginLevel}%` : 'unknown'
 
   return (
-    <Layout preview={`Urgent: your margin level has dropped to ${marginLevelPct}% — action required`}>
+    <Layout preview={`Urgent: your margin level has dropped to ${marginDisplay} — action required`}>
       <Text style={emailStyles.h1}>Margin call warning</Text>
-      <Text style={emailStyles.greeting}>Hi {fullName},</Text>
+      <Text style={emailStyles.greeting}>Hi {displayName},</Text>
       <Text style={emailStyles.body}>
         Your account margin level has fallen to the margin call threshold. Immediate action is
         required to prevent your positions from being automatically closed.
       </Text>
 
       <div style={emailStyles.dangerBox}>
-        <Text style={{ ...emailStyles.infoBoxText, marginBottom: '6px' }}>
-          <strong>Current margin level:</strong> {marginLevelPct}%
+        <Text style={{ ...emailStyles.boxText, marginBottom: '6px' }}>
+          <strong>Current margin level:</strong> {marginDisplay}
         </Text>
-        <Text style={{ ...emailStyles.infoBoxText, margin: '0' }}>
+        <Text style={{ ...emailStyles.boxText, margin: '0' }}>
           <strong>Current equity:</strong> {equityFormatted}
         </Text>
       </div>
@@ -41,12 +67,11 @@ export function MarginCallEmail({
       <Text style={emailStyles.body}>
         <strong>To avoid stop-out, you can:</strong>
       </Text>
-      <Text style={{ ...emailStyles.body, margin: '0 0 6px', paddingLeft: '16px' }}>
-        &#x2022; Deposit additional funds to increase your margin
-      </Text>
-      <Text style={{ ...emailStyles.body, margin: '0 0 20px', paddingLeft: '16px' }}>
-        &#x2022; Close one or more open positions to free up margin
-      </Text>
+      {stopOutActions.map((item) => (
+        <Text key={item} style={bulletStyle}>
+          &#x2022; {item}
+        </Text>
+      ))}
 
       <Section style={{ textAlign: 'center' }}>
         <Link href={accountUrl} style={emailStyles.dangerButton}>

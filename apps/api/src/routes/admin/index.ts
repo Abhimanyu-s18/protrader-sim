@@ -143,7 +143,14 @@ adminRouter.post('/users/:id/adjustment', async (req, res, next) => {
 })
 
 // ── KYC ──────────────────────────────────────────────────────────
-const kycDocumentStatusSchema = z.enum(['UPLOADED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'ADDITIONAL_REQUIRED', 'EXPIRED'])
+const kycDocumentStatusSchema = z.enum([
+  'UPLOADED',
+  'UNDER_REVIEW',
+  'APPROVED',
+  'REJECTED',
+  'ADDITIONAL_REQUIRED',
+  'EXPIRED',
+])
 
 adminRouter.get('/kyc/count', async (req, res, next) => {
   try {
@@ -187,7 +194,7 @@ adminRouter.put('/kyc/:doc_id', async (req, res, next) => {
   try {
     const { status, rejection_reason } = z
       .object({
-        status: z.enum(['APPROVED', 'REJECTED', 'ADDITIONAL_REQUIRED', 'UNDER_REVIEW']),
+        status: kycDocumentStatusSchema,
         rejection_reason: z.string().optional(),
       })
       .parse(req.body)
@@ -282,7 +289,7 @@ adminRouter.put('/deposits/:id', async (req, res, next) => {
   try {
     const { status, bonus_cents = 0 } = z
       .object({
-        status: z.enum(['COMPLETED', 'REJECTED']),
+        status: depositStatusSchema,
         bonus_cents: z.number().int().min(0).default(0),
       })
       .parse(req.body)

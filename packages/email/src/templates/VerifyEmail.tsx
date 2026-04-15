@@ -1,7 +1,7 @@
 import { Link, Section, Text } from '@react-email/components'
 import { Layout, emailStyles } from '../components/Layout'
 
-interface VerifyEmailProps {
+export interface VerifyEmailProps {
   fullName: string
   verifyUrl: string
   expirationHours: number

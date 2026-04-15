@@ -16,6 +16,7 @@ import type {
   AccountStatus,
   KycDocumentStatus,
   KycStatus,
+  Jurisdiction,
 } from '@protrader/types'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -24,6 +25,19 @@ interface UserDetailData {
   kyc_documents: KycDocument[]
   recent_deposits: Deposit[]
   recent_withdrawals: Withdrawal[]
+}
+
+interface LeverageOverride {
+  max_leverage: number
+  granted_by: string
+  granted_at: string
+  expires_at: string
+  reason: string
+}
+
+interface LeverageOverrideResponse {
+  data: LeverageOverride | null
+  has_override: boolean
 }
 
 // ── Schemas ────────────────────────────────────────────────────────────────
@@ -40,6 +54,18 @@ const adjustmentSchema = z.object({
   description: z.string().min(1, 'Description is required'),
 })
 type AdjustmentFormValues = z.infer<typeof adjustmentSchema>
+
+const leverageOverrideSchema = z.object({
+  asset_class: z.enum(['FOREX', 'STOCK', 'INDEX', 'COMMODITY', 'CRYPTO']),
+  max_leverage: z
+    .number()
+    .int()
+    .min(1, 'Minimum leverage is 1')
+    .max(500, 'Maximum leverage is 500'),
+  reason: z.string().min(10, 'Reason must be at least 10 characters').max(500),
+  expires_in_hours: z.number().int().min(1).max(720), // Max 30 days
+})
+type LeverageOverrideFormValues = z.infer<typeof leverageOverrideSchema>
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function kycDocStatusColor(status: KycDocumentStatus) {
@@ -213,11 +239,91 @@ export default function UserDetailPage() {
   const [statusError, setStatusError] = useState('')
   const [adjustmentSuccess, setAdjustmentSuccess] = useState('')
   const [adjustmentError, setAdjustmentError] = useState('')
+  const [overrideSuccess, setOverrideSuccess] = useState('')
+  const [overrideError, setOverrideError] = useState('')
+  const [revokingAssetClass, setRevokingAssetClass] = useState<string | null>(null)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin', 'user', userId],
     queryFn: () => api.get<UserDetailData>(`/v1/admin/users/${userId}`),
     enabled: !!userId,
+  })
+
+  // Fetch active leverage overrides for all asset classes
+  const { data: overridesData, refetch: refetchOverrides } = useQuery({
+    queryKey: ['admin', 'leverage-overrides', userId],
+    queryFn: () =>
+      Promise.all([
+        api.get<LeverageOverrideResponse>(
+          `/v1/admin/leverage-overrides/${userId}?asset_class=FOREX`,
+        ),
+        api.get<LeverageOverrideResponse>(
+          `/v1/admin/leverage-overrides/${userId}?asset_class=STOCK`,
+        ),
+        api.get<LeverageOverrideResponse>(
+          `/v1/admin/leverage-overrides/${userId}?asset_class=INDEX`,
+        ),
+        api.get<LeverageOverrideResponse>(
+          `/v1/admin/leverage-overrides/${userId}?asset_class=COMMODITY`,
+        ),
+        api.get<LeverageOverrideResponse>(
+          `/v1/admin/leverage-overrides/${userId}?asset_class=CRYPTO`,
+        ),
+      ]),
+    enabled: !!userId,
+  })
+
+  // Create leverage override mutation
+  const createOverrideMutation = useMutation<
+    { override_expires_at: string },
+    Error,
+    LeverageOverrideFormValues
+  >({
+    mutationFn: (values: LeverageOverrideFormValues) =>
+      api.post<{ override_expires_at: string }>(`/v1/admin/leverage-overrides/${userId}`, values),
+    onSuccess: (response) => {
+      setOverrideSuccess(`Override created. Expires: ${response.override_expires_at}`)
+      setOverrideError('')
+      resetOverrideForm()
+      void refetchOverrides()
+    },
+    onError: (err: Error) => {
+      setOverrideError(err.message || 'Failed to create override')
+      setOverrideSuccess('')
+    },
+  })
+
+  // Revoke leverage override mutation
+  const revokeOverrideMutation = useMutation({
+    mutationFn: (assetClass: string) =>
+      api.del(`/v1/admin/leverage-overrides/${userId}?asset_class=${assetClass}`),
+    onMutate: (assetClass) => setRevokingAssetClass(assetClass),
+    onSuccess: () => {
+      setOverrideSuccess('Override revoked successfully')
+      setOverrideError('')
+      void refetchOverrides()
+    },
+    onError: (err: Error) => {
+      setOverrideError(err.message || 'Failed to revoke override')
+      setOverrideSuccess('')
+    },
+    onSettled: () => setRevokingAssetClass(null),
+  })
+
+  // Leverage override form
+  const {
+    register: registerOverride,
+    handleSubmit: handleOverrideSubmit,
+    reset: resetOverrideForm,
+    formState: { errors: overrideErrors },
+  } = useForm<LeverageOverrideFormValues>({
+    resolver: zodResolver(leverageOverrideSchema),
+    defaultValues: {
+      asset_class: 'FOREX',
+      max_leverage: 50,
+      reason: '',
+      expires_in_hours: 24,
+    },
   })
 
   // Status toggle mutation
@@ -283,6 +389,18 @@ export default function UserDetailPage() {
   if (isError || !data) return <div className="p-6 text-sm text-red-400">Failed to load user.</div>
 
   const { user, kyc_documents, recent_deposits, recent_withdrawals } = data
+
+  // Transform override responses into a map
+  const overrideMap = new Map<string, LeverageOverride>()
+  if (overridesData) {
+    const assetClasses = ['FOREX', 'STOCK', 'INDEX', 'COMMODITY', 'CRYPTO'] as const
+    overridesData.forEach((response, index) => {
+      const assetClass = assetClasses[index]
+      if (assetClass && response.has_override && response.data) {
+        overrideMap.set(assetClass, response.data)
+      }
+    })
+  }
 
   const toggleStatus: AccountStatus = user.account_status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
 
@@ -525,6 +643,152 @@ export default function UserDetailPage() {
             </table>
           </div>
         )}
+      </section>
+
+      {/* Leverage Overrides */}
+      <section className="rounded-lg border border-gray-800 bg-gray-900 p-5">
+        <h2 className="mb-4 text-lg font-semibold text-white">Leverage Overrides</h2>
+        <p className="mb-3 text-xs text-gray-400">
+          User jurisdiction:{' '}
+          <span className="font-medium text-white">
+            {(user as User & { jurisdiction?: Jurisdiction }).jurisdiction ?? '—'}
+          </span>{' '}
+          — Overrides temporarily allow trading above regulatory limits.
+        </p>
+
+        {/* Active Overrides */}
+        <div className="mb-6">
+          <h3 className="mb-2 text-sm font-medium text-gray-300">Active Overrides</h3>
+          {overrideMap.size === 0 ? (
+            <p className="text-sm text-gray-500">No active overrides.</p>
+          ) : (
+            <div className="space-y-2">
+              {Array.from(overrideMap.entries()).map(([assetClass, override]) => (
+                <div
+                  key={assetClass}
+                  className="flex items-center justify-between rounded border border-green-700 bg-green-900/20 px-3 py-2"
+                >
+                  <div className="text-sm">
+                    <span className="font-medium text-green-400">{assetClass}</span>
+                    <span className="mx-2 text-gray-400">→</span>
+                    <span className="font-mono text-white">{override.max_leverage}:1</span>
+                    <span className="mx-2 text-xs text-gray-500">
+                      expires {formatDateTime(override.expires_at)}
+                    </span>
+                    <span className="mx-2 text-xs text-gray-500">by {override.granted_by}</span>
+                  </div>
+                  <button
+                    onClick={() => revokeOverrideMutation.mutate(assetClass)}
+                    disabled={revokeOverrideMutation.isPending && revokingAssetClass === assetClass}
+                    className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {revokingAssetClass === assetClass && revokeOverrideMutation.isPending
+                      ? 'Revoking…'
+                      : 'Revoke'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Create Override Form */}
+        <div className="rounded border border-gray-700 bg-gray-800/50 p-4">
+          <h3 className="mb-3 text-sm font-medium text-gray-300">Create Override</h3>
+          <form
+            onSubmit={handleOverrideSubmit((values) => createOverrideMutation.mutate(values))}
+            className="space-y-3"
+          >
+            <div className="grid grid-cols-2 gap-3">
+              {/* Asset Class */}
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">Asset Class</label>
+                <select
+                  {...registerOverride('asset_class')}
+                  className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white"
+                >
+                  <option value="FOREX">Forex</option>
+                  <option value="STOCK">Stocks</option>
+                  <option value="INDEX">Indices</option>
+                  <option value="COMMODITY">Commodities</option>
+                  <option value="CRYPTO">Crypto</option>
+                </select>
+                {overrideErrors.asset_class && (
+                  <p className="mt-1 text-xs text-red-400">{overrideErrors.asset_class.message}</p>
+                )}
+              </div>
+
+              {/* Max Leverage */}
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">Max Leverage</label>
+                <input
+                  type="number"
+                  {...registerOverride('max_leverage', { valueAsNumber: true })}
+                  min="1"
+                  max="500"
+                  className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white"
+                />
+                {overrideErrors.max_leverage && (
+                  <p className="mt-1 text-xs text-red-400">{overrideErrors.max_leverage.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Duration */}
+            <div>
+              <label className="mb-1 block text-xs text-gray-400">Duration (hours)</label>
+              <select
+                {...registerOverride('expires_in_hours', { valueAsNumber: true })}
+                className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white"
+              >
+                <option value="1">1 hour</option>
+                <option value="6">6 hours</option>
+                <option value="12">12 hours</option>
+                <option value="24">24 hours (1 day)</option>
+                <option value="72">72 hours (3 days)</option>
+                <option value="168">168 hours (1 week)</option>
+                <option value="720">720 hours (30 days)</option>
+              </select>
+              {overrideErrors.expires_in_hours && (
+                <p className="mt-1 text-xs text-red-400">
+                  {overrideErrors.expires_in_hours.message}
+                </p>
+              )}
+            </div>
+
+            {/* Reason */}
+            <div>
+              <label className="mb-1 block text-xs text-gray-400">Reason</label>
+              <textarea
+                {...registerOverride('reason')}
+                rows={2}
+                placeholder="Reason for override (min 10 characters)"
+                className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500"
+              />
+              {overrideErrors.reason && (
+                <p className="mt-1 text-xs text-red-400">{overrideErrors.reason.message}</p>
+              )}
+            </div>
+
+            {/* Success/Error messages */}
+            {overrideSuccess && (
+              <p className="rounded bg-green-900/30 p-2 text-xs text-green-400">
+                {overrideSuccess}
+              </p>
+            )}
+            {overrideError && (
+              <p className="rounded bg-red-900/30 p-2 text-xs text-red-400">{overrideError}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={createOverrideMutation.isPending}
+              className="w-full rounded bg-blue-600 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+            >
+              {createOverrideMutation.isPending ? 'Creating...' : 'Create Override'}
+            </button>
+          </form>
+        </div>
       </section>
     </div>
   )

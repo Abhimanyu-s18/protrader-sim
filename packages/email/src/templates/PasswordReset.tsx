@@ -1,7 +1,7 @@
 import { Hr, Link, Section, Text } from '@react-email/components'
 import { Layout, emailStyles } from '../components/Layout'
 
-interface PasswordResetEmailProps {
+export interface PasswordResetEmailProps {
   fullName: string
   resetUrl: string
 }
@@ -35,7 +35,7 @@ export function PasswordResetEmail({ fullName, resetUrl }: PasswordResetEmailPro
       </Section>
 
       <div style={emailStyles.warningBox}>
-        <Text style={emailStyles.infoBoxText}>
+        <Text style={emailStyles.boxText}>
           &#x26A0;&#xFE0F; This link expires in <strong>1 hour</strong>. If you need a new link,
           request another reset from the login page.
         </Text>

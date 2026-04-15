@@ -21,7 +21,8 @@ export function AlertTriggeredEmail({
   direction,
   platformUrl,
 }: AlertTriggeredEmailProps) {
-  const symbolUrl = `${platformUrl}/symbols/${encodeURIComponent(symbol)}`
+  const basePlatformUrl = platformUrl.replace(/\/+$/, '')
+  const symbolUrl = `${basePlatformUrl}/symbols/${encodeURIComponent(symbol)}`
   const directionLabel = direction === 'above' ? 'risen above' : 'fallen below'
 
   return (
@@ -29,18 +30,18 @@ export function AlertTriggeredEmail({
       <Text style={emailStyles.h1}>Price alert triggered</Text>
       <Text style={emailStyles.greeting}>Hi {fullName},</Text>
       <Text style={emailStyles.body}>
-        Your price alert for <strong>{symbol}</strong> has been triggered.{' '}
-        The price has {directionLabel} your target level.
+        Your price alert for <strong>{symbol}</strong> has been triggered. The price has{' '}
+        {directionLabel} your target level.
       </Text>
 
       <div style={emailStyles.infoBox}>
-        <Text style={{ ...emailStyles.infoBoxText, marginBottom: '6px' }}>
+        <Text style={{ ...emailStyles.boxText, marginBottom: '6px' }}>
           <strong>Symbol:</strong> {symbol}
         </Text>
-        <Text style={{ ...emailStyles.infoBoxText, marginBottom: '6px' }}>
+        <Text style={{ ...emailStyles.boxText, marginBottom: '6px' }}>
           <strong>Alert level:</strong> {priceLevel}
         </Text>
-        <Text style={{ ...emailStyles.infoBoxText, margin: '0' }}>
+        <Text style={{ ...emailStyles.boxText, margin: '0' }}>
           <strong>Current price:</strong> {currentPrice}
         </Text>
       </div>
@@ -55,7 +56,7 @@ export function AlertTriggeredEmail({
 
       <Text style={emailStyles.muted}>
         This alert has been automatically dismissed. Set a new alert from the{' '}
-        <Link href={`${platformUrl}/alerts`} style={emailStyles.link}>
+        <Link href={`${basePlatformUrl}/alerts`} style={emailStyles.link}>
           Alerts
         </Link>{' '}
         page.

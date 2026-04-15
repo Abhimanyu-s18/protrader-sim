@@ -146,11 +146,11 @@ export default function TradersPage() {
               <div className="flex justify-center p-4">
                 <button
                   type="button"
-                  onClick={() => setCursor(data?.next_cursor ?? null)}
-                  disabled={isLoading}
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
                   className="rounded-md bg-gray-800 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 disabled:opacity-50"
                 >
-                  {isLoading ? 'Loading more...' : 'Load More'}
+                  {isFetchingNextPage ? 'Loading more...' : 'Load More'}
                 </button>
               </div>
             )}

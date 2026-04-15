@@ -26,16 +26,16 @@ export function WithdrawalApprovedEmail({
       </Text>
 
       <div style={emailStyles.infoBox}>
-        <Text style={{ ...emailStyles.infoBoxText, marginBottom: '6px' }}>
+        <Text style={{ ...emailStyles.boxText, marginBottom: '6px' }}>
           <strong>Amount:</strong> {amountFormatted}
         </Text>
-        <Text style={{ ...emailStyles.infoBoxText, margin: '0' }}>
+        <Text style={{ ...emailStyles.boxText, margin: '0' }}>
           <strong>Wallet address:</strong>
         </Text>
         <Text style={emailStyles.tokenBox}>{walletAddress}</Text>
         {txHash && (
           <>
-            <Text style={{ ...emailStyles.infoBoxText, margin: '0' }}>
+            <Text style={{ ...emailStyles.boxText, margin: '0' }}>
               <strong>Transaction hash:</strong>
             </Text>
             <Text style={emailStyles.tokenBox}>{txHash}</Text>
@@ -50,5 +50,16 @@ export function WithdrawalApprovedEmail({
         receive your funds within 24 hours, please contact support.
       </Text>
     </Layout>
+  )
+}
+
+export default function Preview() {
+  return (
+    <WithdrawalApprovedEmail
+      fullName="Jane Doe"
+      amountFormatted="$123.45"
+      walletAddress="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1"
+      txHash="0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060"
+    />
   )
 }

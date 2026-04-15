@@ -10,7 +10,7 @@ import { api } from '../../../../lib/api'
 import { subscribePrices, unsubscribePrices } from '../../../../hooks/useSocket'
 import type { UTCTimestamp } from 'lightweight-charts'
 import { usePriceStore } from '../../../../stores/priceStore'
-import type { ApiResponse, Instrument, Trade } from '@protrader/types'
+import type { ApiResponse, Instrument, Trade, User } from '@protrader/types'
 import { formatMoney } from '@protrader/utils'
 
 const TradingChart = dynamic(() => import('../../../../components/TradingChart'), { ssr: false })
@@ -77,6 +77,12 @@ export default function SymbolPage({ params }: { params: Promise<{ symbol: strin
 
   const price = usePriceStore((s) => s.getPrice(symbol))
 
+  // Fetch user to get jurisdiction
+  const { data: userData } = useQuery({
+    queryKey: ['user', 'me'],
+    queryFn: () => api.get<ApiResponse<User>>('/v1/users/me'),
+  })
+
   const { data: instrumentData } = useQuery({
     queryKey: ['instrument', symbol],
     queryFn: () => api.get<ApiResponse<Instrument>>(`/v1/instruments/${symbol}`),
@@ -95,9 +101,13 @@ export default function SymbolPage({ params }: { params: Promise<{ symbol: strin
     queryFn: () => api.get<{ data: Trade[] }>(`/v1/trades?status=OPEN&symbol=${symbol}`),
   })
 
+  const user = userData?.data
   const instrument = instrumentData?.data
   const candles = candlesData?.data ?? []
   const openPosition = openPositionData?.data?.[0]
+
+  // Calculate max leverage for user
+  const maxLeverage: number | null = user && instrument ? instrument.leverage : null
 
   useEffect(() => {
     subscribePrices([symbol])
@@ -166,7 +176,13 @@ export default function SymbolPage({ params }: { params: Promise<{ symbol: strin
       {/* Header */}
       <div className="flex items-center gap-6 border-b border-gray-800 px-6 py-3">
         <h1 className="text-lg font-semibold text-white">{symbol}</h1>
-        {instrument && (
+        {instrument && user && (
+          <span className="text-xs text-gray-500">
+            {instrument.display_name} · Leverage up to {maxLeverage}:1{' '}
+            {user.jurisdiction && <span className="text-gray-600">({user.jurisdiction})</span>}
+          </span>
+        )}
+        {instrument && !user && (
           <span className="text-xs text-gray-500">
             {instrument.display_name} · Leverage {instrument.leverage}:1
           </span>
@@ -295,7 +311,18 @@ export default function SymbolPage({ params }: { params: Promise<{ symbol: strin
               />
             </div>
 
-            {orderError && <p className="text-xs text-red-400">{orderError}</p>}
+            {orderError && (
+              <div className="rounded border border-red-600 bg-red-900/30 p-2 text-xs text-red-200">
+                {orderError}
+                {orderError.includes('Leverage Compliance') && (
+                  <p className="mt-1 text-xs text-red-300">
+                    Your jurisdiction ({user?.jurisdiction ?? 'N/A'}) limits leverage on{' '}
+                    {instrument?.asset_class ?? 'this asset'}. Contact support if you need an
+                    override.
+                  </p>
+                )}
+              </div>
+            )}
             {orderSuccess && <p className="text-xs text-green-400">{orderSuccess}</p>}
 
             <button
