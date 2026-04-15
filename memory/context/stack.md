@@ -25,7 +25,7 @@
 
 - All money: BigInt cents (never Decimal/Float)
 - All prices: BigInt ×100000 (e.g., $1.23456 → 123456n in code, stored as BigInt integers, not decimals)
-- Computing totals: multiply quantity by price, then divide by 1000 to get cents (e.g., 10 units at 123456n → (BigInt(10) \* 123456n) / 1000n = 1234n = $12.34). Consider implementing a helper like `calcTotalCents(quantity: number, price: BigInt): BigInt` to centralize this logic and prevent errors.
+- Computing totals: multiply quantity by price, then divide by 1000 to get cents (e.g., 10 units at 123456n → `(BigInt(10) * 123456n) / 1000n = 1234n = $12.34`). Note: integer division truncates; for rounding to nearest cent, consider implementing a helper like `calcTotalCents(quantity: number, price: BigInt): BigInt` that computes `total % 1000n >= 500n` and adds 1n accordingly to round up when remainder ≥ 500.
 - Balance computed from ledger_transactions (not stored)
 - API responses: ApiResponse<T> wrapper with `data` field
 - BigInt serialized as strings via serializeBigInt()

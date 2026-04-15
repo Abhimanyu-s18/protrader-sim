@@ -1489,7 +1489,7 @@
       }
 
       function escapeMarkdown(text) {
-        return text.replace(/[\\`_{}()#+!>|-]/g, '\\$&')
+        return text.replace(/[\\`*_{}[\]()#+!>|-]/g, '\\$&')
       }
 
       function toMarkdown() {
@@ -2026,8 +2026,9 @@
           showStatus('Saved')
         } catch (e) {
           showStatus('Save failed: ' + e.message)
+        } finally {
+          isSaving = false
         }
-        isSaving = false
       }
 
       async function checkForExternalChanges() {
@@ -3044,7 +3045,7 @@
           </div>
           <div class="file-card-content expanded markdown-content">${content}</div>
         </div>
-        <button onclick="openEditModal('${fileName}', 'memoryFile')" style="margin-top: 10px;">Edit ${fileName}</button>
+        <button data-action="edit-file" data-file="${escapeHtml(fileName)}" style="margin-top: 10px;">Edit ${fileName}</button>
       `
       }
 
@@ -3061,7 +3062,7 @@
         let html = `
         <div class="search-box">
           <span style="color: var(--text-muted);">&#128269;</span>
-          <input type="text" placeholder="Search ${dirName}..." id="dirSearch" oninput="filterMemoryDirectory('${dirName}', this.value)">
+          <input type="text" placeholder="Search ${dirName}..." id="dirSearch" data-dir="${escapeHtml(dirName)}" class="memory-dir-search">
         </div>
         <div class="memory-grid" id="dirGrid">
       `
@@ -3104,7 +3105,7 @@
         }
 
         html += `
-        <div class="add-btn" onclick="openNewFileModal('${dirName}')">
+        <div class="add-btn" data-action="add-file" data-dir="${escapeHtml(dirName)}">
           + Add to ${dirName}
         </div>
       </div>`
@@ -3116,7 +3117,7 @@
         let html = `
         <div class="search-box">
           <span style="color: var(--text-muted);">&#128269;</span>
-          <input type="text" placeholder="Search ${dirName}..." id="dirSearch" oninput="filterMemoryDirectory('${dirName}', this.value)">
+          <input type="text" placeholder="Search ${dirName}..." id="dirSearch" data-dir="${escapeHtml(dirName)}" class="memory-dir-search">
         </div>
         <div id="dirGrid">
       `
@@ -3442,6 +3443,23 @@
         const card = e.target.closest('.memory-card')
         if (card && card.dataset.dir && card.dataset.file) {
           openFileModal(card.dataset.dir, card.dataset.file)
+        }
+
+        const addBtn = e.target.closest('[data-action="add-file"]')
+        if (addBtn && addBtn.dataset.dir) {
+          openNewFileModal(addBtn.dataset.dir)
+        }
+
+        const editBtn = e.target.closest('[data-action="edit-file"]')
+        if (editBtn && editBtn.dataset.file) {
+          openEditModal(editBtn.dataset.file, 'memoryFile')
+        }
+      })
+
+      memoryContentContainer.addEventListener('input', (e) => {
+        const searchInput = e.target.closest('.memory-dir-search')
+        if (searchInput && searchInput.dataset.dir) {
+          filterMemoryDirectory(searchInput.dataset.dir, searchInput.value)
         }
       })
 

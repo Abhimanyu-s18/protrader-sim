@@ -20,9 +20,9 @@ Platform targets retail traders in offshore jurisdictions (e.g., Seychelles, Mau
 
 - **Simulation accounts**: No real identity documents collected; simulation accounts use pseudonymized identifiers (email + auto-generated usernames) only
 - **No real money handling**: Standard AML/CTF obligations do not apply
-- **KYC documents (simulated accounts)**: No scanned IDs, passports, or real KYC artifacts are stored. Simulated KYC metadata (account status only) stored in Cloudflare R2 with encryption; email addresses encrypted per GDPR storage limitation.
-- **KYC collection lawful basis (if any real-KYC feature added)**: Requires explicit consent and documented lawful ground per GDPR Article 6; data minimization enforced (no raw ID images stored)
-- **If live money added**: Full KYC/AML compliance required per applicable regulations
+- **Data stored**: Encrypted email addresses and simulated KYC metadata (status only) stored in Cloudflare R2; no scanned IDs, passports, or real KYC artifacts
+- **Metadata retention**: Simulated KYC metadata retained for 30–90 days per regulatory requirements (not real KYC documents)
+- **If live money added**: Full KYC/AML compliance required per applicable regulations, including document collection, verification, and 3-year retention
 
 ### Licensing Status
 
@@ -49,7 +49,7 @@ Platform targets retail traders in offshore jurisdictions (e.g., Seychelles, Mau
 | Admin app                   | Done        |
 | IB portal                   | Done        |
 | Email system (15 templates) | Done        |
-| Web marketing site          | Not started |
+| Web marketing site          | In progress |
 | Workers (4/9)               | Partial     |
 
 ## Completed Workers
@@ -80,7 +80,7 @@ Platform targets retail traders in offshore jurisdictions (e.g., Seychelles, Mau
 
 ## Key External Services
 
-- **NowPayments** — Crypto deposit/withdrawal processing (**simulated only for demo; disabled in production**)
+- **NowPayments** — Crypto deposit/withdrawal processing (**simulated only for demo; disabled in production**) <!-- NowPayments selected for crypto payment processing due to no-KYC API access, competitive fees, and IPN webhook support. -->
 - **Twelve Data** — Real-time market data WebSocket
 - **Resend** — Transactional email delivery
 - **Cloudflare R2** — KYC document storage
@@ -115,14 +115,17 @@ Platform targets retail traders in offshore jurisdictions (e.g., Seychelles, Mau
 
 #### Security Audits
 
-- **Penetration testing**: Annual third-party pen test (last: Q1 2025; next due: Q1 2026). Test engagement and report: **TODO — Add artifact link and security team owner email (ticket #SEC-AUDIT-002, due 2026-05-15)**. In progress: awaiting Q1 2026 pen-test completion and report upload to shared drive.
+- **Penetration testing**: Annual third-party pen test (last: Q1 2025; next due: Q1 2026). Penetration testing not yet conducted. Schedule before production launch.
 - **Vulnerability scanning**: Monthly automated scans via cloud-native tools
 - **Code security review**: Part of PR pipeline (static analysis)
 
 #### Backup & Disaster Recovery
 
 - **Database**: Automated daily backups with 30-day retention (point-in-time recovery enabled)
-- **Cloudflare R2**: Versioning enabled for KYC documents; cross-region replication not yet configured — KYC retention policy aligned to 30-day backup window (shorter of available backup options). Multi-region bucket/replication to be evaluated for future deployment.
+- **Cloudflare R2**: Versioning enabled for simulated KYC metadata; cross-region replication not yet configured
+  - **Retention policy**: KYC metadata retained for 30–90 days per regulatory/business requirements (separate from backup window)
+  - **Backup window**: 30-day backup retention for disaster recovery (independent of retention policy)
+  - **TODO**: Configure cross-region replication to meet compliance and disaster recovery requirements
 - **RTO/RPO**: Target 4-hour recovery time objective, 1-hour recovery point objective
 - **Disaster recovery plan**: Documented; annual failover test scheduled
 

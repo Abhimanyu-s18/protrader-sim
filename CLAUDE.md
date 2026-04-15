@@ -22,8 +22,11 @@ pnpm build
 pnpm lint
 pnpm typecheck
 
-# Run tests
+# Run tests (requires real DB — run db:migrate && db:seed first)
 pnpm test
+
+# Run a single test file
+pnpm --filter @protrader/api test -- src/lib/calculations.test.ts
 
 # Database commands (run from repo root)
 pnpm db:generate    # Generate Prisma client
@@ -81,6 +84,8 @@ Middleware: `errorHandler.ts`, `auth.ts`, `requestLogger.ts`
 
 Core services: `socket.ts` (real-time price/trade updates), `redis.ts`, `prisma.ts`, `calculations.ts`, `queues.ts` (BullMQ)
 
+**BullMQ Workers** (`apps/api/src/workers/`): `rollover.ts` (daily swap fees at 22:00 UTC, Wed triple), `email.ts` (13 email types via Resend + React Email), `notification.ts` (in-app + Socket.io), `kyc-reminder.ts` (daily, max 5 reminders). Missing: entry-order-expiry, deposit-confirm, p&l-snapshot, report-generator. All workers guard against test execution with `NODE_ENV !== 'test'`.
+
 **Rate limiting**: 100 req/min global; 10 req/15min per IP on auth endpoints.
 
 ### Socket.io Real-Time (`apps/api/src/lib/socket.ts`)
@@ -134,6 +139,8 @@ Key formulas:
 - **P&L SELL** = `(openRateScaled - currentAskScaled) × units × contractSize × 100 / 100000`
 - **Margin level** = `(equityCents × BPS_SCALE) / usedMarginCents` (null if no open positions)
 
+Key utilities: `priceToScaled(n)` — decimal → BigInt scaled; `serializeBigInt(obj)` — JSON-safe BigInt→string (use before every HTTP response); `validateEntryRate(scaled, bid, ask)` — checks pending entry orders are outside min buffer. Coverage for this file must stay at 100%.
+
 ### Redis Cache (`apps/api/src/lib/redis.ts`)
 
 Key patterns:
@@ -166,8 +173,11 @@ Key patterns:
 - `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` — RSA key pair (RS256), not symmetric
 - `DATABASE_URL` — connection pooler URL (for Prisma queries)
 - `DIRECT_URL` — direct connection (for migrations only)
-- `NOWPAYMENTS_IPN_SECRET` — webhook signature verification
-- `TWELVE_DATA_API_KEY` — market data feed
+- `REDIS_URL` — BullMQ backend
+- `NOWPAYMENTS_IPN_SECRET` — webhook signature verification; missing = server refuses to start
+- `TWELVE_DATA_API_KEY` / `TWELVE_DATA_WS_URL` — market data feed
+- `RESEND_API_KEY` — transactional email delivery
+- `CLOUDFLARE_R2_*` — KYC document storage (account ID, bucket, access/secret keys)
 
 ## Code Style
 
@@ -177,3 +187,4 @@ Key patterns:
 - All money/price calculations must use BigInt (see `packages/utils` helpers)
 - API routes return standardized `ApiResponse<T>` or `ApiError` shapes
 - Frontend apps use React Query for server state, Zustand for client state, react-hook-form for forms, lightweight-charts for TradingView charts
+- Platform Zustand stores: `accountStore` (AccountMetrics from WebSocket) and `priceStore` (live bid/ask by symbol) in `apps/platform/src/stores/`

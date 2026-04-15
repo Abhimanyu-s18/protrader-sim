@@ -1,4 +1,4 @@
-# ✅ ProTraderSim Leverage Limits - COMPLETE
+# ⚠️ ProTraderSim Leverage Limits - Functionally Complete (Operational Setup Required)
 
 ## Executive Summary
 
@@ -70,15 +70,15 @@ Test Files  2 passed (2)
 
 ## 🏛️ Regulatory Coverage
 
-| Jurisdiction   | Forex | Stocks | Indices | Commodities | Crypto | Source                                                                                                                                              | Last Verified | Notes                                  |
-| -------------- | ----- | ------ | ------- | ----------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------------------------------------- |
-| EU (ESMA)      | 30:1  | 20:1   | 20:1    | 20:1        | 5:1    | [ESMA MiFID II](https://www.esma.europa.eu/sites/default/files/library/esma35-36-1379_product-governance_en.pdf)                                    | 2026-01-15    | Retail only; professionals differ      |
-| UK (FCA)       | 30:1  | 20:1   | 20:1    | 20:1        | 5:1    | [FCA COBS](https://www.fca.org.uk/publication/handbooks/handbook-cobs-3.pdf)                                                                        | 2026-01-15    | Post-Brexit equivalence to ESMA        |
-| US (CFTC)      | 50:1  | 4:1    | 50:1    | 50:1        | 1:1 ❌ | [CFTC Part 34](https://www.cftc.gov/csr/cftcfoia/134-3-34.html)                                                                                     | 2026-02-01    | Crypto not allowed; Stocks=SEC reg SHO |
-| ASIC (AU)      | 30:1  | 20:1   | 20:1    | 20:1        | 10:1   | [ASIC RG97](https://asic.gov.au/regulatory-resources/find-a-document/regulatory-guides/rg-97-margin-foreign-exchange-contracts-for-retail-clients/) | 2026-01-10    | Retail caps; professionals differ      |
-| DFSA (UAE)     | 30:1  | 20:1   | 20:1    | 20:1        | 5:1    | [DFSA Leveraged](https://www.dfsa.ae/sites/default/files/Module%201%20-%20General%20Module%20v4.1.pdf)                                              | 2025-11-20    | DFSA-regulated retailers covered       |
-| FSA Seychelles | 50:1  | 20:1   | 100:1   | 100:1       | 10:1   | [FSA Act 2007](https://www.fsa.sc/media-centre/publications)                                                                                        | 2025-12-15    | Offshore; less restrictive             |
-| FSC Mauritius  | 50:1  | 20:1   | 100:1   | 100:1       | 10:1   | [FSC Act 2007](https://www.fscmauritius.org/)                                                                                                       | 2025-12-15    | Offshore; less restrictive             |
+| Jurisdiction   | Forex | Stocks | Indices | Commodities | Crypto | Source                                                                                                                                              | Last Verified | Notes                                 |
+| -------------- | ----- | ------ | ------- | ----------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------- |
+| EU (ESMA)      | 30:1  | 20:1   | 20:1    | 20:1        | 5:1    | [ESMA MiFID II](https://www.esma.europa.eu/sites/default/files/library/esma35-36-1379_product-governance_en.pdf)                                    | 2026-01-15    | Retail only; professionals differ     |
+| UK (FCA)       | 30:1  | 20:1   | 20:1    | 20:1        | 5:1    | [FCA COBS](https://www.fca.org.uk/publication/handbooks/handbook-cobs-3.pdf)                                                                        | 2026-01-15    | Post-Brexit equivalence to ESMA       |
+| US (CFTC)      | 50:1  | 4:1    | 50:1    | 50:1        | N/A ❌ | [CFTC Part 34](https://www.cftc.gov/csr/cftcfoia/134-3-34.html)                                                                                     | 2026-02-01    | Crypto prohibited; Stocks=SEC reg SHO |
+| ASIC (AU)      | 30:1  | 20:1   | 20:1    | 20:1        | 10:1   | [ASIC RG97](https://asic.gov.au/regulatory-resources/find-a-document/regulatory-guides/rg-97-margin-foreign-exchange-contracts-for-retail-clients/) | 2026-01-10    | Retail caps; professionals differ     |
+| DFSA (UAE)     | 30:1  | 20:1   | 20:1    | 20:1        | 5:1    | [DFSA Leveraged](https://www.dfsa.ae/sites/default/files/Module%201%20-%20General%20Module%20v4.1.pdf)                                              | 2025-11-20    | DFSA-regulated retailers covered      |
+| FSA Seychelles | 50:1  | 20:1   | 100:1   | 100:1       | 10:1   | [FSA Act 2007](https://www.fsa.sc/media-centre/publications)                                                                                        | 2025-12-15    | Offshore; less restrictive            |
+| FSC Mauritius  | 50:1  | 20:1   | 100:1   | 100:1       | 10:1   | [FSC Act 2007](https://www.fscmauritius.org/)                                                                                                       | 2025-12-15    | Offshore; less restrictive            |
 
 ### Regulatory Update Procedure
 
@@ -97,6 +97,12 @@ Store in: `/docs/Compliance & Operations/Leverage_Updates_Log.md` (append-only)
 ---
 
 ## 🔧 API Reference
+
+### JWT Configuration
+
+The leverage limits API endpoints use the same RS256 JWT authentication as all other API routes. Ensure the following environment variables are set:
+- `JWT_PRIVATE_KEY` — RSA private key for signing tokens
+- `JWT_PUBLIC_KEY` — RSA public key for verifying tokens
 
 ### Authentication & Security
 
@@ -210,7 +216,7 @@ DELETE /v1/admin/leverage-overrides/123456?asset_class=FOREX
 - [x] API route validates leverage before trade creation
 - [x] Admin endpoints with RBAC (SUPER_ADMIN/ADMIN)
 - [x] Redis storage for overrides (auto-expiry)
-- [⚠️] Console logging for audit trail (replace with persistent AuditService)
+- ⚠️ Console logging for audit trail (replace with persistent AuditService)
 - [x] Clear error messages for traders
 - [x] Admin UI for create/revoke overrides
 - [x] Frontend displays user jurisdiction
@@ -357,7 +363,7 @@ If a trader needs leverage above their jurisdiction limit:
 
 1. Trader contacts support
 2. Admin reviews request (check trading experience, account age, etc.)
-3. Admin navigates to: Admin → Users → [Trader ID] → Leverage Overrides
+3. Admin navigates to: Admin → Users → `{Trader ID}` → Leverage Overrides
 4. Admin creates override with reason and duration
 5. Trader can now trade at higher leverage (until override expires)
 

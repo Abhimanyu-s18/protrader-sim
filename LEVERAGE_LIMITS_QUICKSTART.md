@@ -6,10 +6,14 @@ Before using the leverage limit system, ensure you have the following:
 
 ### Redis (v6.0+ required)
 
-- **Purpose**: Caching price data for real-time margin calculations and margin watch lists
+### Redis (v6.0+ required)
+
+- **Purpose**:
+  - Storing temporary admin leverage overrides (with auto-expiry via TTL)
+  - Caching price data for real-time margin calculations and margin watch lists
 - **Connection**: Configure via `REDIS_URL` environment variable (default: `redis://localhost:6379`)
-- **Usage in this system**: Prices cached with TTL (`PRICE_TTL_SECONDS`), margin watch sets for monitoring open positions
-- **Note**: While the leverage validation itself does not require Redis overrides, Redis is used for price caching and margin monitoring throughout the trading system
+- **Usage in leverage system**: Admin overrides stored as `leverage_override:{userId}:{assetClass}` with configurable TTL
+- **Additional usage**: Prices cached with TTL (`PRICE_TTL_SECONDS`), margin watch sets for monitoring open positions
 
 ### Node.js (v18+)
 
@@ -218,7 +222,7 @@ for your jurisdiction is {max_leverage}:1.
 ✅ **Clear error messages** for traders  
 ✅ **Type-safe** with TypeScript strict mode  
 ✅ **Fully tested** (36 test cases, 100% coverage of validation logic)  
-⚠️ **Audit trail** — Currently console logs only; persistent audit table needed (see Architecture Notes)
+⚠️ **Audit trail (Required for production)** — Currently console logs only; **persistent audit table MUST be implemented before production deployment** (see Pre-Production Checklist below)
 
 ## What Still Has Leverage Overrides UI
 
@@ -270,14 +274,32 @@ Make sure the User type in `packages/types/src/index.ts` includes:
 jurisdiction: Jurisdiction
 ```
 
-### Override not working
+### Null/Missing Jurisdiction Handling
 
-1. Check Redis connection: Should see `leverage_override:{userId}:{assetClass}` keys
-2. Verify override hasn't expired (24h default)
-3. Check RBAC: Admin must have SUPER_ADMIN or ADMIN role
+When a trader's `user.jurisdiction` field is `null`, `undefined`, or not set:
+
+- **Current behavior**: Trades are rejected with a `400` error response
+- **Error message**: `"User jurisdiction not set. Contact support to complete your profile setup."`
+- **Root cause**: The `jurisdiction` field is required in the `User` type and validation occurs before `validateLeverage()` is called
+- **Resolution**: Ensure all user accounts have a valid jurisdiction assigned during registration or KYC approval
+- **For admins**: If a trader's jurisdiction is missing, navigate to their user profile in the admin panel and select a jurisdiction before they can trade
+
+If a trader receives this error, they should:
+
+1. Verify they completed the registration/KYC process
+2. Check that their account status shows "APPROVED"
+3. Contact support if the issue persists
+
+### Override not working
 
 ### Redis connectivity behavior
 
+- When Redis is unavailable:
+  - **Leverage validation**: Fails closed — trades are rejected with 503 if overrides cannot be verified
+  - **Price caching**: Fails open — fallback to database prices occurs
+  - **Rationale**: Overrides may be compliance-critical; price cache is performance optimization
+- Check Redis connection status via logs in `apps/api/src/lib/redis.ts`
+- For production, ensure Redis has appropriate timeouts and retry logic configured
 - When Redis is unavailable, the system **fails open** for leverage validation — trades proceed without Redis-cached overrides
 - Price caching operations will fail silently; fallback to database prices occurs
 - Check Redis connection status via logs in `apps/api/src/lib/redis.ts`
@@ -346,10 +368,18 @@ To verify in code, check the override creation logic in the admin routes.
 ✅ **Override check integration** — `validateLeverage()` in `trades.ts` checks Redis for active overrides before trade creation
 ✅ **Jurisdiction display** — Platform shows jurisdiction-specific max leverage in UI
 
+## Pre-Production Checklist
+
+🔴 **REQUIRED** before production deployment:
+
+1. **Persistent audit trail** — Implement `override_audit` table (see Architecture Notes for schema)
+   - Add `id`, `timestamp`, `admin_id`, `user_id`, `action` ("grant"|"revoke"), `asset_class`, `old_leverage`, `new_leverage`, `reason`, `request_id`
+   - Update `/admin/leverage-overrides` POST/DELETE routes to insert immutable audit rows
+   - Add composite indexes: `(user_id, timestamp)`, `(admin_id, timestamp)`, `(timestamp DESC)`
+   - Add TTL policy: retain for **3 years** (ESMA/CFTC/ASIC/DFSA regulatory compliance)
+   - Add tests verifying GrantOverride and RevokeOverride insert audit records
+   - Replace all `console.log()` calls for leverage overrides with calls to `insertAuditRecord()`
+2. **Regulatory compliance review** — Ensure all 7 frameworks (ESMA, FCA, SEC, CFTC, ASIC, DFSA, MiFID) are documented
+3. **Security audit** — Verify RBAC enforcement and no privilege escalation vectors
+
 ## Next Steps (Optional Enhancements)
-
-1. **Persistent audit trail** — Replace console logs with `override_audit` table (see Architecture Notes)
-2. **E2E tests** — Test complete flow from user jurisdiction → trade validation → override grant/revoke
-3. **Leverage selector UI** — Optional: Add "max X:1" hint next to leverage input field
-4. **Email override notifications** — Notify traders when override is created or about to expire
-

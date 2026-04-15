@@ -241,3 +241,62 @@ jobs:
 
       - name: Post-deploy health check
         run: curl -f ${{ secrets.PROD_API_URL }}/health || exit 1
+
+  # ── JOB 7: Deploy Frontend Apps to Vercel ───────────────────
+  deploy-frontend:
+    name: Deploy Frontends to Vercel
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    strategy:
+      matrix:
+        include:
+          - app: web
+            vercel_project_id_secret: VERCEL_PROJECT_ID_WEB
+          - app: auth
+            vercel_project_id_secret: VERCEL_PROJECT_ID_AUTH
+          - app: platform
+            vercel_project_id_secret: VERCEL_PROJECT_ID_PLATFORM
+          - app: admin
+            vercel_project_id_secret: VERCEL_PROJECT_ID_ADMIN
+          - app: ib-portal
+            vercel_project_id_secret: VERCEL_PROJECT_ID_IB_PORTAL
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/${{ matrix.app }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets[matrix.vercel_project_id_secret] }}
+
+      - name: Build ${{ matrix.app }}
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/${{ matrix.app }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets[matrix.vercel_project_id_secret] }}
+
+      - name: Deploy ${{ matrix.app }} to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/${{ matrix.app }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets[matrix.vercel_project_id_secret] }}
