@@ -5,11 +5,12 @@ import { useQuery } from '@tanstack/react-query'
 import { formatMoney, formatDateTime } from '@protrader/utils'
 import { api } from '../../../lib/api'
 import type { IbAgentApiResponse, IbAgent } from '../../../types/ib'
+import { safeStorage } from '../../../lib/safeStorage'
 
 /** Decode the JWT payload to extract the user's role without verifying signature. */
 function getUserRole(): string | null {
   try {
-    const token = localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token')
+    const token = safeStorage.get('access_token')
     if (!token) return null
 
     const parts = token.split('.')
@@ -44,10 +45,14 @@ export default function AgentsPage() {
     data: agentResponses,
     isLoading,
     isError,
+    error,
   } = useQuery({
     queryKey: ['ib', 'agents'],
     queryFn: () => api.get<IbAgentApiResponse[]>('/v1/ib/agents'),
-    enabled: role === 'IB_TEAM_LEADER',
+    // Always fetch when role check is done — the API enforces the role server-side.
+    // This ensures a forged client-side role gets a proper 403 from the server.
+    enabled: roleChecked,
+    retry: false,
   })
 
   // Normalize agent data from snake_case API response to camelCase
@@ -79,7 +84,11 @@ export default function AgentsPage() {
     )
   }
 
-  if (role !== 'IB_TEAM_LEADER') {
+  // Show access restricted when the API returns 403 (server-enforced) OR when the
+  // client-side role check fails. Using both ensures forged tokens are caught by the API.
+  const isAccessDenied = role !== 'IB_TEAM_LEADER' || (isError && (error as any)?.status === 403)
+
+  if (isAccessDenied) {
     return (
       <div className="p-6">
         <div className="rounded-lg border border-gray-800 bg-gray-900 p-8 text-center">

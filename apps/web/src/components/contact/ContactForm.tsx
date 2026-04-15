@@ -20,6 +20,8 @@ const INITIAL_FIELDS: FormFields = {
   message: '',
 }
 
+const ORDERED_FIELDS = ['fullName', 'email', 'subject', 'message'] as const
+
 interface FieldErrors {
   fullName?: string
   email?: string
@@ -56,6 +58,7 @@ function IconCheck() {
 export function ContactForm() {
   const [fields, setFields] = useState<FormFields>(INITIAL_FIELDS)
   const [errors, setErrors] = useState<FieldErrors>({})
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -87,10 +90,9 @@ export function ContactForm() {
     }
   }
 
-  const ORDERED_FIELDS = ['fullName', 'email', 'subject', 'message'] as const
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setSubmitError(null)
     const errs = validate()
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
@@ -101,16 +103,22 @@ export function ContactForm() {
       }
       return
     }
-    setIsSubmitting(true)
-    // Simulate async submission delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    setIsSubmitting(false)
-    setSubmitted(true)
+    try {
+      setIsSubmitting(true)
+      // Simulate async submission delay
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      setSubmitted(true)
+    } catch {
+      setSubmitError('Failed to send message. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   function handleReset() {
     setFields(INITIAL_FIELDS)
     setErrors({})
+    setSubmitError(null)
     setSubmitted(false)
   }
 
@@ -140,6 +148,11 @@ export function ContactForm() {
   return (
     <form onSubmit={handleSubmit} noValidate aria-label="Contact form">
       <div className="space-y-5">
+        {submitError && (
+          <div className="rounded-lg border border-danger bg-red-50 p-4" role="alert">
+            <p className="text-sm font-medium text-danger">{submitError}</p>
+          </div>
+        )}
         {/* Full Name */}
         <div>
           <label

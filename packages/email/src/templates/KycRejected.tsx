@@ -17,27 +17,27 @@ export interface KycRejectedEmailProps {
   kycUrl: string
 }
 
-/**
- * Sent when KYC documents could not be approved.
- * Includes reason and resubmission link.
- */
 const DEFAULT_SUPPORT_EMAIL = 'support@protrader.com'
 const DEFAULT_HELP_CENTER_URL = 'https://protrader.com/help'
 
 function getSupportEmail(): string {
   if (typeof process !== 'undefined' && process.env) {
-    return process.env['SUPPORT_EMAIL'] ?? DEFAULT_SUPPORT_EMAIL
+    return process.env.SUPPORT_EMAIL ?? DEFAULT_SUPPORT_EMAIL
   }
   return DEFAULT_SUPPORT_EMAIL
 }
 
 function getHelpCenterUrl(): string {
   if (typeof process !== 'undefined' && process.env) {
-    return process.env['HELP_CENTER_URL'] ?? DEFAULT_HELP_CENTER_URL
+    return process.env.HELP_CENTER_URL ?? DEFAULT_HELP_CENTER_URL
   }
   return DEFAULT_HELP_CENTER_URL
 }
 
+/**
+ * Sent when KYC documents could not be approved.
+ * Includes reason and resubmission link.
+ */
 export function KycRejectedEmail({ fullName, reason, kycUrl }: KycRejectedEmailProps) {
   const supportEmail = getSupportEmail()
   const helpCenterUrl = getHelpCenterUrl()

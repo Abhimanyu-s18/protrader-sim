@@ -82,5 +82,26 @@ export async function scheduleRecurringJobs(): Promise<void> {
     { name: 'send-kyc-reminders', data: {} },
   )
 
+  // Entry order expiry check every 5 minutes
+  await entryOrderExpiryQueue.upsertJobScheduler(
+    'entry-order-expiry-job',
+    { pattern: '*/5 * * * *', tz: 'UTC' },
+    { name: 'expire-entry-orders', data: {} },
+  )
+
+  // Deposit polling fallback every 5 minutes (catches missed IPN webhooks)
+  await depositConfirmQueue.upsertJobScheduler(
+    'deposit-confirm-job',
+    { pattern: '*/5 * * * *', tz: 'UTC' },
+    { name: 'poll-pending-deposits', data: {} },
+  )
+
+  // Monthly account statement on the 1st of each month at 01:00 UTC
+  await reportQueue.upsertJobScheduler(
+    'monthly-report-job',
+    { pattern: '0 1 1 * *', tz: 'UTC' },
+    { name: 'generate-monthly-reports', data: {} },
+  )
+
   log.info('Recurring jobs scheduled')
 }

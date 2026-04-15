@@ -1,5 +1,6 @@
 import { Router, type Router as ExpressRouter } from 'express'
 import { KycDocumentCategory } from '@prisma/client'
+import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
@@ -9,6 +10,20 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 
 import crypto from 'crypto'
 import path from 'path'
+
+const validCategories = Object.values(KycDocumentCategory)
+
+/** Zod schema for multipart KYC document upload body fields */
+const UploadDocumentBodySchema = z.object({
+  document_category: z.enum(validCategories as [string, ...string[]]),
+  document_type: z.string().min(1).optional(),
+  is_primary: z.enum(['true', 'false']).optional(),
+})
+
+/** Zod schema for the :id param on document routes */
+const DocumentIdParamsSchema = z.object({
+  id: z.string().regex(/^\d+$/, 'id must be a numeric string'),
+})
 
 export const kycRouter: ExpressRouter = Router()
 kycRouter.use(requireAuth)
@@ -67,18 +82,13 @@ kycRouter.post('/documents', upload.single('file'), async (req, res, next) => {
       return
     }
 
-    const {
-      document_category,
-      document_type,
-      is_primary = 'true',
-    } = req.body as Record<string, string>
-    const validCategories = Object.values(KycDocumentCategory)
-    if (!validCategories.includes(document_category as KycDocumentCategory)) {
-      next(
-        Errors.validation({ document_category: ['Must be IDENTITY, ADDRESS, or MISCELLANEOUS.'] }),
-      )
+    const bodyParse = UploadDocumentBodySchema.safeParse(req.body)
+    if (!bodyParse.success) {
+      next(Errors.validation(bodyParse.error.flatten().fieldErrors as Record<string, unknown>))
       return
     }
+
+    const { document_category, document_type, is_primary = 'true' } = bodyParse.data
 
     const category = document_category as KycDocumentCategory
     const userId = BigInt(req.user!.user_id)
@@ -142,9 +152,15 @@ kycRouter.get('/documents', async (req, res, next) => {
 // DELETE /v1/kyc/documents/:id
 kycRouter.delete('/documents/:id', async (req, res, next) => {
   try {
+    const paramsParse = DocumentIdParamsSchema.safeParse(req.params)
+    if (!paramsParse.success) {
+      next(Errors.validation(paramsParse.error.flatten().fieldErrors as Record<string, unknown>))
+      return
+    }
+
     const doc = await prisma.kycDocument.findFirst({
       where: {
-        id: BigInt(req.params['id']!),
+        id: BigInt(paramsParse.data.id),
         userId: BigInt(req.user!.user_id),
         status: 'UPLOADED',
       },

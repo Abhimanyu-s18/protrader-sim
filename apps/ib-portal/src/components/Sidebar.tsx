@@ -6,10 +6,12 @@ import { useState } from 'react'
 import type { LucideProps } from 'lucide-react'
 import type { ForwardRefExoticComponent, RefAttributes } from 'react'
 import { LayoutDashboard, Users, CircleDollarSign, UserCircle, LogOut } from 'lucide-react'
+import { safeStorage } from '../lib/safeStorage'
 
 const AUTH_URL = process.env['NEXT_PUBLIC_AUTH_URL'] ?? 'http://localhost:3001'
-if (!process.env['NEXT_PUBLIC_AUTH_URL'] && process.env.NODE_ENV === 'production') {
-  throw new Error('NEXT_PUBLIC_AUTH_URL is required in production')
+
+if (process.env.NODE_ENV === 'production' && !process.env['NEXT_PUBLIC_AUTH_URL']) {
+  console.error('NEXT_PUBLIC_AUTH_URL is not configured for production')
 }
 
 type IconComponent = ForwardRefExoticComponent<
@@ -24,7 +26,7 @@ const NAV_ITEMS: { href: string; label: string; icon: IconComponent }[] = [
 ]
 
 async function logout() {
-  const token = localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token')
+  const token = safeStorage.get('access_token')
 
   try {
     if (token) {
@@ -46,8 +48,7 @@ async function logout() {
     console.error('Logout request failed:', error)
   }
 
-  localStorage.removeItem('access_token')
-  sessionStorage.removeItem('access_token')
+  safeStorage.remove('access_token')
   window.location.href = `${AUTH_URL}/login`
 }
 

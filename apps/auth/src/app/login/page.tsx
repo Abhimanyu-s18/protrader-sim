@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Button, Card, Input } from '@protrader/ui'
 import { login } from '@/lib/api'
+import { safeStorage } from '@/lib/safeStorage'
 
 const LoginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -44,16 +45,10 @@ export default function LoginPage() {
       const token = response.access_token
       if (!token) throw new Error('Missing auth token from response')
 
-      if (data.remember_me) {
-        localStorage.setItem('access_token', token)
-        sessionStorage.removeItem('access_token')
-      } else {
-        sessionStorage.setItem('access_token', token)
-        localStorage.removeItem('access_token')
-      }
+      safeStorage.set('access_token', token, data.remember_me ?? false)
 
-      const authUrl = process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:3002'
-      window.location.href = `${authUrl}/dashboard`
+      const platformUrl = process.env.NEXT_PUBLIC_PLATFORM_URL || 'http://localhost:3002'
+      window.location.href = `${platformUrl}/dashboard`
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {

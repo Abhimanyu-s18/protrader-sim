@@ -1,19 +1,47 @@
 import { Router, type Router as ExpressRouter } from 'express'
+import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { getCachedPrice } from '../lib/redis.js'
 import { formatScaledPrice, serializeBigInt } from '../lib/calculations.js'
 import { Errors } from '../middleware/errorHandler.js'
+import type { AssetClass } from '@prisma/client'
 
 export const instrumentsRouter: ExpressRouter = Router()
+
+// ── Schemas ───────────────────────────────────────────────────────
+
+const ListInstrumentsSchema = z.object({
+  asset_class: z.enum(['FOREX', 'STOCK', 'INDEX', 'COMMODITY', 'CRYPTO'] as const).optional(),
+})
+
+const SymbolParamSchema = z.object({
+  symbol: z.string().min(1),
+})
+
+const OhlcvQuerySchema = z.object({
+  interval: z.enum(['1min', '5min', '15min', '30min', '1h', '4h', '1day', '1week']).default('1h'),
+  limit: z
+    .string()
+    .transform((s) => parseInt(s, 10))
+    .refine((n) => n >= 1, 'limit must be >= 1')
+    .optional(),
+})
+
+// ── Routes ────────────────────────────────────────────────────────
 
 // GET /v1/instruments — list all active instruments, optionally filtered by asset_class
 instrumentsRouter.get('/', async (req, res, next) => {
   try {
-    const { asset_class } = req.query
+    const query = ListInstrumentsSchema.safeParse(req.query)
+    if (!query.success) {
+      next(Errors.validation(query.error.flatten().fieldErrors as Record<string, unknown>))
+      return
+    }
+    const { asset_class } = query.data
     const instruments = await prisma.instrument.findMany({
       where: {
         isActive: true,
-        ...(asset_class ? { assetClass: asset_class as string as never } : {}),
+        ...(asset_class ? { assetClass: asset_class as AssetClass } : {}),
       },
       orderBy: [{ assetClass: 'asc' }, { symbol: 'asc' }],
     })
@@ -26,8 +54,13 @@ instrumentsRouter.get('/', async (req, res, next) => {
 // GET /v1/instruments/:symbol — instrument detail
 instrumentsRouter.get('/:symbol', async (req, res, next) => {
   try {
+    const params = SymbolParamSchema.safeParse(req.params)
+    if (!params.success) {
+      next(Errors.validation(params.error.flatten().fieldErrors as Record<string, unknown>))
+      return
+    }
     const instrument = await prisma.instrument.findUnique({
-      where: { symbol: req.params['symbol']?.toUpperCase() },
+      where: { symbol: params.data.symbol.toUpperCase() },
     })
     if (!instrument) {
       next(Errors.notFound('Instrument'))
@@ -42,7 +75,12 @@ instrumentsRouter.get('/:symbol', async (req, res, next) => {
 // GET /v1/instruments/:symbol/price — live price from Redis cache
 instrumentsRouter.get('/:symbol/price', async (req, res, next) => {
   try {
-    const symbol = req.params['symbol']?.toUpperCase() ?? ''
+    const params = SymbolParamSchema.safeParse(req.params)
+    if (!params.success) {
+      next(Errors.validation(params.error.flatten().fieldErrors as Record<string, unknown>))
+      return
+    }
+    const symbol = params.data.symbol.toUpperCase()
     const instrument = await prisma.instrument.findUnique({
       where: { symbol },
       select: { id: true, spreadPips: true, pipDecimalPlaces: true, isActive: true },
@@ -82,8 +120,19 @@ instrumentsRouter.get('/:symbol/price', async (req, res, next) => {
 // GET /v1/instruments/:symbol/ohlcv — candle history for TradingView
 instrumentsRouter.get('/:symbol/ohlcv', async (req, res, next) => {
   try {
-    const symbol = req.params['symbol']?.toUpperCase() ?? ''
-    const { interval = '1h', limit = '300' } = req.query
+    const params = SymbolParamSchema.safeParse(req.params)
+    if (!params.success) {
+      next(Errors.validation(params.error.flatten().fieldErrors as Record<string, unknown>))
+      return
+    }
+    const symbol = params.data.symbol.toUpperCase()
+
+    const query = OhlcvQuerySchema.safeParse(req.query)
+    if (!query.success) {
+      next(Errors.validation(query.error.flatten().fieldErrors as Record<string, unknown>))
+      return
+    }
+    const { interval, limit = 300 } = query.data
 
     const instrument = await prisma.instrument.findUnique({
       where: { symbol },
@@ -95,9 +144,9 @@ instrumentsRouter.get('/:symbol/ohlcv', async (req, res, next) => {
     }
 
     const candles = await prisma.ohlcvCandle.findMany({
-      where: { instrumentId: instrument.id, interval: interval as string },
+      where: { instrumentId: instrument.id, interval },
       orderBy: { candleTime: 'desc' },
-      take: Math.min(parseInt(limit as string, 10), 2000),
+      take: Math.min(limit, 2000),
       select: {
         openScaled: true,
         highScaled: true,

@@ -33,6 +33,10 @@ import { startMarketData, stopMarketData } from './services/market-data.js'
 import './workers/rollover.js'
 import './workers/email.js'
 import './workers/kyc-reminder.js'
+import './workers/entry-order-expiry.js'
+import './workers/deposit-confirm.js'
+import './workers/pnl-snapshot.js'
+import './workers/report-generator.js'
 import { shutdownNotificationWorker } from './workers/notification.js'
 
 const log = createLogger('server')
@@ -215,6 +219,26 @@ function isEntrypoint(): boolean {
 
 // Only start the server if this file is run directly (not imported for testing)
 if (isEntrypoint()) {
+  // ── Required Env Var Guard ──────────────────────────────────────
+  const REQUIRED_ENV = [
+    'JWT_PRIVATE_KEY',
+    'JWT_PUBLIC_KEY',
+    'DATABASE_URL',
+    'REDIS_URL',
+    'NOWPAYMENTS_IPN_SECRET',
+  ]
+
+  const missing: string[] = []
+  for (const key of REQUIRED_ENV) {
+    if (!process.env[key]) {
+      missing.push(key)
+    }
+  }
+  if (missing.length > 0) {
+    log.fatal(`Missing required env vars: ${missing.join(', ')}`)
+    process.exit(1)
+  }
+
   httpServer.listen(PORT, async () => {
     log.info(
       { port: PORT, env: process.env['NODE_ENV'] ?? 'development' },

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { INSTRUMENTS } from '../../app/trading/instruments/instruments.data'
 
 type TabKey = 'forex' | 'stocks' | 'indices' | 'commodities' | 'crypto'
 
@@ -22,8 +23,8 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'crypto', label: 'Crypto' },
 ]
 
-// Total instruments count based on actual data in /app/trading/instruments/instruments.data.ts
-const TOTAL_INSTRUMENTS = 31
+// Derived from the single source of truth in instruments.data.ts
+const TOTAL_INSTRUMENTS = INSTRUMENTS.length
 
 const DATA: Record<TabKey, Instrument[]> = {
   forex: [

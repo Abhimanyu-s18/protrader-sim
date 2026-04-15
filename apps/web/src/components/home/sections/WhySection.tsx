@@ -1,10 +1,17 @@
+import React from 'react'
 import { IconBarChart, IconLightning, IconShield, IconHeadset } from '../utils'
 
-const cards = [
+interface WhyCard {
+  icon: React.ReactNode
+  title: string
+  description: string
+  stat: string
+}
+
+const cards: WhyCard[] = [
   {
     icon: <IconBarChart aria-hidden="true" />,
     title: 'Ultra-Low Spreads',
-    id: 'ultra-low-spreads',
     description:
       'From 0.0 pips on major pairs. Tight spreads mean lower trading costs and more profit potential.',
     stat: 'From 0.0 pips',

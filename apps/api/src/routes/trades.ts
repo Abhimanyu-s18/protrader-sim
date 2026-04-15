@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma, withSerializableRetry } from '../lib/prisma.js'
 import { requireAuth, requireKYC, getAuthenticatedUser } from '../middleware/auth.js'
 import { Errors, AppError } from '../middleware/errorHandler.js'
+import { createLogger } from '../lib/logger.js'
 import {
   calcBidAsk,
   calcMarginCents,
@@ -16,10 +17,13 @@ import {
   priceToScaled,
 } from '../lib/calculations.js'
 import { getCachedPrice, addMarginWatch, removeMarginWatch } from '../lib/redis.js'
+import { invalidatePendingOrdersCache } from '../services/market-data.js'
 import { validateLeverage } from '../lib/leverage-limits.js'
 
 export const tradesRouter: ExpressRouter = Router()
 tradesRouter.use(requireAuth)
+
+const log = createLogger('trades')
 
 // ── Database Table Mappings ──────────────────────────────────────
 // Prisma model Trade maps to physical table "trades" via @@map("trades")
@@ -117,17 +121,17 @@ tradesRouter.post('/', requireKYC, async (req, res, next) => {
       return
     }
 
-    // Validate and map asset class to leverage validation type
+    // Validate asset class at runtime before casting to the narrowed type
+    if (!['FOREX', 'STOCK', 'INDEX', 'COMMODITY', 'CRYPTO'].includes(instrument.assetClass)) {
+      next(Errors.badRequest(`Unsupported asset class: ${instrument.assetClass}`))
+      return
+    }
     const assetClassForLeverage = instrument.assetClass as
       | 'FOREX'
       | 'STOCK'
       | 'INDEX'
       | 'COMMODITY'
       | 'CRYPTO'
-    if (!['FOREX', 'STOCK', 'INDEX', 'COMMODITY', 'CRYPTO'].includes(instrument.assetClass)) {
-      next(Errors.badRequest(`Unsupported asset class: ${instrument.assetClass}`))
-      return
-    }
 
     // Validate leverage compliance
     const leverageValidation = validateLeverage(
@@ -287,6 +291,17 @@ tradesRouter.post('/', requireKYC, async (req, res, next) => {
     // Track for margin monitoring (only open trades)
     if (order_type === 'MARKET') {
       await addMarginWatch(instrumentId.toString(), userIdParam)
+    }
+
+    // Invalidate pending orders cache asynchronously (fire-and-forget)
+    if (order_type === 'ENTRY') {
+      // Don't await — capture cache invalidation errors separately
+      invalidatePendingOrdersCache(instrumentId.toString()).catch((err) => {
+        log.warn(
+          { instrumentId: instrumentId.toString(), error: String(err) },
+          'Failed to invalidate pending orders cache',
+        )
+      })
     }
 
     res.status(201).json(
@@ -821,6 +836,15 @@ tradesRouter.delete('/:id', async (req, res, next) => {
     }
 
     await prisma.trade.update({ where: { id: trade.id }, data: { status: 'CANCELLED' } })
+
+    // Invalidate pending orders cache asynchronously (fire-and-forget)
+    invalidatePendingOrdersCache(trade.instrument.id.toString()).catch((err) => {
+      log.warn(
+        { instrumentId: trade.instrument.id.toString(), error: String(err) },
+        'Failed to invalidate pending orders cache after order cancel',
+      )
+    })
+
     res.json({ success: true })
   } catch (err) {
     next(err)

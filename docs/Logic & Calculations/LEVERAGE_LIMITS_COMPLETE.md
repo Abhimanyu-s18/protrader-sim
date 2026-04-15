@@ -74,7 +74,7 @@ Test Files  2 passed (2)
 | -------------- | ----- | ------ | ------- | ----------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------- |
 | EU (ESMA)      | 30:1  | 20:1   | 20:1    | 20:1        | 5:1    | [ESMA MiFID II](https://www.esma.europa.eu/sites/default/files/library/esma35-36-1379_product-governance_en.pdf)                                    | 2026-01-15    | Retail only; professionals differ     |
 | UK (FCA)       | 30:1  | 20:1   | 20:1    | 20:1        | 5:1    | [FCA COBS](https://www.fca.org.uk/publication/handbooks/handbook-cobs-3.pdf)                                                                        | 2026-01-15    | Post-Brexit equivalence to ESMA       |
-| US (CFTC)      | 50:1  | 4:1    | 50:1    | 50:1        | N/A ❌ | [CFTC Part 34](https://www.cftc.gov/csr/cftcfoia/134-3-34.html)                                                                                     | 2026-02-01    | Crypto prohibited; Stocks=SEC reg SHO |
+| US (CFTC)      | 50:1  | 4:1    | 20:1    | 20:1        | N/A ❌ | [CFTC Part 34](https://www.cftc.gov/csr/cftcfoia/134-3-34.html)                                                                                     | 2026-02-01    | Crypto prohibited; Stocks=SEC reg SHO |
 | ASIC (AU)      | 30:1  | 20:1   | 20:1    | 20:1        | 10:1   | [ASIC RG97](https://asic.gov.au/regulatory-resources/find-a-document/regulatory-guides/rg-97-margin-foreign-exchange-contracts-for-retail-clients/) | 2026-01-10    | Retail caps; professionals differ     |
 | DFSA (UAE)     | 30:1  | 20:1   | 20:1    | 20:1        | 5:1    | [DFSA Leveraged](https://www.dfsa.ae/sites/default/files/Module%201%20-%20General%20Module%20v4.1.pdf)                                              | 2025-11-20    | DFSA-regulated retailers covered      |
 | FSA Seychelles | 50:1  | 20:1   | 100:1   | 100:1       | 10:1   | [FSA Act 2007](https://www.fsa.sc/media-centre/publications)                                                                                        | 2025-12-15    | Offshore; less restrictive            |
@@ -101,6 +101,7 @@ Store in: `/docs/Compliance & Operations/Leverage_Updates_Log.md` (append-only)
 ### JWT Configuration
 
 The leverage limits API endpoints use the same RS256 JWT authentication as all other API routes. Ensure the following environment variables are set:
+
 - `JWT_PRIVATE_KEY` — RSA private key for signing tokens
 - `JWT_PUBLIC_KEY` — RSA public key for verifying tokens
 
@@ -182,7 +183,7 @@ DELETE /v1/admin/leverage-overrides/123456?asset_class=FOREX
 
 **POST /v1/admin/leverage-overrides/{id} body validation:**
 
-- `asset_class`: Required, enum: `FOREX` | `STOCKS` | `INDICES` | `COMMODITIES` | `CRYPTO`
+- `asset_class`: Required, enum: `FOREX` | `STOCK` | `INDEX` | `COMMODITY` | `CRYPTO`
 - `max_leverage`: Required, integer, must be > 0
 - `reason`: Required, string, min 10 characters
 - `expires_in_hours`: Required, integer, max: 720 (30 days)
@@ -268,7 +269,7 @@ The leverage limits system is **functionally complete** but requires operational
 
 **Security**: All endpoints require SUPER_ADMIN/ADMIN role validation via `requireSuperAdmin`/`requireAdmin` middleware
 
-### 2. Redis Security 🔴 **TODO**
+### 3. Redis Security 🔴 **TODO**
 
 **Current**: Redis accessed with no encryption or access controls  
 **Required**: Production-grade security for sensitive override data  

@@ -412,6 +412,7 @@ export default function AccountPage() {
                   {['Date', 'Amount', 'Currency', 'Status'].map((h) => (
                     <th
                       key={h}
+                      scope="col"
                       className="pr-3 pb-2 text-left text-xs font-medium text-gray-500 uppercase"
                     >
                       {h}
@@ -452,6 +453,7 @@ export default function AccountPage() {
                   {['Date', 'Amount', 'Currency', 'Status'].map((h) => (
                     <th
                       key={h}
+                      scope="col"
                       className="pr-3 pb-2 text-left text-xs font-medium text-gray-500 uppercase"
                     >
                       {h}

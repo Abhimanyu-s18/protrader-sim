@@ -6,8 +6,6 @@ Before using the leverage limit system, ensure you have the following:
 
 ### Redis (v6.0+ required)
 
-### Redis (v6.0+ required)
-
 - **Purpose**:
   - Storing temporary admin leverage overrides (with auto-expiry via TTL)
   - Caching price data for real-time margin calculations and margin watch lists
@@ -76,13 +74,13 @@ POST /v1/admin/leverage-overrides/:userId
 
 ## Key Files
 
-| File                                                                                                                         | Purpose                                                       |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [apps/api/src/lib/leverage-limits.ts](apps/api/src/lib/leverage-limits.ts)                                                   | Core validation logic (36 test cases)                         |
-| [apps/api/src/routes/trades.ts](apps/api/src/routes/trades.ts)                                                               | Integration: validates leverage before creating trades        |
-| [apps/api/src/routes/admin/index.ts](apps/api/src/routes/admin/index.ts)                                                     | Admin override endpoints (GET/POST/DELETE)                    |
-| [apps/platform/src/app/(protected)/symbols/[symbol]/page.tsx](<apps/platform/src/app/(protected)/symbols/[symbol]/page.tsx>) | UI: shows jurisdiction & max leverage                         |
-| [packages/types/src/index.ts](packages/types/src/index.ts)                                                                   | Type definitions: Jurisdiction enum + User.jurisdiction field |
+| File                                                                                                                               | Purpose                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [apps/api/src/lib/leverage-limits.ts](../../apps/api/src/lib/leverage-limits.ts)                                                   | Core validation logic (36 test cases)                         |
+| [apps/api/src/routes/trades.ts](../../apps/api/src/routes/trades.ts)                                                               | Integration: validates leverage before creating trades        |
+| [apps/api/src/routes/admin/index.ts](../../apps/api/src/routes/admin/index.ts)                                                     | Admin override endpoints (GET/POST/DELETE)                    |
+| [apps/platform/src/app/(protected)/symbols/[symbol]/page.tsx](<../../apps/platform/src/app/(protected)/symbols/[symbol]/page.tsx>) | UI: shows jurisdiction & max leverage                         |
+| [packages/types/src/index.ts](../../packages/types/src/index.ts)                                                                   | Type definitions: Jurisdiction enum + User.jurisdiction field |
 
 ## Testing
 
@@ -263,7 +261,7 @@ The admin panel now has **full leverage override management**:
 
 1. Check user's jurisdiction: `GET /v1/users/:id` (admin endpoint)
 2. Check instrument leverage in database
-3. Verify jurisdiction rules in [leverage-limits.ts](apps/api/src/lib/leverage-limits.ts)
+3. Verify jurisdiction rules in [leverage-limits.ts](../../apps/api/src/lib/leverage-limits.ts)
 4. If needed, create override: `POST /v1/admin/leverage-overrides/:userId`
 
 ### "Cannot read properties of null (reading 'jurisdiction')"
@@ -332,7 +330,7 @@ The POST endpoint inherits global rate limiting (100 req/min global). For abuse 
 
 ### Where to check jurisdiction logic
 
-Jurisdiction rules are defined in [leverage-limits.ts](apps/api/src/lib/leverage-limits.ts):
+Jurisdiction rules are defined in [leverage-limits.ts](../../apps/api/src/lib/leverage-limits.ts):
 
 - `JURISDICTION_LIMITS` object contains all regulatory frameworks
 - `validateLeverage()` function checks user jurisdiction against asset class limits

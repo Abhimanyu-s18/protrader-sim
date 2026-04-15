@@ -671,6 +671,7 @@ export default function UserDetailPage() {
                   <div className="text-sm">
                     <span className="font-medium text-green-400">{assetClass}</span>
                     <span className="mx-2 text-gray-400">→</span>
+                    {/* max_leverage = override cap (not the instrument's default leverage) */}
                     <span className="font-mono text-white">{override.max_leverage}:1</span>
                     <span className="mx-2 text-xs text-gray-500">
                       expires {formatDateTime(override.expires_at)}
@@ -718,9 +719,13 @@ export default function UserDetailPage() {
                 )}
               </div>
 
-              {/* Max Leverage */}
+              {/* Max Leverage (max_leverage): the override cap for this user's asset class,
+                   distinct from the instrument's default leverage stored in the DB.
+                   This value temporarily supersedes the regulatory limit for the user. */}
               <div>
-                <label className="mb-1 block text-xs text-gray-400">Max Leverage</label>
+                <label className="mb-1 block text-xs text-gray-400">
+                  Max Leverage (Override Cap)
+                </label>
                 <input
                   type="number"
                   {...registerOverride('max_leverage', { valueAsNumber: true })}

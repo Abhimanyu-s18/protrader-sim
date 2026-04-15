@@ -222,6 +222,7 @@ model User {
   @@index([kycStatus, lastKycReminderSentAt])
   @@index([agentId])
   @@index([jurisdiction])
+  @@index([jurisdiction, accountStatus])
   @@map("users")
 }
 
@@ -245,7 +246,7 @@ model Staff {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   // Relations
-  teamLeader           Staff?              @relation("TeamLeaderAgents", fields: [teamLeaderId], references: [id])
+  teamLeader           Staff?              @relation("TeamLeaderAgents", fields: [teamLeaderId], references: [id], onDelete: SetNull)
   agents               Staff[]             @relation("TeamLeaderAgents")
   traders              User[]              @relation("AgentTraders")
   sessions             Session[]
@@ -341,7 +342,7 @@ model OhlcvCandle {
   volume       BigInt?
   candleTime   DateTime @map("candle_time") @db.Timestamptz
 
-  instrument Instrument @relation(fields: [instrumentId], references: [id])
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
 
   @@unique([instrumentId, interval, candleTime])
   @@index([instrumentId, interval, candleTime(sort: Desc)])
@@ -383,8 +384,8 @@ model Trade {
   createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
-  user         User          @relation(fields: [userId], references: [id])
-  instrument   Instrument    @relation(fields: [instrumentId], references: [id])
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  instrument   Instrument    @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
   ibCommission IbCommission?
 
   @@index([userId, status])
@@ -410,8 +411,8 @@ model LedgerTransaction {
   createdBy         BigInt?         @map("created_by") // staff id if admin-initiated
   createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz
 
-  user         User   @relation(fields: [userId], references: [id])
-  staffCreator Staff? @relation("StaffLedger", fields: [createdBy], references: [id])
+  user         User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  staffCreator Staff? @relation("StaffLedger", fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([transactionType])
@@ -423,7 +424,7 @@ model LedgerTransaction {
 // ─────────────────────────────────────────────────────────────────
 model Deposit {
   id                   BigInt        @id @default(autoincrement())
-  userId               BigInt        @map("user_id")
+  userId               BigInt?       @map("user_id") // Nullable to preserve records for soft-delete
   amountCents          BigInt        @map("amount_cents")
   cryptoCurrency       String        @map("crypto_currency") @db.VarChar(10)
   cryptoAmountScaled   BigInt        @map("crypto_amount_scaled") // crypto x 10^8
@@ -436,8 +437,8 @@ model Deposit {
   notes                String?       @db.Text
   createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz
 
-  user      User   @relation(fields: [userId], references: [id])
-  processor Staff? @relation("ProcessedDeposits", fields: [processedBy], references: [id])
+  user      User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  processor Staff? @relation("ProcessedDeposits", fields: [processedBy], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
@@ -449,7 +450,7 @@ model Deposit {
 // ─────────────────────────────────────────────────────────────────
 model Withdrawal {
   id                  BigInt           @id @default(autoincrement())
-  userId              BigInt           @map("user_id")
+  userId              BigInt?          @map("user_id") // Nullable to preserve records for audit trail
   amountCents         BigInt           @map("amount_cents")
   cryptoCurrency      String           @map("crypto_currency") @db.VarChar(10)
   walletAddress       String           @map("wallet_address") @db.VarChar(255)
@@ -462,8 +463,8 @@ model Withdrawal {
   rejectionReason     String?          @map("rejection_reason") @db.Text
   createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz
 
-  user      User   @relation(fields: [userId], references: [id])
-  processor Staff? @relation("ProcessedWithdrawals", fields: [processedBy], references: [id])
+  user      User?  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  processor Staff? @relation("ProcessedWithdrawals", fields: [processedBy], references: [id], onDelete: Restrict)
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
@@ -489,8 +490,8 @@ model KycDocument {
   reviewedAt       DateTime?           @map("reviewed_at") @db.Timestamptz
   createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz
 
-  user     User   @relation(fields: [userId], references: [id])
-  reviewer Staff? @relation("ReviewedDocuments", fields: [reviewedBy], references: [id])
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer Staff? @relation("ReviewedDocuments", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([status])
@@ -512,8 +513,8 @@ model Alert {
   expiresAt            DateTime?   @map("expires_at") @db.Timestamptz
   createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz
 
-  user       User       @relation(fields: [userId], references: [id])
-  instrument Instrument @relation(fields: [instrumentId], references: [id])
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
 
   @@index([instrumentId, status], map: "idx_alerts_active")
   @@index([userId])
@@ -530,8 +531,8 @@ model WatchlistItem {
   sortOrder    Int      @default(0) @map("sort_order")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  user       User       @relation(fields: [userId], references: [id])
-  instrument Instrument @relation(fields: [instrumentId], references: [id])
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
 
   @@unique([userId, instrumentId])
   @@index([userId, sortOrder])
@@ -552,9 +553,9 @@ model IbCommission {
   paidAt      DateTime?        @map("paid_at") @db.Timestamptz
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
 
-  agent  Staff @relation("AgentCommissions", fields: [agentId], references: [id])
-  trader User  @relation("TraderCommissions", fields: [traderId], references: [id])
-  trade  Trade @relation(fields: [tradeId], references: [id])
+  agent  Staff @relation("AgentCommissions", fields: [agentId], references: [id], onDelete: Restrict)
+  trader User  @relation("TraderCommissions", fields: [traderId], references: [id], onDelete: Restrict)
+  trade  Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
 
   @@index([agentId, status])
   @@index([traderId])
@@ -576,8 +577,8 @@ model Notification {
   readAt    DateTime? @map("read_at") @db.Timestamptz
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
-  user  User?  @relation(fields: [userId], references: [id])
-  staff Staff? @relation(fields: [staffId], references: [id])
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  staff Staff? @relation(fields: [staffId], references: [id], onDelete: SetNull)
 
   @@index([userId, isRead])
   @@index([staffId])
@@ -600,7 +601,7 @@ model Signal {
   generatedAt    DateTime   @map("generated_at") @db.Timestamptz
   expiresAt      DateTime?  @map("expires_at") @db.Timestamptz
 
-  instrument Instrument @relation(fields: [instrumentId], references: [id])
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
 
   @@index([instrumentId, isActive])
   @@map("signals")
@@ -635,7 +636,7 @@ model SwapRate {
   effectiveFrom DateTime       @map("effective_from") @db.Date
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
 
-  instrument Instrument @relation(fields: [instrumentId], references: [id])
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
 
   @@unique([instrumentId, direction, effectiveFrom])
   @@map("swap_rates")

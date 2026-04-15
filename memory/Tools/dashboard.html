@@ -323,10 +323,16 @@
         cursor: pointer;
         transition: all 0.15s ease;
         background: var(--bg-card);
+        outline: none;
       }
 
       .checkbox:hover {
         border-color: var(--accent);
+      }
+
+      .checkbox:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
       }
 
       .checkbox.checked {
@@ -1328,8 +1334,14 @@
     </div>
 
     <!-- MODAL (shared for memory) -->
-    <div class="modal-overlay" id="modalOverlay">
-      <div class="modal">
+    <div
+      class="modal-overlay"
+      id="modalOverlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalTitle"
+    >
+      <div class="modal" role="document">
         <div class="modal-header">
           <h3 id="modalTitle">Edit</h3>
           <button class="modal-close" id="modalClose">&times;</button>
@@ -1342,7 +1354,7 @@
       </div>
     </div>
 
-    <div class="status-bar" id="status"></div>
+    <div class="status-bar" id="status" role="status" aria-live="polite"></div>
 
     <script>
       // ===== SHARED STATE =====
@@ -2021,13 +2033,13 @@
           await writable.close()
           const file = await taskFileHandle.getFile()
           lastModified = file.lastModified
-          hasChanges = false
           saveBtn.disabled = true
           showStatus('Saved')
         } catch (e) {
           showStatus('Save failed: ' + e.message)
         } finally {
           isSaving = false
+          hasChanges = false
         }
       }
 
@@ -2089,8 +2101,8 @@
       function renderList() {
         listView.innerHTML = ''
 
-        if (!quickAddSection && sections.length > 0) {
-          quickAddSection = sections[0].id
+        if (!quickAddSection || !sections.find((s) => s.id === quickAddSection)) {
+          quickAddSection = sections.length > 0 ? sections[0].id : null
         }
 
         // Quick add at top
@@ -2101,7 +2113,7 @@
 
         const sectionName = sections.find((s) => s.id === quickAddSection)?.name || 'Select section'
         quickAdd.innerHTML = `
-        <span class="checkbox" style="opacity: 0.3;"></span>
+        <span class="checkbox" style="opacity: 0.3;" role="checkbox" aria-checked="false" tabindex="0"></span>
         <input type="text" class="quick-add-input" placeholder="Add a task..." id="quickAddInput">
         <span class="quick-add-section" id="quickAddSectionBtn">${sectionName}</span>
       `
@@ -2576,8 +2588,21 @@
         input.addEventListener('blur', saveEdit)
       }
 
+      let currentPickerHandlers = { close: null, escape: null, visibility: null }
+
       function showSectionPicker(anchorEl) {
         document.querySelectorAll('.section-picker').forEach((el) => el.remove())
+        // Clean up previous handlers
+        if (currentPickerHandlers.close) {
+          document.removeEventListener('click', currentPickerHandlers.close)
+        }
+        if (currentPickerHandlers.escape) {
+          document.removeEventListener('keydown', currentPickerHandlers.escape)
+        }
+        if (currentPickerHandlers.visibility) {
+          document.removeEventListener('visibilitychange', currentPickerHandlers.visibility)
+        }
+
         const picker = document.createElement('div')
         picker.className = 'section-picker'
         const rect = anchorEl.getBoundingClientRect()
@@ -2597,36 +2622,41 @@
         })
 
         document.body.appendChild(picker)
-        let closeHandler = null
         setTimeout(() => {
-          closeHandler = function closeHandler(e) {
+          currentPickerHandlers.close = function closeHandler(e) {
             if (!picker.contains(e.target)) {
               picker.remove()
-              document.removeEventListener('click', closeHandler)
+              document.removeEventListener('click', currentPickerHandlers.close)
+              currentPickerHandlers.close = null
             }
           }
-          document.addEventListener('click', closeHandler)
+          document.addEventListener('click', currentPickerHandlers.close)
 
-          // Add escape key handler
-          const escapeHandler = (e) => {
+          currentPickerHandlers.escape = (e) => {
             if (e.key === 'Escape') {
               picker.remove()
-              document.removeEventListener('click', closeHandler)
-              document.removeEventListener('keydown', escapeHandler)
+              document.removeEventListener('click', currentPickerHandlers.close)
+              document.removeEventListener('keydown', currentPickerHandlers.escape)
+              document.removeEventListener('visibilitychange', currentPickerHandlers.visibility)
+              currentPickerHandlers.close = null
+              currentPickerHandlers.escape = null
+              currentPickerHandlers.visibility = null
             }
           }
-          document.addEventListener('keydown', escapeHandler)
+          document.addEventListener('keydown', currentPickerHandlers.escape)
 
-          // Add visibility change handler
-          const visibilityHandler = () => {
+          currentPickerHandlers.visibility = () => {
             if (document.hidden) {
               picker.remove()
-              document.removeEventListener('click', closeHandler)
-              document.removeEventListener('keydown', escapeHandler)
-              document.removeEventListener('visibilitychange', visibilityHandler)
+              document.removeEventListener('click', currentPickerHandlers.close)
+              document.removeEventListener('keydown', currentPickerHandlers.escape)
+              document.removeEventListener('visibilitychange', currentPickerHandlers.visibility)
+              currentPickerHandlers.close = null
+              currentPickerHandlers.escape = null
+              currentPickerHandlers.visibility = null
             }
           }
-          document.addEventListener('visibilitychange', visibilityHandler)
+          document.addEventListener('visibilitychange', currentPickerHandlers.visibility)
         }, 10)
       }
 
@@ -2729,6 +2759,8 @@
           const writable = await taskFileHandle.createWritable()
           await writable.write(toMarkdown())
           await writable.close()
+          const file = await taskFileHandle.getFile()
+          lastModified = file.lastModified
           hasChanges = false
           saveBtn.disabled = true
           showStatus('Saved')

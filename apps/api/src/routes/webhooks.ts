@@ -1,17 +1,57 @@
 import { Router, type Router as ExpressRouter } from 'express'
 import type { Prisma } from '@prisma/client'
+import { z } from 'zod'
+import rateLimit from 'express-rate-limit'
 import { prisma } from '../lib/prisma.js'
 import { createLogger } from '../lib/logger.js'
 import crypto from 'crypto'
+
+/** Zod schema for the NowPayments IPN webhook body */
+const NowPaymentsBodySchema = z.object({
+  payment_id: z.string().min(1),
+  payment_status: z.string().min(1),
+  pay_currency: z.string().min(1),
+  order_id: z.string().min(1),
+})
 
 const log = createLogger('webhooks')
 
 export const webhooksRouter: ExpressRouter = Router()
 
+// Known NowPayments server IPs (documented at https://nowpayments.io/)
+const NOWPAYMENTS_ALLOWED_IPS = ['136.243.46.162', '136.243.46.163', '136.243.46.164']
+
+// Strict per-IP rate limiter: 20 req/min to prevent flooding of HMAC/DB path
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error_code: 'RATE_LIMITED', message: 'Too many webhook requests.' },
+})
+
+/**
+ * Check if request IP is whitelisted for NowPayments.
+ * Returns false if IP is not in allowlist or cannot be determined.
+ */
+function isNowPaymentsIp(req: any): boolean {
+  const clientIp =
+    (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ||
+    (req.headers['x-real-ip'] as string) ||
+    req.socket.remoteAddress
+  return NOWPAYMENTS_ALLOWED_IPS.includes(clientIp)
+}
+
 // POST /v1/webhooks/nowpayments
 // NowPayments IPN webhook — payment status updates
-webhooksRouter.post('/nowpayments', async (req, res, next) => {
+webhooksRouter.post('/nowpayments', webhookLimiter, async (req, res, next) => {
   try {
+    // Whitelist IP before processing
+    if (!isNowPaymentsIp(req)) {
+      log.warn({ ip: req.socket.remoteAddress }, 'Webhook request from unknown IP')
+      // Still process but log for monitoring
+    }
+
     const ipnSecret = process.env['NOWPAYMENTS_IPN_SECRET']
     if (!ipnSecret) {
       log.error('NOWPAYMENTS_IPN_SECRET is not configured — rejecting webhook')
@@ -47,32 +87,34 @@ webhooksRouter.post('/nowpayments', async (req, res, next) => {
       return
     }
 
-    const { payment_id, payment_status, pay_currency, order_id } = req.body as {
-      payment_id: string
-      payment_status: string
-      pay_currency: string
-      order_id: string
-    }
-
-    if (!payment_id || !payment_status || !pay_currency || !order_id) {
-      res.status(400).json({ error: 'Missing required fields' })
+    const bodyParse = NowPaymentsBodySchema.safeParse(req.body)
+    if (!bodyParse.success) {
+      res.status(400).json({
+        error: 'Missing required fields',
+        details: bodyParse.error.flatten().fieldErrors,
+      })
       return
     }
 
+    const { payment_id, payment_status, pay_currency, order_id } = bodyParse.data
+
     if (payment_status === 'finished' || payment_status === 'confirmed') {
-      const deposit = await prisma.deposit.findUnique({ where: { nowpaymentsInvoiceId: order_id } })
-      if (!deposit || deposit.status === 'COMPLETED') {
-        res.json({ received: true })
-        return
-      }
-
-      const totalAmountCents = deposit.amountCents + deposit.bonusCents
-
       await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        // Idempotency: fetch the deposit inside the transaction and check status atomically
+        const deposit = await tx.deposit.findUnique({
+          where: { nowpaymentsInvoiceId: order_id },
+        })
+
+        // Return silently if deposit not found or already processed (idempotent)
+        if (!deposit || deposit.status === 'COMPLETED') return
+
+        const totalAmountCents = deposit.amountCents + deposit.bonusCents
+
         await tx.deposit.update({
           where: { id: deposit.id },
           data: { status: 'COMPLETED', nowpaymentsPaymentId: payment_id, processedAt: new Date() },
         })
+
         // Get current balance for snapshot
         const [bal] = await tx.$queryRaw<
           [{ balance_cents: bigint }]

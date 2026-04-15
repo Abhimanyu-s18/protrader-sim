@@ -1,6 +1,4 @@
 import type { Metadata } from 'next'
-import type { Metadata } from 'next'
-import { TermsContent } from './TermsContent'
 import { TermsContent } from './TermsContent'
 import { TermsSidebar } from './TermsSidebar'
 
@@ -23,7 +21,7 @@ export default function TermsPage() {
           <div className="mx-auto max-w-3xl bg-white p-6 lg:rounded-2xl lg:p-10 lg:shadow-sm">
             <header className="mb-10 border-b border-surface-border pb-8">
               <h1 className="text-3xl font-bold text-dark-700 md:text-4xl">Terms of Service</h1>
-              <p className="mt-4 text-gray-500">{LAST_UPDATED}</p>
+              <p className="mt-4 text-gray-500">Last updated: {LAST_UPDATED}</p>
             </header>
 
             <TermsContent />

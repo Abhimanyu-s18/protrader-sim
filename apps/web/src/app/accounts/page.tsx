@@ -241,6 +241,8 @@ export default function AccountsPage() {
 
               <Link
                 href="https://auth.protrader.sim/register"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="block rounded-lg bg-primary-500 px-6 py-3 text-center font-semibold text-white transition-colors duration-200 hover:bg-primary-600"
               >
                 Open Pro Account
@@ -283,9 +285,10 @@ export default function AccountsPage() {
                   </li>
                 ))}
               </ul>
-
               <Link
                 href="https://auth.protrader.sim/register"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="block rounded-lg border-2 border-primary-500 px-6 py-3 text-center font-semibold text-primary-500 transition-colors duration-200 hover:bg-primary-500 hover:text-white"
               >
                 Open VIP Account
@@ -317,20 +320,34 @@ export default function AccountsPage() {
           <div className="overflow-hidden rounded-xl border border-surface-border bg-white">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
+                <caption className="sr-only">
+                  Feature comparison between Standard, Pro, and VIP account types
+                </caption>
                 <thead>
                   <tr className="border-b border-surface-border">
-                    <th className="w-1/2 px-6 py-4 text-left font-medium text-gray-500">Feature</th>
-                    <th className="px-4 py-4 text-center font-semibold text-dark-700">Standard</th>
-                    <th className="bg-dark-700 px-4 py-4 text-center font-semibold text-white">
+                    <th scope="col" className="w-1/2 px-6 py-4 text-left font-medium text-gray-500">
+                      Feature
+                    </th>
+                    <th scope="col" className="px-4 py-4 text-center font-semibold text-dark-700">
+                      Standard
+                    </th>
+                    <th
+                      scope="col"
+                      className="bg-dark-700 px-4 py-4 text-center font-semibold text-white"
+                    >
                       Pro
                     </th>
-                    <th className="px-4 py-4 text-center font-semibold text-dark-700">VIP</th>
+                    <th scope="col" className="px-4 py-4 text-center font-semibold text-dark-700">
+                      VIP
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-border">
                   {COMPARISON_ROWS.map((row, i) => (
                     <tr key={row.label} className={i % 2 === 1 ? 'bg-surface-alt/40' : 'bg-white'}>
-                      <td className="px-6 py-4 font-medium text-gray-600">{row.label}</td>
+                      <th scope="row" className="px-6 py-4 font-medium text-gray-600">
+                        {row.label}
+                      </th>
                       <td className="px-4 py-4 text-center text-gray-700">
                         {typeof row.standard === 'boolean' ? (
                           row.standard ? (
@@ -413,9 +430,11 @@ export default function AccountsPage() {
           <p className="mx-auto mb-8 max-w-xl text-lg text-orange-100">
             Join 50,000+ traders. Create your free account in minutes — no credit card required.
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="https://auth.protrader.sim/register"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg bg-white px-8 py-3.5 font-semibold text-primary-600 transition-colors duration-200 hover:bg-orange-50"
             >
               Open Free Account

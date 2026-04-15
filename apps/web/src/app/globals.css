@@ -4,6 +4,9 @@
 
 @layer base {
   :root {
+    /* These values mirror Tailwind theme tokens in tailwind.config.ts.
+       Use Tailwind classes (text-buy, bg-sell, bg-dark-700, text-primary-500) where possible.
+       CSS variables are kept here for use in raw CSS rules (e.g. skip-link). */
     --color-buy: #1a7a3c;
     --color-sell: #c0392b;
     --color-bg-900: #1a2332;
@@ -27,7 +30,7 @@
     top: 0;
     z-index: 9999;
     padding: 1rem;
-    background: #e8650a;
+    background: var(--color-accent-primary);
     color: white;
     font-weight: 600;
     text-decoration: none;

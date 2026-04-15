@@ -232,9 +232,6 @@ export function IconAbout(props: SVGProps<SVGSVGElement>) {
 /** @deprecated Use IconStar instead */
 export const IconWhy = IconStar
 
-/** @deprecated Use IconEmail instead for envelope icon functionality */
-export const IconContact = IconEmail
-
 export function IconMenuOpen(props: SVGProps<SVGSVGElement>) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
@@ -346,6 +343,9 @@ export function IconEmail(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+/** @deprecated Use IconEmail instead for envelope icon functionality */
+export const IconContact = IconEmail
 
 export function IconPhone(props: SVGProps<SVGSVGElement>) {
   return (

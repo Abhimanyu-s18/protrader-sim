@@ -37,7 +37,7 @@ export type EmailJobData =
       to: string
       fullName: string
       verifyToken: string
-      expirationHours: number
+      expirationHours?: number
     }
   | { type: 'password-reset'; to: string; fullName: string; resetToken: string }
   | { type: 'password-changed'; to: string; fullName: string; changedAt?: string }
@@ -101,7 +101,7 @@ function buildEmailElement(
         }),
       }
 
-    case 'verify-email':
+    case 'verify-email': {
       const expirationHours =
         typeof data.expirationHours === 'number' &&
         Number.isFinite(data.expirationHours) &&
@@ -116,6 +116,7 @@ function buildEmailElement(
           expirationHours,
         }),
       }
+    }
 
     case 'password-reset':
       return {

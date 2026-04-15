@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     "Get in touch with the ProTraderSim support team. We're available 24 hours a day, 5 days a week.",
 }
 
-export const SUPPORT_EMAIL = 'support@protrader.sim'
+const SUPPORT_EMAIL = 'support@protrader.sim'
 
 /** Contact page — hero, contact methods, form + office info */
 export default function ContactPage() {

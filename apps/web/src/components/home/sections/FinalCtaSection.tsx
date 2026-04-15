@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect } from 'react'
 import Link from 'next/link'
 
@@ -30,7 +32,7 @@ export function FinalCtaSection({
         </p>
         <div className="flex flex-wrap justify-center gap-4">
           <Link
-            href={process.env.NEXT_PUBLIC_REGISTER_URL ?? '/register'}
+            href={process.env.NEXT_PUBLIC_REGISTER_URL || '/register'}
             className="inline-flex items-center gap-2 rounded-lg bg-white px-8 py-4 text-base font-bold text-primary-500 shadow-lg transition-all duration-200 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2"
           >
             Open Free Account

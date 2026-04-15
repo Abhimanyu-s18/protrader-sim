@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { safeStorage } from '../lib/safeStorage'
 
 const AUTH_URL = process.env['NEXT_PUBLIC_AUTH_URL'] ?? 'http://localhost:3001'
 
@@ -29,8 +30,7 @@ export default function Sidebar() {
     } catch (error) {
       console.error('Sidebar: Failed to logout', error)
     }
-    localStorage.removeItem('access_token')
-    sessionStorage.removeItem('access_token')
+    safeStorage.remove('access_token')
     window.location.href = `${AUTH_URL}/login`
     // Fallback: reset state if redirect doesn't happen within 2 seconds
     setTimeout(() => setIsLoggingOut(false), 2000)

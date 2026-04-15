@@ -18,7 +18,7 @@ export interface CompanyStats {
   uptime: string
 }
 
-export const COMPANY_STATS: CompanyStats = {
+const COMPANY_STATS: CompanyStats = {
   traders: '50,000+',
   countries: '195',
   monthlyVolume: '$2.8B',

@@ -1,4 +1,5 @@
 import { Router, type Router as ExpressRouter } from 'express'
+import { z } from 'zod'
 import { prisma } from '../../lib/prisma.js'
 import { requireAuth, requireRole } from '../../middleware/auth.js'
 import { Errors } from '../../middleware/errorHandler.js'
@@ -8,23 +9,36 @@ export const ibRouter: ExpressRouter = Router()
 ibRouter.use(requireAuth)
 ibRouter.use(requireRole('IB_TEAM_LEADER', 'AGENT', 'SUPER_ADMIN', 'ADMIN'))
 
+// ── Schemas ───────────────────────────────────────────────────────
+
+const PaginationSchema = z.object({
+  cursor: z.string().regex(/^\d+$/, 'cursor must be a numeric string').optional(),
+  limit: z
+    .string()
+    .transform((s) => parseInt(s, 10))
+    .refine((n) => n >= 1, 'limit must be >= 1')
+    .optional(),
+})
+
+const CommissionsQuerySchema = PaginationSchema.extend({
+  status: z.nativeEnum({ PENDING: 'PENDING', PAID: 'PAID' } as const).optional(),
+})
+
+// ── Routes ────────────────────────────────────────────────────────
+
 // GET /v1/ib/traders — agent's assigned traders (paginated)
 ibRouter.get('/traders', async (req, res, next) => {
   try {
     const user = req.user
     if (!user) return next(Errors.unauthorized())
     const agentId = BigInt(user.user_id)
-    const { cursor, limit = '50' } = req.query as Record<string, string>
-    const parsedLimit = parseInt(limit, 10)
-    if (Number.isNaN(parsedLimit) || parsedLimit < 1) {
-      return next(Errors.badRequest('Invalid limit parameter'))
-    }
-    const take = Math.min(parsedLimit, 200)
 
-    // Validate cursor
-    if (cursor && !/^\d+$/.test(cursor)) {
-      return next(Errors.badRequest('Invalid cursor parameter'))
+    const query = PaginationSchema.safeParse(req.query)
+    if (!query.success) {
+      return next(Errors.validation(query.error.flatten().fieldErrors as Record<string, unknown>))
     }
+    const { cursor, limit } = query.data
+    const take = Math.min(limit ?? 50, 200)
 
     const traders = await prisma.user.findMany({
       where: { agentId, ...(cursor ? { id: { lt: BigInt(cursor) } } : {}) },
@@ -60,27 +74,18 @@ ibRouter.get('/commissions', async (req, res, next) => {
     const user = req.user
     if (!user) return next(Errors.unauthorized())
     const agentId = BigInt(user.user_id)
-    const { status, cursor, limit = '50' } = req.query as Record<string, string>
-    const parsedLimit = parseInt(limit, 10)
-    if (Number.isNaN(parsedLimit) || parsedLimit < 1) {
-      return next(Errors.badRequest('Invalid limit parameter'))
-    }
-    const take = Math.min(parsedLimit, 200)
 
-    // Validate status
-    if (status && !['PENDING', 'PAID'].includes(status)) {
-      return next(Errors.badRequest('Invalid status parameter'))
+    const query = CommissionsQuerySchema.safeParse(req.query)
+    if (!query.success) {
+      return next(Errors.validation(query.error.flatten().fieldErrors as Record<string, unknown>))
     }
-
-    // Validate cursor
-    if (cursor && !/^\d+$/.test(cursor)) {
-      return next(Errors.badRequest('Invalid cursor parameter'))
-    }
+    const { status, cursor, limit = 50 } = query.data
+    const take = Math.min(limit, 200)
 
     const commissions = await prisma.ibCommission.findMany({
       where: {
         agentId,
-        ...(status ? { status: status as never } : {}),
+        ...(status ? { status } : {}),
         ...(cursor ? { id: { lt: BigInt(cursor) } } : {}),
       },
       include: {

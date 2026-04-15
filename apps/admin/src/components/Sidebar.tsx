@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { safeStorage } from '../lib/safeStorage'
 
 const AUTH_URL = process.env['NEXT_PUBLIC_AUTH_URL'] ?? 'http://localhost:3001'
 
@@ -17,7 +18,7 @@ async function logout() {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 5000)
   try {
-    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+    const token = safeStorage.get('access_token')
     if (token) {
       await fetch(`${AUTH_URL}/logout`, {
         method: 'POST',
@@ -31,8 +32,7 @@ async function logout() {
   } finally {
     clearTimeout(timeout)
   }
-  localStorage.removeItem('access_token')
-  sessionStorage.removeItem('access_token')
+  safeStorage.remove('access_token')
   window.location.href = `${AUTH_URL}/login`
 }
 

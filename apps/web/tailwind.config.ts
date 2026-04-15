@@ -46,9 +46,9 @@ const config: Config = {
         success: '#1A7A3C',
         danger: '#C0392B',
         warning: '#D68910',
-        // Trading-specific aliases that mirror success/danger for semantic clarity
-        buy: 'success', // Alias for success color (buy = positive/green)
-        sell: 'danger', // Alias for danger color (sell = negative/red)
+        // Trading-specific colors — green for buy (positive), red for sell (negative)
+        buy: '#1A7A3C', // Same hex as success
+        sell: '#C0392B', // Same hex as danger
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -73,6 +73,10 @@ const config: Config = {
       boxShadow: {
         card: '0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1)',
         'card-hover': '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)',
+      },
+      // Semantic overlay token — 10% tint of the primary accent color
+      backgroundColor: {
+        'primary-tint': 'rgba(232, 101, 10, 0.1)',
       },
     },
   },

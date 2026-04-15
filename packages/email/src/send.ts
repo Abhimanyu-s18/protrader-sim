@@ -1,11 +1,16 @@
 import { Resend } from 'resend'
 import { ReactElement } from 'react'
 
-if (!process.env['RESEND_API_KEY']) {
-  throw new Error('RESEND_API_KEY environment variable is required')
-}
+let _resend: Resend | null = null
 
-const resend = new Resend(process.env['RESEND_API_KEY'])
+function getResend(): Resend {
+  if (!_resend) {
+    const key = process.env['RESEND_API_KEY']
+    if (!key) throw new Error('RESEND_API_KEY environment variable is required')
+    _resend = new Resend(key)
+  }
+  return _resend
+}
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -31,7 +36,7 @@ export async function sendEmail({
   }
 
   try {
-    return await resend.emails.send({
+    return await getResend().emails.send({
       from: process.env['EMAIL_FROM'] ?? 'ProTraderSim <noreply@protrader.com>',
       to: to.trim(),
       subject: subject.trim(),

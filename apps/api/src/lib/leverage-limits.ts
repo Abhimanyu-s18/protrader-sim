@@ -176,11 +176,15 @@ export function validateLeverage(
 ): { allowed: boolean; maxLeverage: number; message: string } {
   const limit = getLeverageLimit(jurisdiction, assetClass)
 
-  if (!Number.isFinite(requestedLeverage) || requestedLeverage <= 0) {
+  if (
+    !Number.isFinite(requestedLeverage) ||
+    !Number.isInteger(requestedLeverage) ||
+    requestedLeverage <= 0
+  ) {
     return {
       allowed: false,
       maxLeverage: limit.maxLeverage,
-      message: `Invalid requestedLeverage: must be a positive number, got ${requestedLeverage}`,
+      message: `Invalid requestedLeverage: must be a positive number (integer), got ${requestedLeverage}`,
     }
   }
 

@@ -1,18 +1,25 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRightIcon } from '@/components/icons'
 import { type TradingContent, getTradingContent } from '../../../data/forex-trading'
 
 export const metadata: Metadata = {
-  title: 'Forex Trading',
-  description: 'Trade major, minor and exotic Forex pairs with ultra-low spreads from 0.0 pips.',
+  title: 'Forex Trading | ProTraderSim',
+  description:
+    'Trade major, minor and exotic forex pairs with tight spreads from 0.0 pips and leverage up to 500:1.',
 }
 
 /** Forex trading instrument page */
 export default async function ForexPage() {
-  const authUrl = process.env.NEXT_PUBLIC_AUTH_URL
+  // Validate NEXT_PUBLIC_AUTH_URL with fallback
+  let authUrl = process.env.NEXT_PUBLIC_AUTH_URL
+
   if (!authUrl) {
-    throw new Error('NEXT_PUBLIC_AUTH_URL environment variable is required')
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('NEXT_PUBLIC_AUTH_URL environment variable is required in production')
+    }
+    // Development fallback with warning
+    console.warn('NEXT_PUBLIC_AUTH_URL not set, using localhost default for development only')
+    authUrl = 'http://localhost:3001'
   }
 
   let content: TradingContent
@@ -70,13 +77,38 @@ export default async function ForexPage() {
             <div className="flex flex-wrap gap-4">
               <Link
                 href={authUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-6 py-3 font-semibold text-white transition-colors duration-200 hover:bg-primary-600"
               >
                 Start Trading Forex
-                <ArrowRightIcon />
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
               </Link>
               <Link
-                href={`${authUrl}?demo=true`}
+                href={(() => {
+                  try {
+                    const url = new URL(authUrl)
+                    url.searchParams.set('demo', 'true')
+                    return url.toString()
+                  } catch {
+                    // If URL parsing fails, return authUrl with demo query param appended safely
+                    return `${authUrl}${authUrl.includes('?') ? '&' : '?'}demo=true`
+                  }
+                })()}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-6 py-3 font-semibold text-gray-300 transition-colors duration-200 hover:border-gray-400 hover:text-white"
               >
                 Open Demo Account
@@ -156,14 +188,9 @@ export default async function ForexPage() {
                 key={f.title}
                 className="rounded-xl border border-surface-border bg-white p-6 shadow-card transition-shadow duration-200 hover:shadow-card-hover"
               >
-                {f.icon && typeof f.icon === 'function' && (
+                {f.icon && (
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500">
                     <f.icon />
-                  </div>
-                )}
-                {f.icon && typeof f.icon !== 'function' && (
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500">
-                    {f.icon}
                   </div>
                 )}
                 <h3 className="mb-2 text-base font-semibold text-dark-700">{f.title}</h3>
@@ -299,10 +326,24 @@ export default async function ForexPage() {
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               href={authUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg bg-white px-8 py-3.5 font-semibold text-primary-600 transition-colors duration-200 hover:bg-orange-50"
             >
               Create Free Account
-              <ArrowRightIcon />
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
             </Link>
             <Link
               href="/trading/instruments"

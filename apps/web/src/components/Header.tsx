@@ -18,6 +18,7 @@ import {
   IconMenuOpen,
   IconMenuClose,
   IconChevronDown,
+  IconEmail,
 } from './icons'
 
 // ---------------------------------------------------------------------------
@@ -497,13 +498,14 @@ function MobileNav({ items, onClose }: MobileNavProps) {
               }
 
               const isOpen = openSection === item.label
+              const safeId = item.label.replace(/[^a-z0-9_-]/gi, '-').toLowerCase()
               return (
                 <li key={item.label}>
                   <button
                     onClick={() => toggleSection(item.label)}
                     className="flex w-full items-center justify-between px-5 py-3 font-medium text-gray-300 transition-colors duration-150 hover:bg-white/10 hover:text-white"
                     aria-expanded={isOpen}
-                    aria-controls={`panel-${item.label}`}
+                    aria-controls={`panel-${safeId}`}
                   >
                     <span>{item.label}</span>
                     <span
@@ -516,10 +518,7 @@ function MobileNav({ items, onClose }: MobileNavProps) {
                     </span>
                   </button>
                   {isOpen && (
-                    <div
-                      id={`panel-${item.label}`}
-                      className="border-y border-white/5 bg-dark-800/50"
-                    >
+                    <div id={`panel-${safeId}`} className="border-y border-white/5 bg-dark-800/50">
                       {item.columns.map((col) => (
                         <div key={col.heading} className="px-5 py-3">
                           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-dark-400">

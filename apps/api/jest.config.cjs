@@ -26,6 +26,18 @@ module.exports = {
       lines: 100,
       statements: 100,
     },
+    'src/routes/*.ts': {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+    'src/workers/*.ts': {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
   },
   globalSetup: '<rootDir>/jest.globalSetup.js',
   // Reduce timeout to default as most tests are fast; per-suite increase should be done with jest.setTimeout in slow integration tests.

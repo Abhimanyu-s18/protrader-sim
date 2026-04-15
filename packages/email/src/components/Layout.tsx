@@ -27,31 +27,14 @@ interface LayoutProps {
   children: ReactNode
 }
 
-const DEFAULT_SUPPORT_URL = 'https://protrader.com/support'
-const DEFAULT_PLATFORM_URL = 'https://app.protrader.com'
-
-function getSupportUrl(): string {
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env['SUPPORT_URL'] ?? DEFAULT_SUPPORT_URL
-  }
-  return DEFAULT_SUPPORT_URL
-}
-
-function getPlatformUrl(): string {
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env['PLATFORM_URL'] ?? DEFAULT_PLATFORM_URL
-  }
-  return DEFAULT_PLATFORM_URL
-}
+const SUPPORT_URL = process.env['SUPPORT_URL'] ?? 'https://protrader.com/support'
+const APP_URL = process.env['PLATFORM_URL'] ?? 'https://app.protrader.com'
 
 /**
  * Shared layout wrapper for all ProTraderSim transactional emails.
  * Provides consistent branding, header, footer, and unsubscribe notice.
  */
 export function Layout({ preview, children }: LayoutProps) {
-  const supportUrl = getSupportUrl()
-  const platformUrl = getPlatformUrl()
-
   return (
     <Html lang="en" dir="ltr">
       <Head />
@@ -76,15 +59,15 @@ export function Layout({ preview, children }: LayoutProps) {
               &copy; {new Date().getFullYear()} ProTraderSim. All rights reserved.
             </Text>
             <Text style={styles.footerLinks}>
-              <Link href={supportUrl} style={styles.footerLink}>
+              <Link href={SUPPORT_URL} style={styles.footerLink}>
                 Support
               </Link>
               {' · '}
-              <Link href={platformUrl} style={styles.footerLink}>
+              <Link href={APP_URL} style={styles.footerLink}>
                 Platform
               </Link>
               {' · '}
-              <Link href={`${platformUrl}/settings`} style={styles.footerLink}>
+              <Link href={`${APP_URL}/settings`} style={styles.footerLink}>
                 Unsubscribe
               </Link>
             </Text>

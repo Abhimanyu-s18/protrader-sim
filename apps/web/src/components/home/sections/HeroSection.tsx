@@ -15,6 +15,7 @@ export function HeroSection() {
     >
       {/* Radial gradient overlay */}
       <div
+        aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{
           background: 'radial-gradient(ellipse at 70% 20%, rgba(232,101,10,0.15), transparent 60%)',
@@ -104,6 +105,7 @@ export function HeroSection() {
                     {/* Fake sparkline */}
                     <div className="relative mx-4 h-6 flex-1 overflow-hidden">
                       <svg
+                        aria-hidden="true"
                         className="h-full w-full"
                         preserveAspectRatio="none"
                         viewBox="0 0 100 24"
@@ -158,14 +160,14 @@ export function HeroSection() {
                   <button
                     type="button"
                     disabled
-                    className="rounded-lg bg-buy py-2.5 text-sm font-bold tracking-wide text-white disabled:cursor-not-allowed"
+                    className="rounded-lg bg-buy py-2.5 text-sm font-bold tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     BUY 1.08452
                   </button>
                   <button
                     type="button"
                     disabled
-                    className="rounded-lg bg-sell py-2.5 text-sm font-bold tracking-wide text-white disabled:cursor-not-allowed"
+                    className="rounded-lg bg-sell py-2.5 text-sm font-bold tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     SELL 1.08445
                   </button>

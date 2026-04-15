@@ -219,14 +219,18 @@ const GOLD_STATS = [
 
 /** Commodities CFD trading page */
 export default function CommoditiesPage() {
-  const authBaseUrl =
-    process.env.NEXT_PUBLIC_AUTH_URL ||
-    (() => {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('NEXT_PUBLIC_AUTH_URL environment variable is required in production.')
-      }
-      return 'https://auth.protrader.sim'
-    })()
+  // Validate NEXT_PUBLIC_AUTH_URL with fallback
+  let authBaseUrl = process.env.NEXT_PUBLIC_AUTH_URL
+
+  if (!authBaseUrl) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('NEXT_PUBLIC_AUTH_URL environment variable is required in production')
+    }
+    // Development fallback with warning
+    console.warn('NEXT_PUBLIC_AUTH_URL not set, using localhost default for development only')
+    authBaseUrl = 'http://localhost:3001'
+  }
+
   return (
     <div className="min-h-screen">
       {/* Hero */}

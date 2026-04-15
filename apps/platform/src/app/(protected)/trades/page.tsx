@@ -10,8 +10,8 @@ import { formatMoney, formatDateTime } from '@protrader/utils'
 type Tab = 'open' | 'pending' | 'closed'
 
 const HEADERS: Record<Tab, string[]> = {
-  open: ['Symbol', 'Dir', 'Units', 'Open Rate', 'Opened At', 'Unrealised P&L', ''],
-  pending: ['Symbol', 'Dir', 'Units', 'Entry Rate', 'Expires At', ''],
+  open: ['Symbol', 'Dir', 'Units', 'Open Rate', 'Opened At', 'Unrealised P&L', 'Actions'],
+  pending: ['Symbol', 'Dir', 'Units', 'Entry Rate', 'Expires At', 'Actions'],
   closed: [
     'Symbol',
     'Dir',
@@ -282,6 +282,7 @@ export default function TradesPage() {
                   {HEADERS[tab].map((h, idx) => (
                     <th
                       key={h || `col-${idx}`}
+                      scope="col"
                       className="px-4 pt-4 pb-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase"
                     >
                       {h}

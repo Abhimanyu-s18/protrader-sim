@@ -9,6 +9,7 @@ const FEATURES = [
 
 const PLATFORM_SVGS = [
   <svg
+    aria-hidden="true"
     width="18"
     height="18"
     viewBox="0 0 24 24"
@@ -24,6 +25,7 @@ const PLATFORM_SVGS = [
     <rect x="14" y="14" width="7" height="7" />
   </svg>,
   <svg
+    aria-hidden="true"
     width="18"
     height="18"
     viewBox="0 0 24 24"
@@ -36,6 +38,7 @@ const PLATFORM_SVGS = [
     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
   </svg>,
   <svg
+    aria-hidden="true"
     width="18"
     height="18"
     viewBox="0 0 24 24"
@@ -49,6 +52,7 @@ const PLATFORM_SVGS = [
     <path d="M3 9h18M9 21V9" />
   </svg>,
   <svg
+    aria-hidden="true"
     width="18"
     height="18"
     viewBox="0 0 24 24"
@@ -167,7 +171,7 @@ export function PlatformSection() {
                   </div>
 
                   {/* Fake candlestick chart */}
-                  <svg className="h-full w-full" viewBox="0 0 380 220" preserveAspectRatio="none">
+                  <svg aria-hidden="true" className="h-full w-full" viewBox="0 0 380 220" preserveAspectRatio="none">
                     {/* Grid lines */}
                     {[40, 80, 120, 160, 200].map((y) => (
                       <line

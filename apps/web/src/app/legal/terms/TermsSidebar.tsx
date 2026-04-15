@@ -49,14 +49,17 @@ export function TermsSidebar() {
     }
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-            const id = entry.target.id
-            if (id) setActiveSection(id)
-          }
-        })
+        const sorted = [...entries].sort(
+          (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
+        )
+        const topmost = sorted.find(
+          (entry) => entry.isIntersecting && entry.intersectionRatio > 0.5,
+        )
+        if (topmost?.target.id) {
+          setActiveSection(topmost.target.id)
+        }
       },
-      { threshold: [0.5] },
+      { threshold: [0.5, 0.75, 1] },
     )
     SECTIONS.forEach((s) => {
       const el = document.getElementById(s.id)
@@ -77,6 +80,7 @@ export function TermsSidebar() {
               <li key={s.id}>
                 <a
                   href={`#${s.id}`}
+                  aria-current={activeSection === s.id ? 'location' : undefined}
                   className={`block rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
                     activeSection === s.id
                       ? 'bg-primary-500/10 font-medium text-primary-500'

@@ -177,12 +177,16 @@ export default function InstrumentsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right font-mono text-gray-700">
-                          {inst.spread}
+                          {inst.spread.value} {inst.spread.unit}
                         </td>
                         <td className="px-6 py-4 text-right font-mono font-medium text-dark-700">
                           {inst.leverage}
                         </td>
-                        <td className="px-6 py-4 text-right text-gray-600">{inst.hours}</td>
+                        <td className="px-6 py-4 text-right text-gray-600">
+                          {inst.hours.kind === 'custom'
+                            ? inst.hours.customRange || 'N/A'
+                            : inst.hours.kind}
+                        </td>
                         <td className="px-6 py-4 text-right">
                           <a
                             href="https://auth.protrader.sim/register"

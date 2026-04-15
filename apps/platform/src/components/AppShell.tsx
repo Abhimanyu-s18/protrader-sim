@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
 import { useSocket } from '../hooks/useSocket'
+import { safeStorage } from '../lib/safeStorage'
 
 /** Reads the token from storage (client-side only). */
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token')
+  return safeStorage.get('access_token')
 }
 
 function isTokenValid(token: string): boolean {

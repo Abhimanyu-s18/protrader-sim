@@ -102,8 +102,9 @@ authRouter.post('/register', async (req, res, next) => {
       SELECT generate_lead_id()
     `
 
-    // Derive jurisdiction from country for compliance framework
-    const jurisdiction = deriveJurisdictionFromCountry(country)
+    // Derive jurisdiction from country for compliance framework.
+    // Falls back to 'OTHER' for countries not present in the jurisdiction map.
+    const jurisdiction = deriveJurisdictionFromCountry(country) ?? 'OTHER'
 
     // Create user
     const user = await prisma.user.create({
@@ -113,7 +114,7 @@ authRouter.post('/register', async (req, res, next) => {
         fullName: full_name,
         phone,
         country,
-        jurisdiction: jurisdiction as never,
+        jurisdiction,
         accountNumber,
         leadId,
         agentId,

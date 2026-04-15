@@ -9,10 +9,10 @@ import { hash } from 'bcrypt'
 const prisma = new PrismaClient()
 
 async function main() {
-  console.warn('🌱 Starting ProTraderSim seed...')
+  console.log('🌱 Starting ProTraderSim seed...')
 
   // ── STAFF ACCOUNTS ──────────────────────────────────────────────
-  console.warn('👤 Seeding staff accounts...')
+  console.log('👤 Seeding staff accounts...')
   const superAdminHash = await hash('SuperAdmin@123', 12)
   const adminHash = await hash('Admin@123456', 12)
   const tlHash = await hash('TeamLeader@123', 12)
@@ -74,7 +74,7 @@ async function main() {
 
   // ── INSTRUMENTS — FOREX 40 pairs ────────────────────────────────
   // Leverage updated for regulatory compliance (30:1 majors, 20:1 minors/exotics)
-  console.warn('📊 Seeding 60 instruments...')
+  console.log('📊 Seeding instruments...')
   const forexPairs = [
     // Major pairs — COMPLIANT LEVERAGE: 30:1 (ESMA/ASIC/DFSA regulation)
     {
@@ -781,7 +781,7 @@ async function main() {
   }
 
   // ── LEGAL DOCUMENTS ─────────────────────────────────────────────
-  console.warn('📜 Seeding legal documents...')
+  console.log('📜 Seeding legal documents...')
   const legalDocs = [
     { documentName: 'AML Policy', documentType: 'aml_policy', version: '1.0' },
     { documentName: 'Complaints Handling Procedure', documentType: 'complaints', version: '1.0' },
@@ -830,11 +830,11 @@ async function main() {
   // Count final seeded records
   const instrumentCount = await prisma.instrument.count()
   const staffCount = await prisma.staff.count()
-  console.warn(`✅ Seed complete:`)
-  console.warn(`   - ${instrumentCount} instruments (60 total)`)
-  console.warn(`   - ${staffCount} staff accounts`)
-  console.warn(`   - ${legalDocs.length} legal documents`)
-  console.warn(`   - Swap rates for all Forex instruments`)
+  console.log(`✅ Seed complete:`)
+  console.log(`   - ${instrumentCount} instruments`)
+  console.log(`   - ${staffCount} staff accounts`)
+  console.log(`   - ${legalDocs.length} legal documents`)
+  console.log(`   - Swap rates for all Forex instruments`)
 }
 
 main()

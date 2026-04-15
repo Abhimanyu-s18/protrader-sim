@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+
+const TERMS_EFFECTIVE_DATE = 'January 1, 2025'
 
 const SECTIONS = [
   {
@@ -48,6 +50,47 @@ const SECTIONS = [
 
 export function TermsContent() {
   const [activeSection, setActiveSection] = useState('introduction')
+  const observerRef = useRef<IntersectionObserver | null>(null)
+
+  useEffect(() => {
+    const visibleSections = new Set<string>()
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        // Update the visible set based on intersection state
+        for (const entry of entries) {
+          const id = entry.target.id
+          if (id) {
+            if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+              visibleSections.add(id)
+            } else {
+              visibleSections.delete(id)
+            }
+          }
+        }
+
+        // Compute the topmost visible section and update state once
+        if (visibleSections.size > 0) {
+          const sortedByPosition = Array.from(visibleSections).sort((aId, bId) => {
+            const aEl = document.getElementById(aId)
+            const bEl = document.getElementById(bId)
+            if (!aEl || !bEl) return 0
+            return (aEl.getBoundingClientRect().top || 0) - (bEl.getBoundingClientRect().top || 0)
+          })
+          const activeId = sortedByPosition[0]
+          if (activeId) setActiveSection(activeId)
+        }
+      },
+      { threshold: [0, 0.25, 0.5, 0.75, 1] },
+    )
+
+    SECTIONS.forEach((s) => {
+      const el = document.getElementById(s.id)
+      if (el) observerRef.current?.observe(el)
+    })
+
+    return () => observerRef.current?.disconnect()
+  }, [])
 
   return (
     <div className="min-h-screen bg-surface-alt">
@@ -64,6 +107,7 @@ export function TermsContent() {
                   <li key={s.id}>
                     <a
                       href={`#${s.id}`}
+                      aria-current={activeSection === s.id ? 'location' : undefined}
                       className={`block rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
                         activeSection === s.id
                           ? 'bg-primary-500/10 font-medium text-primary-500'
@@ -85,7 +129,7 @@ export function TermsContent() {
           <div className="mx-auto max-w-3xl bg-white p-6 lg:rounded-2xl lg:p-10 lg:shadow-sm">
             <header className="mb-10 border-b border-surface-border pb-8">
               <h1 className="text-3xl font-bold text-dark-700 md:text-4xl">Terms of Service</h1>
-              <p className="mt-4 text-gray-500">Last updated: January 1, 2025</p>
+              <p className="mt-4 text-gray-500">Last updated: {TERMS_EFFECTIVE_DATE}</p>
             </header>
 
             <div className="space-y-12">

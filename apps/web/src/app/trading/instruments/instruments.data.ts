@@ -1,13 +1,14 @@
 export type InstrumentCategory = 'Forex' | 'Stocks' | 'Indices' | 'Commodities' | 'Crypto'
 
 /**
- * Represents trading hours availability.
+ * Discriminated union representing trading hours availability.
  * @example { kind: '24/5' } or { kind: 'custom', customRange: '14:30–21:00 UTC' }
  */
-export interface HoursType {
-  kind: '24/7' | '24/5' | '23/5' | 'custom'
-  customRange?: string
-}
+export type HoursType =
+  | { kind: '24/7' }
+  | { kind: '24/5' }
+  | { kind: '23/5' }
+  | { kind: 'custom'; customRange: string }
 
 /**
  * Represents the spread with value and unit.
@@ -47,7 +48,7 @@ export interface Instrument {
  * 3. Enforce via requireKYC middleware in API routes
  * 4. Add unit tests validating leverage per jurisdiction
  */
-export const INSTRUMENTS: Instrument[] = [
+export const INSTRUMENTS = [
   // Forex - REGULATORY COMPLIANT LEVERAGE
   // ESMA (EU), ASIC (AU), DFSA (UAE) cap majors at 30:1 for retail
   {
@@ -188,21 +189,26 @@ export const INSTRUMENTS: Instrument[] = [
     leverage: '100:1',
     hours: { kind: '23/5' },
   },
+  // Stocks
   {
     symbol: 'UK100',
-    name: 'FTSE 100',
+    name: 'FTSE 100 Index',
     category: 'Indices',
-    spread: { value: 1.0, unit: 'points' },
+    spread: { value: 1.5, unit: 'points' },
     leverage: '100:1',
-    hours: { kind: 'custom', customRange: 'Mon–Fri' },
+    // NOTE: UK stock exchange hours (08:00–16:30 UTC) are fixed UTC windows.
+    // No seasonal DST adjustment applied here; backend/frontend should handle DST locally if needed.
+    hours: { kind: 'custom', customRange: '08:00–16:30 UTC' },
   },
   {
     symbol: 'GER40',
-    name: 'DAX 40',
+    name: 'DAX 40 Index',
     category: 'Indices',
-    spread: { value: 1.0, unit: 'points' },
+    spread: { value: 1.8, unit: 'points' },
     leverage: '100:1',
-    hours: { kind: 'custom', customRange: 'Mon–Fri' },
+    // NOTE: German stock exchange hours (08:00–16:30 UTC) are fixed UTC windows.
+    // No seasonal DST adjustment applied here; backend/frontend should handle DST locally if needed.
+    hours: { kind: 'custom', customRange: '08:00–16:30 UTC' },
   },
   {
     symbol: 'JPN225',
@@ -210,7 +216,7 @@ export const INSTRUMENTS: Instrument[] = [
     category: 'Indices',
     spread: { value: 7.0, unit: 'points' },
     leverage: '100:1',
-    hours: { kind: 'custom', customRange: 'Mon–Fri' },
+    hours: { kind: 'custom', customRange: '00:00–11:30 UTC' },
   },
   // Commodities
   {
@@ -294,4 +300,4 @@ export const INSTRUMENTS: Instrument[] = [
     leverage: '5:1',
     hours: { kind: '24/7' },
   },
-]
+] as const satisfies Instrument[]

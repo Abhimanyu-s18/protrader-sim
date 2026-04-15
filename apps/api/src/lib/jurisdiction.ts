@@ -1,12 +1,14 @@
+import type { Jurisdiction } from '@prisma/client'
+
 /**
  * Country to Jurisdiction mapping utility
  * Maps user's country of residence to regulatory jurisdiction
  * Determines maximum leverage and compliance framework
  */
 
-type Jurisdiction = 'EU' | 'UK' | 'AU' | 'AE' | 'SC' | 'MU' | 'US' | 'OTHER'
+type LocalJurisdiction = 'EU' | 'UK' | 'AU' | 'AE' | 'SC' | 'MU' | 'US' | 'OTHER'
 
-const COUNTRY_JURISDICTION_MAP: Record<string, Jurisdiction> = {
+const COUNTRY_JURISDICTION_MAP: Record<string, LocalJurisdiction> = {
   // EU jurisdictions (ESMA: 30:1 max leverage on majors)
   Austria: 'EU',
   Belgium: 'EU',
@@ -95,36 +97,38 @@ const COUNTRY_JURISDICTION_MAP: Record<string, Jurisdiction> = {
 }
 
 /**
- * Derive jurisdiction from user's country
+ * Derive jurisdiction from user's country.
+ * Returns null if the country is not recognized (not in the map).
  * @param country - User's country of residence
- * @returns Jurisdiction enum value, or 'OTHER' if no mapping found
+ * @returns Jurisdiction enum value, or null if no mapping found
  */
-export function deriveJurisdictionFromCountry(country: string): Jurisdiction {
+export function deriveJurisdictionFromCountry(country: string): Jurisdiction | null {
   if (!country || typeof country !== 'string') {
-    return 'OTHER'
+    return null
   }
 
   // Try exact match first
-  let jurisdiction = COUNTRY_JURISDICTION_MAP[country.trim()]
-  if (jurisdiction) {
+  const jurisdiction = COUNTRY_JURISDICTION_MAP[country.trim()]
+  if (jurisdiction !== undefined) {
     return jurisdiction
   }
 
   // Try case-insensitive match
-  const countryLower = country.toLowerCase()
+  const countryLower = country.trim().toLowerCase()
   for (const [key, value] of Object.entries(COUNTRY_JURISDICTION_MAP)) {
     if (key.toLowerCase() === countryLower) {
       return value
     }
   }
 
-  // Default to OTHER for unknown countries
-  return 'OTHER'
+  // Country not recognized — return null so callers can distinguish "unknown" from "OTHER"
+  return null
 }
 
 /**
- * Validate that country and jurisdiction are consistent
- * Used as a compliance check when updating user profile
+ * Validate that country and jurisdiction are consistent.
+ * Returns false if the country is unrecognized (not in the known map),
+ * preventing unknown country codes from being treated as valid matches.
  * @param country - User's country
  * @param jurisdiction - User's current jurisdiction
  * @returns true if consistent, false otherwise
@@ -134,6 +138,9 @@ export function isCountryJurisdictionConsistent(
   jurisdiction: Jurisdiction,
 ): boolean {
   const derivedJurisdiction = deriveJurisdictionFromCountry(country)
+  if (derivedJurisdiction === null) {
+    return false
+  }
   return derivedJurisdiction === jurisdiction
 }
 

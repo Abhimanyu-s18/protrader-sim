@@ -16,8 +16,13 @@ function formatCommission(account: AccountType): string {
 }
 
 function formatMinDeposit(account: AccountType): string {
-  return `$${account.minDepositAmount.toLocaleString()}`
+  return `$${currencyFormatter.format(account.minDepositAmount)}`
 }
+
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+})
 
 /**
  * AccountTypesSection - Account tier comparison

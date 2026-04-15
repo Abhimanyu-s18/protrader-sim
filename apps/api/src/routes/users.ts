@@ -98,7 +98,12 @@ usersRouter.put('/me', async (req, res, next) => {
         select: { jurisdiction: true },
       })
 
-      if (user && !isCountryJurisdictionConsistent(body.data.country, user.jurisdiction as any)) {
+      if (!user) {
+        next(Errors.notFound('User'))
+        return
+      }
+
+      if (!isCountryJurisdictionConsistent(body.data.country, user.jurisdiction)) {
         next(
           Errors.validation({
             country: [

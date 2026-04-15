@@ -9,6 +9,35 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 export const adminRouter: ExpressRouter = Router()
+
+/**
+ * Safely extract a BigInt from route parameters.
+ * Throws a clear error if conversion fails.
+ */
+function getParamBigInt(param: string | undefined, paramName: string): bigint {
+  if (!param) throw new Error(`Missing ${paramName} parameter`)
+  try {
+    return BigInt(param)
+  } catch {
+    throw new Error(`Invalid ${paramName} parameter: must be an integer`)
+  }
+}
+
+/**
+ * Extract the authenticated admin user's ID from the request.
+ * Throws AppError if user data is missing or invalid.
+ */
+function getAdminUserId(req: Express.Request): bigint {
+  if (!req.user?.user_id) {
+    throw new AppError('UNAUTHORIZED', 'Admin user ID not found', 401)
+  }
+  try {
+    return BigInt(req.user.user_id)
+  } catch {
+    throw new AppError('INTERNAL_ERROR', 'Invalid admin user ID format', 500)
+  }
+}
+
 adminRouter.use(requireAuth)
 adminRouter.use(requireRole('SUPER_ADMIN', 'ADMIN'))
 
@@ -79,7 +108,7 @@ adminRouter.get('/users', async (req, res, next) => {
 adminRouter.get('/users/:id', async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({
-      where: { id: BigInt(req.params['id']!) },
+      where: { id: getParamBigInt(req.params['id'], 'id') },
       include: {
         kycDocuments: true,
         deposits: { take: 10, orderBy: { createdAt: 'desc' } },
@@ -102,7 +131,7 @@ adminRouter.put('/users/:id/status', async (req, res, next) => {
       .object({ status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']) })
       .parse(req.body)
     const user = await prisma.user.update({
-      where: { id: BigInt(req.params['id']!) },
+      where: { id: getParamBigInt(req.params['id'], 'id') },
       data: { accountStatus: status },
       select: { id: true, accountStatus: true },
     })
@@ -117,7 +146,7 @@ adminRouter.post('/users/:id/adjustment', async (req, res, next) => {
     const { amount_cents, description } = z
       .object({ amount_cents: z.number().int(), description: z.string().min(5) })
       .parse(req.body)
-    const userId = BigInt(req.params['id']!)
+    const userId = getParamBigInt(req.params['id'], 'id')
     await prisma.$transaction(
       async (tx) => {
         const [bal] = await tx.$queryRaw<
@@ -130,7 +159,7 @@ adminRouter.post('/users/:id/adjustment', async (req, res, next) => {
             amountCents: BigInt(amount_cents),
             balanceAfterCents: (bal?.balance_cents ?? 0n) + BigInt(amount_cents),
             description,
-            createdBy: BigInt(req.user!.user_id),
+            createdBy: getAdminUserId(req),
           },
         })
       },
@@ -200,11 +229,11 @@ adminRouter.put('/kyc/:doc_id', async (req, res, next) => {
       .parse(req.body)
 
     const doc = await prisma.kycDocument.update({
-      where: { id: BigInt(req.params['doc_id']!) },
+      where: { id: getParamBigInt(req.params['doc_id'], 'doc_id') },
       data: {
         status: status as never,
         rejectionReason: rejection_reason ?? null,
-        reviewedBy: BigInt(req.user!.user_id),
+        reviewedBy: BigInt((req.user as { user_id: string }).user_id),
         reviewedAt: new Date(),
       },
       include: { user: { select: { id: true, kycStatus: true } } },
@@ -293,7 +322,7 @@ adminRouter.put('/deposits/:id', async (req, res, next) => {
         bonus_cents: z.number().int().min(0).default(0),
       })
       .parse(req.body)
-    const depositId = BigInt(req.params['id']!)
+    const depositId = getParamBigInt(req.params['id'], 'id')
 
     // Process deposit completion within a transaction with proper isolation
     await prisma.$transaction(
@@ -316,7 +345,7 @@ adminRouter.put('/deposits/:id', async (req, res, next) => {
           data: {
             status: status as never,
             bonusCents: BigInt(bonus_cents),
-            processedBy: BigInt(req.user!.user_id),
+            processedBy: BigInt((req.user as { user_id: string }).user_id),
             processedAt: new Date(),
           },
         })
@@ -336,7 +365,7 @@ adminRouter.put('/deposits/:id', async (req, res, next) => {
               referenceId: deposit.id,
               referenceType: 'DEPOSIT',
               description: 'Manual deposit approval',
-              createdBy: BigInt(req.user!.user_id),
+              createdBy: BigInt((req.user as { user_id: string }).user_id),
             },
           })
         }
@@ -387,7 +416,7 @@ adminRouter.put('/withdrawals/:id', async (req, res, next) => {
         rejection_reason: z.string().optional(),
       })
       .parse(req.body)
-    const withdrawalId = BigInt(req.params['id']!)
+    const withdrawalId = getParamBigInt(req.params['id'], 'id')
 
     // Process withdrawal within a transaction with proper isolation
     await prisma.$transaction(
@@ -421,7 +450,7 @@ adminRouter.put('/withdrawals/:id', async (req, res, next) => {
           data: {
             status: status as never,
             rejectionReason: rejection_reason ?? null,
-            processedBy: BigInt(req.user!.user_id),
+            processedBy: BigInt((req.user as { user_id: string }).user_id),
             processedAt: new Date(),
           },
         })
@@ -442,7 +471,7 @@ adminRouter.put('/withdrawals/:id', async (req, res, next) => {
               referenceId: withdrawal.id,
               referenceType: 'WITHDRAWAL',
               description: 'Withdrawal rejected — funds returned',
-              createdBy: BigInt(req.user!.user_id),
+              createdBy: BigInt((req.user as { user_id: string }).user_id),
             },
           })
         }

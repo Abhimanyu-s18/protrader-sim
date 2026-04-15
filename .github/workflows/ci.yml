@@ -181,9 +181,11 @@ jobs:
           sleep 30
           curl -f ${{ secrets.STAGING_API_URL }}/health || exit 1
 
-  # ── JOB 6: Deploy to Production (AWS ECS) ───────────────────
+  # ── JOB 6: Deploy to Production (Cloudflare) ────────────────
+  # TODO: Configure Cloudflare Workers/Pages deployment
+  # Replace this job once Cloudflare project is set up
   deploy-production:
-    name: Deploy to Production (AWS ECS)
+    name: Deploy to Production (Cloudflare)
     runs-on: ubuntu-latest
     needs: [test, build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -191,56 +193,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.12.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build and push API image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/protrader-api:$IMAGE_TAG -f apps/api/Dockerfile .
-          docker push $ECR_REGISTRY/protrader-api:$IMAGE_TAG
-          docker tag $ECR_REGISTRY/protrader-api:$IMAGE_TAG $ECR_REGISTRY/protrader-api:latest
-          docker push $ECR_REGISTRY/protrader-api:latest
-
-      - name: Deploy to ECS
-        run: |
-          aws ecs update-service \
-            --cluster protrader-prod \
-            --service protrader-api \
-            --force-new-deployment \
-            --region eu-west-1
-
-      - name: Wait for deployment
-        run: |
-          aws ecs wait services-stable \
-            --cluster protrader-prod \
-            --services protrader-api \
-            --region eu-west-1
-
-      - name: Post-deploy health check
-        run: curl -f ${{ secrets.PROD_API_URL }}/health || exit 1
+      - name: Production deploy (not yet configured)
+        run: echo "Cloudflare production deployment not yet configured"
 
   # ── JOB 7: Deploy Frontend Apps to Vercel ───────────────────
   deploy-frontend:

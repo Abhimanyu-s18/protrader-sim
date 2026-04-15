@@ -26,7 +26,7 @@ function normalizeMarginLevel(marginLevelPct: string): string {
   if (normalized === '' || isNaN(numericValue) || numericValue < 0) {
     return ''
   }
-  return normalized
+  return String(numericValue)
 }
 
 /**
@@ -73,11 +73,13 @@ export function MarginCallEmail({
         </Text>
       ))}
 
-      <Section style={{ textAlign: 'center' }}>
-        <Link href={accountUrl} style={emailStyles.dangerButton}>
-          Manage Account Now
-        </Link>
-      </Section>
+      {accountUrl && (
+        <Section style={{ textAlign: 'center' }}>
+          <Link href={accountUrl} style={emailStyles.dangerButton}>
+            Manage Account Now
+          </Link>
+        </Section>
+      )}
 
       <Hr style={emailStyles.divider} />
 

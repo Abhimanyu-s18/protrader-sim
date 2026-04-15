@@ -3,7 +3,6 @@
  * Validates jurisdiction-aware leverage compliance across regulatory frameworks
  */
 
-import { describe, it, expect } from 'vitest'
 import { getLeverageLimit, validateLeverage } from './leverage-limits'
 
 describe('leverage-limits', () => {

@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
+import { safeStorage } from '../lib/safeStorage'
 
-/** Reads the access token from local/session storage (client-side only). */
+/**
+ * Reads the access token from storage via safe abstraction (client-side only).
+ * The safeStorage API abstracts the underlying localStorage/sessionStorage mechanism,
+ * returning the token or null when window is undefined or the key is not found.
+ */
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token')
+  return safeStorage.get('access_token')
 }
 
 function isValidToken(token: string): boolean {

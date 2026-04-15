@@ -1,15 +1,36 @@
 import { Router, type Router as ExpressRouter } from 'express'
+import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { serializeBigInt } from '../lib/calculations.js'
+import { Errors } from '../middleware/errorHandler.js'
 
 export const notificationsRouter: ExpressRouter = Router()
 notificationsRouter.use(requireAuth)
 
+// ── Schemas ───────────────────────────────────────────────────────
+
+const ListNotificationsSchema = z.object({
+  cursor: z.string().regex(/^\d+$/).optional(),
+  limit: z.string().regex(/^\d+$/).optional(),
+  unread_only: z.enum(['true', 'false']).optional(),
+})
+
+const NotificationIdParamSchema = z.object({
+  id: z.string().regex(/^\d+$/, 'id must be a numeric string'),
+})
+
+// ── Routes ────────────────────────────────────────────────────────
+
 // GET /v1/notifications
 notificationsRouter.get('/', async (req, res, next) => {
   try {
-    const { cursor, limit = '50', unread_only } = req.query as Record<string, string>
+    const query = ListNotificationsSchema.safeParse(req.query)
+    if (!query.success) {
+      next(Errors.validation(query.error.flatten().fieldErrors as Record<string, unknown>))
+      return
+    }
+    const { cursor, limit = '50', unread_only } = query.data
     const userId = BigInt(req.user!.user_id)
     const take = Math.min(parseInt(limit, 10), 200)
 
@@ -43,8 +64,13 @@ notificationsRouter.get('/', async (req, res, next) => {
 // PUT /v1/notifications/:id/read
 notificationsRouter.put('/:id/read', async (req, res, next) => {
   try {
+    const params = NotificationIdParamSchema.safeParse(req.params)
+    if (!params.success) {
+      next(Errors.validation(params.error.flatten().fieldErrors as Record<string, unknown>))
+      return
+    }
     await prisma.notification.updateMany({
-      where: { id: BigInt(req.params['id']!), userId: BigInt(req.user!.user_id) },
+      where: { id: BigInt(params.data.id), userId: BigInt(req.user!.user_id) },
       data: { isRead: true, readAt: new Date() },
     })
     res.json({ success: true })

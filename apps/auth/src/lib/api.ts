@@ -1,6 +1,7 @@
 import { createApiClient } from '@protrader/utils'
 import type { KycStatus } from '@protrader/types'
 import { createLogger } from './logger'
+import { safeStorage } from './safeStorage'
 
 type ApiError = { message?: string; [key: string]: unknown }
 
@@ -24,9 +25,7 @@ const api = createApiClient(API_BASE_URL)
 const authLogger = createLogger('auth')
 
 const getToken = () =>
-  typeof window !== 'undefined'
-    ? (window.localStorage.getItem('access_token') ?? window.sessionStorage.getItem('access_token'))
-    : null
+  typeof window !== 'undefined' ? safeStorage.get('access_token') : null
 
 export const login = async (data: {
   email: string
