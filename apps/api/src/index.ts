@@ -39,7 +39,7 @@ const httpServer = createServer(app)
 
 // ── Readiness State ───────────────────────────────────────────────
 let appReady = false
-let startupErrors: string[] = []
+const startupErrors: string[] = []
 
 // ── Socket.io (lazy init) ─────────────────────────────────────────
 // test-mode import should not auto-create socket server.
@@ -212,83 +212,101 @@ function isEntrypoint(): boolean {
 
 // Only start the server if this file is run directly (not imported for testing)
 if (isEntrypoint()) {
-  // ── Required Env Var Guard ──────────────────────────────────────
-  const REQUIRED_ENV = [
-    'JWT_PRIVATE_KEY',
-    'JWT_PUBLIC_KEY',
-    'DATABASE_URL',
-    'REDIS_URL',
-    'NOWPAYMENTS_IPN_SECRET',
-  ]
+  void (async () => {
+    // ── Required Env Var Guard ──────────────────────────────────────
+    const REQUIRED_ENV = [
+      'JWT_PRIVATE_KEY',
+      'JWT_PUBLIC_KEY',
+      'DATABASE_URL',
+      'REDIS_URL',
+      'NOWPAYMENTS_IPN_SECRET',
+    ]
 
-  const missing: string[] = []
-  for (const key of REQUIRED_ENV) {
-    if (!process.env[key]) {
-      missing.push(key)
+    const missing: string[] = []
+    for (const key of REQUIRED_ENV) {
+      if (!process.env[key]) {
+        missing.push(key)
+      }
     }
-  }
-  if (missing.length > 0) {
-    log.fatal(`Missing required env vars: ${missing.join(', ')}`)
-    process.exit(1)
-  }
-
-  await (async () => {
-    try {
-      await import('./workers/entry-order-expiry.js')
-      await import('./workers/deposit-confirm.js')
-      await import('./workers/pnl-snapshot.js')
-      await import('./workers/report-generator.js')
-    } catch (err) {
-      log.error({ err }, 'Failed to load worker modules')
-      startupErrors.push(err instanceof Error ? err.message : String(err))
-    }
-  })()
-
-  httpServer.listen(PORT, async () => {
-    log.info(
-      { port: PORT, env: process.env['NODE_ENV'] ?? 'development' },
-      'ProTraderSim API started, initializing critical services...',
-    )
-
-    try {
-      // Schedule BullMQ recurring jobs (rollover, PnL snapshot, KYC reminder)
-      log.info('Scheduling recurring jobs...')
-      await scheduleRecurringJobs()
-      log.info('Recurring jobs scheduled successfully')
-    } catch (err) {
-      const msg = `Failed to schedule recurring jobs: ${err instanceof Error ? err.message : String(err)}`
-      log.error({ err }, msg)
-      startupErrors.push(msg)
+    if (missing.length > 0) {
+      log.fatal(`Missing required env vars: ${missing.join(', ')}`)
+      process.exit(1)
     }
 
-    try {
-      // Initialize and register Socket.io once server is running
-      const socketServer = initSocketServer(httpServer)
+    const workerModules = [
+      './workers/entry-order-expiry.js',
+      './workers/deposit-confirm.js',
+      './workers/pnl-snapshot.js',
+      './workers/report-generator.js',
+    ]
 
-      // Start market data pipeline (Twelve Data WebSocket → Redis → Socket.io)
-      log.info('Starting market data pipeline...')
-      await startMarketData(socketServer)
-      log.info('Market data pipeline started successfully')
-    } catch (err) {
-      const msg = `Failed to start market data pipeline: ${err instanceof Error ? err.message : String(err)}`
-      log.error({ err }, msg)
-      startupErrors.push(msg)
-    }
-
-    // Mark app as ready only if no startup errors occurred
-    if (startupErrors.length === 0) {
-      appReady = true
-      log.info('All critical services initialized successfully. Server is ready.')
-    } else {
-      log.warn(
-        { errors: startupErrors },
-        'Server started with warnings but is not ready for traffic.',
+    httpServer.listen(PORT, async () => {
+      log.info(
+        { port: PORT, env: process.env['NODE_ENV'] ?? 'development' },
+        'ProTraderSim API started, initializing critical services...',
       )
-    }
-  })
 
-  process.on('SIGTERM', () => void shutdown('SIGTERM'))
-  process.on('SIGINT', () => void shutdown('SIGINT'))
+      // Load worker modules only after server is listening
+      try {
+        await Promise.all(
+          workerModules.map(async (modulePath) => {
+            try {
+              await import(modulePath)
+            } catch (err) {
+              log.error({ err, module: modulePath }, 'Failed to load worker module')
+              startupErrors.push(
+                `${modulePath}: ${err instanceof Error ? err.message : String(err)}`,
+              )
+            }
+          }),
+        )
+        log.info('Worker modules loaded successfully')
+      } catch (err) {
+        const msg = `Failed to load worker modules: ${err instanceof Error ? err.message : String(err)}`
+        log.error({ err }, msg)
+        startupErrors.push(msg)
+      }
+
+      try {
+        // Schedule BullMQ recurring jobs (rollover, PnL snapshot, KYC reminder)
+        log.info('Scheduling recurring jobs...')
+        await scheduleRecurringJobs()
+        log.info('Recurring jobs scheduled successfully')
+      } catch (err) {
+        const msg = `Failed to schedule recurring jobs: ${err instanceof Error ? err.message : String(err)}`
+        log.error({ err }, msg)
+        startupErrors.push(msg)
+      }
+
+      try {
+        // Initialize and register Socket.io once server is running
+        const socketServer = initSocketServer(httpServer)
+
+        // Start market data pipeline (Twelve Data WebSocket → Redis → Socket.io)
+        log.info('Starting market data pipeline...')
+        await startMarketData(socketServer)
+        log.info('Market data pipeline started successfully')
+      } catch (err) {
+        const msg = `Failed to start market data pipeline: ${err instanceof Error ? err.message : String(err)}`
+        log.error({ err }, msg)
+        startupErrors.push(msg)
+      }
+
+      // Mark app as ready only if no startup errors occurred
+      if (startupErrors.length === 0) {
+        appReady = true
+        log.info('All critical services initialized successfully. Server is ready.')
+      } else {
+        log.warn(
+          { errors: startupErrors },
+          'Server started with warnings but is not ready for traffic.',
+        )
+      }
+    })
+
+    process.on('SIGTERM', () => void shutdown('SIGTERM'))
+    process.on('SIGINT', () => void shutdown('SIGINT'))
+  })()
 }
 
 // ── Graceful Shutdown ─────────────────────────────────────────────
