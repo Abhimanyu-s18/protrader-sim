@@ -138,11 +138,11 @@ export default function DashboardPage() {
 
   // Consolidated live price subscriptions with deduped symbols
   const watchlistSymbols = useMemo(
-    () => watchlistData?.data.map((w) => w.symbol) ?? [],
+    () => watchlistData?.data?.map((w) => w.symbol) ?? [],
     [watchlistData],
   )
   const openTradeSymbols = useMemo(
-    () => [...new Set(openTradesData?.data.map((t) => t.symbol) ?? [])],
+    () => [...new Set(openTradesData?.data?.map((t) => t.symbol) ?? [])],
     [openTradesData],
   )
   const symbols = useMemo(

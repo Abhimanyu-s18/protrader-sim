@@ -2,6 +2,7 @@ import React from 'react'
 import { IconBarChart, IconLightning, IconShield, IconHeadset } from '../utils'
 
 interface WhyCard {
+  id: string
   icon: React.ReactNode
   title: string
   description: string
@@ -10,6 +11,7 @@ interface WhyCard {
 
 const cards: WhyCard[] = [
   {
+    id: 'ultra-low-spreads',
     icon: <IconBarChart aria-hidden="true" />,
     title: 'Ultra-Low Spreads',
     description:
@@ -17,6 +19,7 @@ const cards: WhyCard[] = [
     stat: 'From 0.0 pips',
   },
   {
+    id: 'lightning-execution',
     icon: <IconLightning aria-hidden="true" />,
     title: 'Lightning Execution',
     description:
@@ -24,6 +27,7 @@ const cards: WhyCard[] = [
     stat: '<1ms Execution',
   },
   {
+    id: 'segregated-funds',
     icon: <IconShield aria-hidden="true" />,
     title: 'Segregated Funds',
     description:
@@ -31,6 +35,7 @@ const cards: WhyCard[] = [
     stat: '100% Segregated',
   },
   {
+    id: 'expert-support',
     icon: <IconHeadset aria-hidden="true" />,
     title: '24/5 Expert Support',
     description:
@@ -60,7 +65,7 @@ export function WhySection() {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {cards.map((card) => (
             <div
-              key={card.title}
+              key={card.id}
               className="group rounded-2xl border border-surface-border bg-white p-8 transition-all duration-300 hover:border-primary-500/30 hover:shadow-card-hover"
             >
               <div className="mb-5">{card.icon}</div>

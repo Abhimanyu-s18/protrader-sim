@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { INSTRUMENTS } from '../../app/trading/instruments/instruments.data'
+import { INSTRUMENTS_COUNT } from '../../app/trading/instruments/instruments.data'
 
 type TabKey = 'forex' | 'stocks' | 'indices' | 'commodities' | 'crypto'
 
@@ -23,8 +23,8 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'crypto', label: 'Crypto' },
 ]
 
-// Derived from the single source of truth in instruments.data.ts
-const TOTAL_INSTRUMENTS = INSTRUMENTS.length
+// Count exported from instruments.data.ts to avoid bundling full array
+const TOTAL_INSTRUMENTS = INSTRUMENTS_COUNT
 
 const DATA: Record<TabKey, Instrument[]> = {
   forex: [

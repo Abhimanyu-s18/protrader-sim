@@ -4,14 +4,14 @@ import { prisma } from '../lib/prisma.js'
 import { getCachedPrice } from '../lib/redis.js'
 import { formatScaledPrice, serializeBigInt } from '../lib/calculations.js'
 import { Errors } from '../middleware/errorHandler.js'
-import type { AssetClass } from '@prisma/client'
+import { AssetClass } from '@prisma/client'
 
 export const instrumentsRouter: ExpressRouter = Router()
 
 // ── Schemas ───────────────────────────────────────────────────────
 
 const ListInstrumentsSchema = z.object({
-  asset_class: z.enum(['FOREX', 'STOCK', 'INDEX', 'COMMODITY', 'CRYPTO'] as const).optional(),
+  asset_class: z.nativeEnum(AssetClass).optional(),
 })
 
 const SymbolParamSchema = z.object({
@@ -20,11 +20,12 @@ const SymbolParamSchema = z.object({
 
 const OhlcvQuerySchema = z.object({
   interval: z.enum(['1min', '5min', '15min', '30min', '1h', '4h', '1day', '1week']).default('1h'),
-  limit: z
-    .string()
-    .transform((s) => parseInt(s, 10))
-    .refine((n) => n >= 1, 'limit must be >= 1')
-    .optional(),
+  limit: z.coerce
+    .number()
+    .min(1, 'limit must be >= 1')
+    .max(2000, 'limit must be <= 2000')
+    .optional()
+    .default(300),
 })
 
 // ── Routes ────────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ instrumentsRouter.get('/', async (req, res, next) => {
     const instruments = await prisma.instrument.findMany({
       where: {
         isActive: true,
-        ...(asset_class ? { assetClass: asset_class as AssetClass } : {}),
+        ...(asset_class ? { assetClass: asset_class } : {}),
       },
       orderBy: [{ assetClass: 'asc' }, { symbol: 'asc' }],
     })
@@ -132,7 +133,7 @@ instrumentsRouter.get('/:symbol/ohlcv', async (req, res, next) => {
       next(Errors.validation(query.error.flatten().fieldErrors as Record<string, unknown>))
       return
     }
-    const { interval, limit = 300 } = query.data
+    const { interval, limit } = query.data
 
     const instrument = await prisma.instrument.findUnique({
       where: { symbol },
@@ -146,7 +147,7 @@ instrumentsRouter.get('/:symbol/ohlcv', async (req, res, next) => {
     const candles = await prisma.ohlcvCandle.findMany({
       where: { instrumentId: instrument.id, interval },
       orderBy: { candleTime: 'desc' },
-      take: Math.min(limit, 2000),
+      take: limit,
       select: {
         openScaled: true,
         highScaled: true,

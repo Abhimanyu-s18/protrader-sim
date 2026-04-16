@@ -30,13 +30,6 @@ import { getRedis } from './lib/redis.js'
 import { createLogger } from './lib/logger.js'
 import { scheduleRecurringJobs } from './lib/queues.js'
 import { startMarketData, stopMarketData } from './services/market-data.js'
-import './workers/rollover.js'
-import './workers/email.js'
-import './workers/kyc-reminder.js'
-import './workers/entry-order-expiry.js'
-import './workers/deposit-confirm.js'
-import './workers/pnl-snapshot.js'
-import './workers/report-generator.js'
 import { shutdownNotificationWorker } from './workers/notification.js'
 
 const log = createLogger('server')
@@ -238,6 +231,18 @@ if (isEntrypoint()) {
     log.fatal(`Missing required env vars: ${missing.join(', ')}`)
     process.exit(1)
   }
+
+  await (async () => {
+    try {
+      await import('./workers/entry-order-expiry.js')
+      await import('./workers/deposit-confirm.js')
+      await import('./workers/pnl-snapshot.js')
+      await import('./workers/report-generator.js')
+    } catch (err) {
+      log.error({ err }, 'Failed to load worker modules')
+      startupErrors.push(err instanceof Error ? err.message : String(err))
+    }
+  })()
 
   httpServer.listen(PORT, async () => {
     log.info(

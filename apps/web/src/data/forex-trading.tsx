@@ -8,6 +8,117 @@
 import type React from 'react'
 import { unstable_cache } from 'next/cache'
 import { z } from 'zod'
+/**
+ * Resolves a feature's iconId to an icon component at render time.
+ * This avoids serializing functions in unstable_cache.
+ */
+export function resolveFeatureIcon(iconId: string | null | undefined): React.ComponentType {
+  const entry = iconId !== null && iconId !== undefined ? ICON_MAP[iconId] : undefined
+  if (entry !== undefined) {
+    return entry
+  }
+  return DefaultIcon
+}
+
+function IconTightSpreads(): React.ReactElement {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+      <polyline points="16 7 22 7 22 13" />
+    </svg>
+  )
+}
+
+function IconFastExecution(): React.ReactElement {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  )
+}
+
+function IconMarketAccess(): React.ReactElement {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  )
+}
+
+function IconRiskTools(): React.ReactElement {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  )
+}
+
+function DefaultIcon(): React.ReactElement {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 2v20M2 12h20" />
+    </svg>
+  )
+}
+
+const ICON_MAP: Record<string, React.ComponentType> = {
+  'tight-spreads': IconTightSpreads,
+  'fast-execution': IconFastExecution,
+  'market-access': IconMarketAccess,
+  'risk-tools': IconRiskTools,
+}
+
 export interface ForexPair {
   symbol: string
   description: string
@@ -29,7 +140,7 @@ export interface KeySpec {
 export interface Feature {
   title: string
   description: string
-  icon: () => React.ReactElement
+  iconId: string
   lastUpdated: string
   source: string
 }
@@ -165,99 +276,25 @@ export const KEY_SPECS: readonly KeySpec[] = [
   },
 ] as const
 
-function IconTightSpreads(): React.ReactElement {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-      <polyline points="16 7 22 7 22 13" />
-    </svg>
-  )
-}
-
-function IconFastExecution(): React.ReactElement {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
-  )
-}
-
-function IconMarketAccess(): React.ReactElement {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  )
-}
-
-function IconRiskTools(): React.ReactElement {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  )
-}
-
 export const FEATURES: readonly Feature[] = [
   {
     title: 'Tight Raw Spreads',
     description: 'EUR/USD from 0.0 pips on Pro accounts with direct market access pricing.',
-    icon: IconTightSpreads,
+    iconId: 'tight-spreads',
     lastUpdated: '2026-04-05',
     source: 'ProTraderSim trading specifications',
   },
   {
     title: 'Fast Execution',
     description: 'Sub-millisecond execution with no requotes, no dealing desk intervention.',
-    icon: IconFastExecution,
+    iconId: 'fast-execution',
     lastUpdated: '2026-04-05',
     source: 'ProTraderSim trading specifications',
   },
   {
     title: '24/5 Market Access',
     description: 'Trade Sunday 22:00 to Friday 22:00 UTC across all major currency pairs.',
-    icon: IconMarketAccess,
+    iconId: 'market-access',
     lastUpdated: '2026-04-05',
     source: 'ProTraderSim trading specifications',
   },
@@ -265,7 +302,7 @@ export const FEATURES: readonly Feature[] = [
     title: 'Advanced Risk Tools',
     description:
       'Stop loss, take profit, and trailing stop on every order to manage your exposure.',
-    icon: IconRiskTools,
+    iconId: 'risk-tools',
     lastUpdated: '2026-04-05',
     source: 'ProTraderSim trading specifications',
   },
@@ -338,7 +375,7 @@ const featureSchema = z.object({
   description: z.string(),
   lastUpdated: z.string(),
   source: z.string(),
-  iconId: z.string().nullable().optional(),
+  iconId: z.string(),
 })
 
 const stepSchema = z.object({
@@ -353,51 +390,21 @@ const stepSchema = z.object({
 const tradingContentSchema = z.object({
   forexPairs: z.array(forexPairSchema),
   keySpecs: z.array(keySpecSchema),
-  features: z.array(featureSchema),
+  features: z.array(featureSchema).transform((arr) => arr as readonly Feature[]),
   steps: z.array(stepSchema),
 })
 
 /**
- * Convert parsed API response to UI TradingContent type by mapping iconId to icon functions.
+ * Convert parsed API response to UI TradingContent type.
+ * iconId is kept as-is and resolved at render time via resolveFeatureIcon().
  */
 function mapApiResponseToTradingContent(
   parsed: z.infer<typeof tradingContentSchema>,
 ): TradingContent {
-  // Map iconId to icon components
-  const iconMap: Record<string, () => React.ReactElement> = {
-    'tight-spreads': IconTightSpreads,
-    'fast-execution': IconFastExecution,
-    'market-access': IconMarketAccess,
-    'risk-tools': IconRiskTools,
-  }
-
-  // Fallback icon for unmapped iconIds
-  function DefaultIcon(): React.ReactElement {
-    return (
-      <svg
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M12 2v20M2 12h20" />
-      </svg>
-    )
-  }
-
   return {
     forexPairs: parsed.forexPairs,
     keySpecs: parsed.keySpecs,
-    // Map features to add icon functions, using lookup map and fallback
-    features: parsed.features.map((feature) => ({
-      ...feature,
-      icon: feature.iconId && feature.iconId in iconMap ? iconMap[feature.iconId] : DefaultIcon,
-    })) as readonly Feature[],
+    features: parsed.features,
     steps: parsed.steps,
   }
 }

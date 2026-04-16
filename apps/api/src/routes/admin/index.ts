@@ -15,11 +15,11 @@ export const adminRouter: ExpressRouter = Router()
  * Throws a clear error if conversion fails.
  */
 function getParamBigInt(param: string | undefined, paramName: string): bigint {
-  if (!param) throw new Error(`Missing ${paramName} parameter`)
+  if (!param) throw new AppError('INVALID_PARAMS', `Missing ${paramName} parameter`, 400)
   try {
     return BigInt(param)
   } catch {
-    throw new Error(`Invalid ${paramName} parameter: must be an integer`)
+    throw new AppError('INVALID_PARAMS', `Invalid ${paramName} parameter: must be an integer`, 400)
   }
 }
 
@@ -233,7 +233,7 @@ adminRouter.put('/kyc/:doc_id', async (req, res, next) => {
       data: {
         status: status as never,
         rejectionReason: rejection_reason ?? null,
-        reviewedBy: BigInt((req.user as { user_id: string }).user_id),
+        reviewedBy: getAdminUserId(req),
         reviewedAt: new Date(),
       },
       include: { user: { select: { id: true, kycStatus: true } } },
@@ -323,6 +323,7 @@ adminRouter.put('/deposits/:id', async (req, res, next) => {
       })
       .parse(req.body)
     const depositId = getParamBigInt(req.params['id'], 'id')
+    const adminUserId = getAdminUserId(req)
 
     // Process deposit completion within a transaction with proper isolation
     await prisma.$transaction(
@@ -345,11 +346,14 @@ adminRouter.put('/deposits/:id', async (req, res, next) => {
           data: {
             status: status as never,
             bonusCents: BigInt(bonus_cents),
-            processedBy: BigInt((req.user as { user_id: string }).user_id),
+            processedBy: adminUserId,
             processedAt: new Date(),
           },
         })
         if (status === 'COMPLETED') {
+          if (deposit.userId === null) {
+            throw new AppError('INVALID_STATE', 'Deposit has no associated user.', 409)
+          }
           const total = deposit.amountCents + BigInt(bonus_cents)
           // Lock balance calculation within transaction
           const [bal] = await tx.$queryRaw<
@@ -365,7 +369,7 @@ adminRouter.put('/deposits/:id', async (req, res, next) => {
               referenceId: deposit.id,
               referenceType: 'DEPOSIT',
               description: 'Manual deposit approval',
-              createdBy: BigInt((req.user as { user_id: string }).user_id),
+              createdBy: adminUserId,
             },
           })
         }
@@ -417,6 +421,7 @@ adminRouter.put('/withdrawals/:id', async (req, res, next) => {
       })
       .parse(req.body)
     const withdrawalId = getParamBigInt(req.params['id'], 'id')
+    const adminUserId = getAdminUserId(req)
 
     // Process withdrawal within a transaction with proper isolation
     await prisma.$transaction(
@@ -450,13 +455,16 @@ adminRouter.put('/withdrawals/:id', async (req, res, next) => {
           data: {
             status: status as never,
             rejectionReason: rejection_reason ?? null,
-            processedBy: BigInt((req.user as { user_id: string }).user_id),
+            processedBy: adminUserId,
             processedAt: new Date(),
           },
         })
 
         // Only create reversal if transitioning to REJECTED (not already rejected)
         if (status === 'REJECTED' && withdrawal.status !== 'REJECTED') {
+          if (withdrawal.userId === null) {
+            throw new AppError('INVALID_STATE', 'Withdrawal has no associated user.', 409)
+          }
           // Reverse the balance deduction - lock balance calculation within transaction
           const [bal] = await tx.$queryRaw<
             [{ balance_cents: bigint }]
@@ -471,7 +479,7 @@ adminRouter.put('/withdrawals/:id', async (req, res, next) => {
               referenceId: withdrawal.id,
               referenceType: 'WITHDRAWAL',
               description: 'Withdrawal rejected — funds returned',
-              createdBy: BigInt((req.user as { user_id: string }).user_id),
+              createdBy: adminUserId,
             },
           })
         }

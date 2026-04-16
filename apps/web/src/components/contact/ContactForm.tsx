@@ -106,9 +106,12 @@ export function ContactForm() {
     try {
       setIsSubmitting(true)
       // Simulate async submission delay
+      // NOTE: This is placeholder — real API submission will replace the Promise and may throw/reject,
+      // triggering the catch block to set submitError for future network/validation errors.
       await new Promise((resolve) => setTimeout(resolve, 800))
       setSubmitted(true)
     } catch {
+      // Error handling retained for future real API submission (network failures, validation errors, etc.)
       setSubmitError('Failed to send message. Please try again.')
     } finally {
       setIsSubmitting(false)

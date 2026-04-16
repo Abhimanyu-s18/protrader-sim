@@ -15,6 +15,13 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <script>
+      function escapeHtml(text) {
+        const div = document.createElement('div')
+        div.textContent = text || ''
+        return div.innerHTML
+      }
+    </script>
     <style>
       * {
         box-sizing: border-box;
@@ -2015,6 +2022,7 @@
       let lastModified = 0
       let watchInterval = null
       let isSaving = false
+      let declinedLastModified = 0
 
       function markChanged() {
         hasChanges = true
@@ -2033,6 +2041,7 @@
           await writable.close()
           const file = await taskFileHandle.getFile()
           lastModified = file.lastModified
+          declinedLastModified = 0 // Clear declined timestamp on save
           saveBtn.disabled = true
           showStatus('Saved')
         } catch (e) {
@@ -2044,15 +2053,31 @@
       }
 
       async function checkForExternalChanges() {
-        if (!taskFileHandle || hasChanges || isSaving) return
+        if (!taskFileHandle || isSaving) return
         try {
           const file = await taskFileHandle.getFile()
           if (file.lastModified > lastModified) {
+            // Skip confirmation if user previously declined this exact change
+            if (file.lastModified === declinedLastModified) return
+
+            // Check if there are local changes that would be overwritten
+            if (hasChanges) {
+              const userChoice = confirm(
+                'External changes detected. Local changes will be lost. Reload anyway?',
+              )
+              if (!userChoice) {
+                declinedLastModified = file.lastModified
+                return
+              }
+            }
+
             lastModified = file.lastModified
+            declinedLastModified = 0 // Clear declined timestamp on successful reload
             const content = await file.text()
             const result = parseTaskMarkdown(content)
             sections = result.sections
             tasks = result.tasks
+            hasChanges = false // Reset changes after reload
             renderTasks()
             showStatus('Reloaded')
           }
@@ -2350,11 +2375,38 @@
 
         const checkbox = document.createElement('span')
         checkbox.className = `checkbox ${task.checked ? 'checked' : ''}`
+        checkbox.setAttribute('role', 'checkbox')
+        checkbox.setAttribute('tabindex', '0')
+        checkbox.setAttribute('aria-checked', task.checked ? 'true' : 'false')
         checkbox.addEventListener('click', (e) => {
           e.stopPropagation()
           task.checked = !task.checked
+          checkbox.setAttribute('aria-checked', task.checked ? 'true' : 'false')
           markChanged()
           renderTasks()
+        })
+        function renderTasksAndRestoreFocus(taskId, isSubtask = false, subtaskIdx = null) {
+          renderTasks()
+          // Restore focus after DOM recreation
+          setTimeout(() => {
+            const item = document.querySelector(`[data-task-id="${taskId}"]`)
+            if (!item) return
+            if (isSubtask && subtaskIdx !== null) {
+              const subtaskCheckboxes = item.querySelectorAll('.list-item-subtask .checkbox')
+              subtaskCheckboxes[subtaskIdx]?.focus()
+            } else {
+              item.querySelector(':scope > .checkbox')?.focus()
+            }
+          }, 0)
+        }
+
+        checkbox.addEventListener('keydown', (e) => {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault()
+            task.checked = !task.checked
+            markChanged()
+            renderTasksAndRestoreFocus(task.id)
+          }
         })
 
         const content = document.createElement('div')
@@ -2399,11 +2451,24 @@
 
             const stCheckbox = document.createElement('span')
             stCheckbox.className = `checkbox ${st.checked ? 'checked' : ''}`
+            stCheckbox.setAttribute('role', 'checkbox')
+            stCheckbox.setAttribute('tabindex', '0')
+            stCheckbox.setAttribute('aria-checked', st.checked ? 'true' : 'false')
             stCheckbox.addEventListener('click', (e) => {
               e.stopPropagation()
               st.checked = !st.checked
+              stCheckbox.setAttribute('aria-checked', st.checked ? 'true' : 'false')
               markChanged()
               renderTasks()
+            })
+            stCheckbox.addEventListener('keydown', (e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault()
+                st.checked = !st.checked
+                stCheckbox.setAttribute('aria-checked', st.checked ? 'true' : 'false')
+                markChanged()
+                renderTasks()
+              }
             })
 
             const stText = document.createElement('span')
@@ -2792,12 +2857,6 @@
       const memoryTabsContainer = document.getElementById('memoryTabsContainer')
       const memoryContentContainer = document.getElementById('memoryContentContainer')
       const modalOverlay = document.getElementById('modalOverlay')
-
-      function escapeHtml(text) {
-        const div = document.createElement('div')
-        div.textContent = text || ''
-        return div.innerHTML
-      }
 
       function parseMemoryMarkdown(content) {
         const parsed = {
@@ -3382,16 +3441,9 @@
             }
 
             const forbiddenChars = /[\/\\<>:"*?|]/
-            const segments = fileName.replace(/\.md$/, '').split(/[/\\]/)
-            if (forbiddenChars.test(fileName)) {
+            if (forbiddenChars.test(fileName.replace(/\.md$/, ''))) {
               showStatus('Invalid filename: contains forbidden characters (\\ / < > : * ? " |)')
               return
-            }
-            for (const seg of segments) {
-              if (seg === '..' || seg === '.') {
-                showStatus('Invalid filename: path segments like "." and ".." are not allowed')
-                return
-              }
             }
             const nameWithoutExt = fileName.replace(/\.md$/, '')
             if (nameWithoutExt.length > 100) {

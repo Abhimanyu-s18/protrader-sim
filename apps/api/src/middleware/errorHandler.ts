@@ -31,6 +31,8 @@ export const Errors = {
     new AppError('MARKET_CLOSED', `${symbol} is not available for trading at this time.`, 409),
   invalidRate: (hint: string) => new AppError('INVALID_RATE', hint, 422),
   duplicate: (field: string) => new AppError('DUPLICATE', `${field} already exists.`, 409),
+  conflict: (message?: string) =>
+    new AppError('CONFLICT', message ?? 'This resource is in a conflicting state.', 409),
   validation: (details: Record<string, unknown>) =>
     new AppError('VALIDATION_ERROR', 'Request validation failed.', 400, details),
   badRequest: (message: string) => new AppError('BAD_REQUEST', message, 400),

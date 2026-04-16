@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Jurisdiction-aware leverage validation system fully implemented across backend, frontend, and admin panel. System enforces regulatory compliance across 7 frameworks (EU, UK, US, ASIC, DFSA, FSA Seychelles, FSC Mauritius) with admin override capabilities.
+Jurisdiction-aware leverage validation system functionally complete across backend, frontend, and admin panel. System enforces regulatory compliance across 7 frameworks (EU, UK, US, ASIC, DFSA, FSA Seychelles, FSC Mauritius) with admin override capabilities.
 
 ---
 
@@ -11,7 +11,8 @@ Jurisdiction-aware leverage validation system fully implemented across backend, 
 ### 1. Backend Validation Engine ✅
 
 - **File**: `apps/api/src/lib/leverage-limits.ts`
-- **Tests**: 36 test cases (100% coverage)
+- **Tests**: 40 test cases covering all jurisdictions, asset classes, and edge cases
+- **Test file**: `apps/api/src/lib/leverage-limits.test.ts`
 - **Supports**: EU, UK, US, ASIC, DFSA, FSA Seychelles, FSC Mauritius
 - **Validates**: Leverage limits per jurisdiction per asset class
 
@@ -57,11 +58,11 @@ Jurisdiction-aware leverage validation system fully implemented across backend, 
 ## 📊 Test Results
 
 ```
-✓ src/lib/leverage-limits.test.ts (36 tests)
+✓ src/lib/leverage-limits.test.ts (40 tests)
 ✓ src/lib/calculations.test.ts (59 tests)
 
 Test Files  2 passed (2)
-     Tests  95 passed (95)
+     Tests  99 passed (99)
 ```
 
 **TypeScript**: ✅ All packages pass strict mode
@@ -198,6 +199,7 @@ DELETE /v1/admin/leverage-overrides/123456?asset_class=FOREX
 - `apps/api/src/lib/leverage-limits.test.ts` ⭐ NEW
 - `LEVERAGE_LIMITS_QUICKSTART.md` ⭐ NEW
 - `LEVERAGE_LIMITS_COMPLETE.md` ⭐ NEW
+- `/docs/Compliance & Operations/Leverage_Updates_Log.md` ⭐ NEW (append-only compliance audit trail)
 
 ### Modified
 
@@ -211,13 +213,13 @@ DELETE /v1/admin/leverage-overrides/123456?asset_class=FOREX
 
 ## ✅ Quality Checklist
 
-- [x] 36 leverage validation tests passing
+- [x] 40 leverage validation tests passing
 - [x] 59 calculation tests passing
 - [x] TypeScript strict mode compliance
 - [x] API route validates leverage before trade creation
 - [x] Admin endpoints with RBAC (SUPER_ADMIN/ADMIN)
 - [x] Redis storage for overrides (auto-expiry)
-- ⚠️ Console logging for audit trail (replace with persistent AuditService)
+- [ ] Console logging for audit trail (NOT PRODUCTION-READY) - TODO: Implement persistent AuditService with tamper-evidence, retention, and queryability
 - [x] Clear error messages for traders
 - [x] Admin UI for create/revoke overrides
 - [x] Frontend displays user jurisdiction
@@ -376,8 +378,9 @@ If a trader needs leverage above their jurisdiction limit:
 → Ensure `packages/types/src/index.ts` has `jurisdiction: Jurisdiction` on User interface
 
 **Override not working**
-→ Check Redis connection: `redis-cli keys "leverage_override:*"`
-→ Verify override hasn't expired (check `expires_at` timestamp)
+→ Use admin API endpoints: `GET /admin/overrides` and `GET /admin/overrides/stats`
+→ Example: `curl -H "Authorization: Bearer $JWT" http://localhost:4000/api/admin/overrides`
+→ Verify override hasn't expired (check `expires_at` timestamp in response)
 → Ensure admin has SUPER_ADMIN or ADMIN role
 
 **Trader leverage still rejected after override**
@@ -387,6 +390,6 @@ If a trader needs leverage above their jurisdiction limit:
 ---
 
 **Implementation Date**: April 14, 2026
-**Status**: ✅ COMPLETE
+**Status**: ✅ FUNCTIONALLY COMPLETE — ⚠️ NOT PRODUCTION-READY (operational setup required)
 **Tests**: 95 passing
 **TypeScript**: ✅ Strict mode compliant

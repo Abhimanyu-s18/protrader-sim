@@ -19,7 +19,8 @@ function isTokenValid(token: string): boolean {
     const pad = base64.length % 4
     const padded = base64 + (pad === 2 ? '==' : pad === 3 ? '=' : '')
     const payload = JSON.parse(atob(padded)) as { exp?: number }
-    // Add 30s clock-skew tolerance to avoid premature expiry
+    // Subtract 30s safety buffer to ensure tokens are treated as expired 30s earlier,
+    // preventing them from being rejected by the server due to clock skew.
     const SKEW_MS = 30000
     return typeof payload.exp === 'number' && payload.exp * 1000 - SKEW_MS > Date.now()
   } catch {

@@ -26,6 +26,13 @@ const NAV_ITEMS: { href: string; label: string; icon: IconComponent }[] = [
 ]
 
 async function logout() {
+  if (process.env.NODE_ENV === 'production' && !process.env['NEXT_PUBLIC_AUTH_URL']) {
+    console.error('Auth URL not configured for production')
+    safeStorage.remove('access_token')
+    window.location.href = '/'
+    return
+  }
+
   const token = safeStorage.get('access_token')
 
   try {

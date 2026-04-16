@@ -14,7 +14,27 @@ interface ErrorProps {
 export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
     console.error(error)
-    // TODO: Send to error reporting service (Sentry, DatadogRUM, etc.) when configured
+
+    if ('Sentry' in window) {
+      try {
+        const Sentry = (window as unknown as { Sentry: { captureException: (err: Error) => void } })
+          .Sentry
+        Sentry.captureException(error)
+      } catch (err) {
+        console.debug('Failed to report to Sentry:', err)
+      }
+    } else if ('datadogRum' in window) {
+      try {
+        const datadogRum = (
+          window as unknown as {
+            datadogRum: { addError: (err: unknown, context?: unknown) => void }
+          }
+        ).datadogRum
+        datadogRum.addError(error, { source: 'ErrorBoundary' })
+      } catch (err) {
+        console.debug('Failed to report to Datadog:', err)
+      }
+    }
   }, [error])
 
   return (
@@ -42,7 +62,7 @@ export default function Error({ error, reset }: ErrorProps) {
           issue persists.
         </p>
         {error.digest && (
-          <p className="mt-2 font-mono text-xs text-gray-600">Error ID: {error.digest}</p>
+          <p className="mt-2 font-mono text-xs text-gray-500">Error ID: {error.digest}</p>
         )}
         <button
           type="button"

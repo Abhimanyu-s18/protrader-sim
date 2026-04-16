@@ -4,6 +4,39 @@
  * These helpers silently fall back to null/no-op rather than crashing the app.
  */
 export const safeStorage = {
+  /**
+   * Set a value — tries localStorage first, then sessionStorage as fallback.
+   * Silently no-ops on Storage errors (private browsing, quota exceeded, etc.).
+   */
+  set(key: string, value: string): void {
+    // Try localStorage first
+    try {
+      localStorage.setItem(key, value)
+      // Clear from sessionStorage to avoid stale data
+      try {
+        sessionStorage.removeItem(key)
+      } catch {
+        // ignore
+      }
+      return
+    } catch {
+      // localStorage access failed or quota exceeded, continue to sessionStorage
+    }
+
+    // Try sessionStorage as fallback
+    try {
+      sessionStorage.setItem(key, value)
+      // Clear from localStorage to avoid stale data
+      try {
+        localStorage.removeItem(key)
+      } catch {
+        // ignore
+      }
+    } catch {
+      // sessionStorage access also failed — silently ignore
+    }
+  },
+
   /** Get a value — tries localStorage first, then sessionStorage. Returns null on error or miss. */
   get(key: string): string | null {
     // Try localStorage first

@@ -30,6 +30,7 @@ export default function Error({ error, reset }: ErrorProps) {
         )}
         <div className="mt-6 flex flex-col gap-3">
           <button
+            type="button"
             onClick={reset}
             className="w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
           >

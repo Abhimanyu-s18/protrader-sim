@@ -12,7 +12,10 @@ notificationsRouter.use(requireAuth)
 
 const ListNotificationsSchema = z.object({
   cursor: z.string().regex(/^\d+$/).optional(),
-  limit: z.string().regex(/^\d+$/).optional(),
+  limit: z
+    .string()
+    .regex(/^[1-9]\d*$/)
+    .optional(),
   unread_only: z.enum(['true', 'false']).optional(),
 })
 
@@ -31,7 +34,12 @@ notificationsRouter.get('/', async (req, res, next) => {
       return
     }
     const { cursor, limit = '50', unread_only } = query.data
-    const userId = BigInt(req.user!.user_id)
+    const user = req.user
+    if (!user) {
+      next(Errors.unauthorized())
+      return
+    }
+    const userId = BigInt(user.user_id)
     const take = Math.min(parseInt(limit, 10), 200)
 
     const notifications = await prisma.notification.findMany({
@@ -69,8 +77,13 @@ notificationsRouter.put('/:id/read', async (req, res, next) => {
       next(Errors.validation(params.error.flatten().fieldErrors as Record<string, unknown>))
       return
     }
+    const user = req.user
+    if (!user) {
+      next(Errors.unauthorized())
+      return
+    }
     await prisma.notification.updateMany({
-      where: { id: BigInt(params.data.id), userId: BigInt(req.user!.user_id) },
+      where: { id: BigInt(params.data.id), userId: BigInt(user.user_id) },
       data: { isRead: true, readAt: new Date() },
     })
     res.json({ success: true })
@@ -82,8 +95,13 @@ notificationsRouter.put('/:id/read', async (req, res, next) => {
 // PUT /v1/notifications/read-all
 notificationsRouter.put('/read-all', async (req, res, next) => {
   try {
+    const user = req.user
+    if (!user) {
+      next(Errors.unauthorized())
+      return
+    }
     await prisma.notification.updateMany({
-      where: { userId: BigInt(req.user!.user_id), isRead: false },
+      where: { userId: BigInt(user.user_id), isRead: false },
       data: { isRead: true, readAt: new Date() },
     })
     res.json({ success: true })

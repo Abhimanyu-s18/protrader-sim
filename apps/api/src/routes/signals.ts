@@ -5,21 +5,15 @@ import { requireAuth } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
 import { serializeBigInt } from '../lib/calculations.js'
 
+const AssetClassEnum = z.enum(['FOREX', 'STOCK', 'INDEX', 'COMMODITY', 'CRYPTO'])
+
 export const signalsRouter: ExpressRouter = Router()
 signalsRouter.use(requireAuth)
 
 // ── Schemas ───────────────────────────────────────────────────────
 
 const ListSignalsSchema = z.object({
-  asset_class: z
-    .nativeEnum({
-      FOREX: 'FOREX',
-      STOCK: 'STOCK',
-      INDEX: 'INDEX',
-      COMMODITY: 'COMMODITY',
-      CRYPTO: 'CRYPTO',
-    } as const)
-    .optional(),
+  asset_class: AssetClassEnum.optional(),
   watchlist_only: z.enum(['true', 'false']).optional(),
 })
 

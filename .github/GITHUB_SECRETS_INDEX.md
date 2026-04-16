@@ -103,7 +103,7 @@ This document suite provides complete instructions for setting up **18 GitHub re
 - `test`: Uses `JWT_*_TEST` keys, `DATABASE_URL`
 - `build`: Uses `TURBO_*`, `NEXT_PUBLIC_*`
 - `deploy-staging`: Uses `RAILWAY_TOKEN`, `STAGING_API_URL`
-- `deploy-production`: Uses `AWS_*`, `PROD_API_URL`
+- `deploy-production`: ⚠️ Currently a placeholder — Cloudflare deployment not yet configured
 - `deploy-frontend` _(matrix — runs once per app)_: Uses `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID_WEB`, `VERCEL_PROJECT_ID_AUTH`, `VERCEL_PROJECT_ID_PLATFORM`, `VERCEL_PROJECT_ID_ADMIN`, `VERCEL_PROJECT_ID_IB_PORTAL`
 
 ---
@@ -211,12 +211,6 @@ Obtain each by running `vercel link` inside the app directory, then reading `cat
 
 ### Get Turbo Team
 
-```bash
-# 1. Go to: https://vercel.com/teams
-# 2. Copy Team Slug
-# 3. Set in GitHub as: gh secret set TURBO_TEAM --body "team-name"
-```
-
 ### Get Database URLs
 
 ```bash
@@ -318,7 +312,7 @@ git push -f origin develop
 ✓ test
 ✓ build
 ✓ deploy-staging (if on develop)
-✓ deploy-production (if on main)
+⏳ deploy-production (placeholder — pending Cloudflare configuration)
 ```
 
 ### Health Endpoint Validation

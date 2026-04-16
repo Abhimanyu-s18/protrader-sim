@@ -189,7 +189,6 @@ export const INSTRUMENTS = [
     leverage: '100:1',
     hours: { kind: '23/5' },
   },
-  // Stocks
   {
     symbol: 'UK100',
     name: 'FTSE 100 Index',
@@ -216,7 +215,7 @@ export const INSTRUMENTS = [
     category: 'Indices',
     spread: { value: 7.0, unit: 'points' },
     leverage: '100:1',
-    hours: { kind: 'custom', customRange: '00:00–11:30 UTC' },
+    hours: { kind: 'custom', customRange: '00:00–11:30 UTC' }, // includes extended/futures session
   },
   // Commodities
   {
@@ -301,3 +300,5 @@ export const INSTRUMENTS = [
     hours: { kind: '24/7' },
   },
 ] as const satisfies Instrument[]
+
+export const INSTRUMENTS_COUNT = INSTRUMENTS.length

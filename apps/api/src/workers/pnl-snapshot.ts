@@ -37,6 +37,7 @@ if (process.env['NODE_ENV'] !== 'test') {
 
       let processed = 0
       let skipped = 0
+      let totalMissingPrices = 0
 
       for (const { userId } of usersWithOpenTrades) {
         try {
@@ -66,10 +67,19 @@ if (process.env['NODE_ENV'] !== 'test') {
 
           let totalUnrealizedPnlCents = 0n
           let usedMarginCents = 0n
+          let skippedTrades = 0
 
           for (const trade of openTrades) {
             const cached = priceCache.get(trade.instrument.symbol)
-            if (!cached) continue // no live price — skip this trade
+            if (!cached) {
+              skippedTrades++
+              totalMissingPrices++
+              log.warn(
+                { symbol: trade.instrument.symbol, tradeId: trade.id },
+                'Skipped trade — no live price',
+              )
+              continue
+            }
 
             const midScaled = BigInt(cached.mid_scaled)
             const { bidScaled, askScaled } = calcBidAsk(
@@ -105,14 +115,15 @@ if (process.env['NODE_ENV'] !== 'test') {
             unrealizedPnlCents: totalUnrealizedPnlCents.toString(),
             equityCents: equityCents.toString(),
             usedMarginCents: usedMarginCents.toString(),
+            skippedTrades,
             snapshotAt,
           }
 
           // Insert into daily_pnl_snapshots table (idempotent via unique constraint on userId + snapshotAt)
           try {
             await prisma.$executeRaw`
-              INSERT INTO daily_pnl_snapshots (user_id, balance_cents, unrealized_pnl_cents, equity_cents, used_margin_cents, snapshot_at, created_at, source)
-              VALUES (${userId}, ${balanceCents}, ${totalUnrealizedPnlCents}, ${equityCents}, ${usedMarginCents}, ${snapshotAt}, NOW(), 'daily_pnl_snapshot')
+              INSERT INTO daily_pnl_snapshots (user_id, balance_cents, unrealized_pnl_cents, equity_cents, used_margin_cents, skipped_trades, snapshot_at, created_at, source)
+              VALUES (${userId}, ${balanceCents}, ${totalUnrealizedPnlCents}, ${equityCents}, ${usedMarginCents}, ${skippedTrades}, ${snapshotAt}, NOW(), 'daily_pnl_snapshot')
               ON CONFLICT (user_id, snapshot_at) DO NOTHING
             `
           } catch (insertErr) {
@@ -132,8 +143,8 @@ if (process.env['NODE_ENV'] !== 'test') {
         }
       }
 
-      log.info({ processed, skipped }, 'P&L snapshot run complete')
-      return { processed, skipped }
+      log.info({ processed, skipped, totalMissingPrices }, 'P&L snapshot run complete')
+      return { processed, skipped, totalMissingPrices }
     },
     { connection: getRedis() },
   )

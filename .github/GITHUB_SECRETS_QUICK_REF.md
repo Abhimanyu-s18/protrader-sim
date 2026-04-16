@@ -40,6 +40,32 @@ Application       17. NEXT_PUBLIC_API_URL              Staging/Prod   [ ]
 
 **⚠️ Security Note**: Never commit private keys to the repository. Generate in a secure location and delete local copies after adding to GitHub Secrets.
 
+Generate both keys using OpenSSL with these commands (see the detailed OpenSSL key generation example further down in this document):
+
+```bash
+# Generate 2048-bit RSA key pair (PKCS#8 format)
+openssl genpkey -algorithm RSA -out jwt-private.pem -pkeyopt rsa_keygen_bits:2048
+
+# Extract public key from the private key
+openssl pkey -pubout -in jwt-private.pem -out jwt-public.pem
+
+# Format with escaped newlines for GitHub Secrets (cross-platform alternative)
+# Option 1: Using awk (macOS/Linux/Windows Git Bash)
+cat jwt-private.pem | awk '{printf "%s\\n", $0}' | sed '$d' | tr '\n' ' ' | sed 's/ /\\n/g'
+
+# Option 2: Using tr+sed (macOS/Linux)
+cat jwt-private.pem | tr '\n' '§' | sed 's/§/\\n/g'
+
+# Option 3: Using Perl (if available)
+cat jwt-private.pem | perl -pe 's/\n/\\n/'
+```
+
+**⚠️ Important**:
+
+1. Copy the **first** output (from `cat jwt-private.pem | ...`) into GitHub Secrets as **`JWT_PRIVATE_KEY_TEST`**
+2. Copy the **second** output (from `cat jwt-public.pem | ...`) into GitHub Secrets as **`JWT_PUBLIC_KEY_TEST`**
+3. Include all `\n` escape sequences (do NOT interpret them as actual newlines)
+
 ---
 
 ## External Service Sources
@@ -94,7 +120,7 @@ STEP 5: Generate Deployment Secrets (15 min)
 ├─☐ Get VERCEL_TOKEN from Vercel
 └─☐ Get VERCEL_ORG_ID from Vercel
 
-STEP 5b: Link Vercel Projects (15 min — one per app)
+STEP 6: Link Vercel Projects (15 min — one per app)
 ├─☐ cd apps/web && vercel link → copy projectId → set VERCEL_PROJECT_ID_WEB
 ├─☐ cd apps/auth && vercel link → copy projectId → set VERCEL_PROJECT_ID_AUTH
 ├─☐ cd apps/platform && vercel link → copy projectId → set VERCEL_PROJECT_ID_PLATFORM
@@ -102,13 +128,13 @@ STEP 5b: Link Vercel Projects (15 min — one per app)
 └─☐ cd apps/ib-portal && vercel link → copy projectId → set VERCEL_PROJECT_ID_IB_PORTAL
     (each projectId is in .vercel/project.json — do NOT commit these files)
 
-STEP 6: Add Application Config (10 min)
+STEP 7: Add Application Config (10 min)
 ├─☐ Set NEXT_PUBLIC_API_URL
 ├─☐ Set NEXT_PUBLIC_WS_URL (wss:// protocol)
 ├─☐ Set STAGING_API_URL
 └─☐ Set PROD_API_URL
 
-STEP 7: Validation (10 min)
+STEP 8: Validation (10 min)
 ├─☐ Trigger CI pipeline
 ├─☐ Check all jobs pass (including deploy-frontend matrix — 5 apps)
 ├─☐ Verify deployments
@@ -242,10 +268,19 @@ Run `vercel link` inside each app directory to connect it to a Vercel project. T
 
 ```bash
 # Quick loop — link all 5 apps and print their project IDs
+# Note: jq is optional; fallback to pure shell if not installed
 for app in web auth platform admin ib-portal; do
   cd apps/$app
   vercel link   # Follow prompts to select/create the Vercel project
-  echo "$app → $(cat .vercel/project.json)"
+
+  # Try jq first, fallback to grep+cut if not available
+  if command -v jq >/dev/null 2>&1; then
+    projectId=$(jq -r '.projectId' .vercel/project.json 2>/dev/null || echo "ERROR: Missing .vercel/project.json")
+  else
+    projectId=$(grep -o '"projectId":[[:space:]]*"[^"]*"' .vercel/project.json 2>/dev/null | cut -d'"' -f4 || echo "ERROR: Missing .vercel/project.json")
+  fi
+
+  echo "$app → $projectId"
   cd ../..
 done
 

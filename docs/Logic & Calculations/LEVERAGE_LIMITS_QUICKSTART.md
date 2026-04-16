@@ -10,8 +10,14 @@ Before using the leverage limit system, ensure you have the following:
   - Storing temporary admin leverage overrides (with auto-expiry via TTL)
   - Caching price data for real-time margin calculations and margin watch lists
 - **Connection**: Configure via `REDIS_URL` environment variable (default: `redis://localhost:6379`)
-- **Usage in leverage system**: Admin overrides stored as `leverage_override:{userId}:{assetClass}` with configurable TTL
+- **Redis v6.0+ Requirements**:
+  - **ACLs (Access Control Lists)**: Used for per-client authentication and authorization
+  - **Improved TTL semantics**: Enhanced key expiry behavior and lazy/active eviction policies
+  - **Streams (optional)**: Leveraged for event sourcing in audit log streaming
+  - **Commands used**: `SET` with `EX` (TTL), `GET`, `DEL`, `SMEMBERS`, `SADD`, `SREM`, `EXPIRE`
+- **Usage in leverage system**: Admin overrides stored as `leverage_override:{userId}:{assetClass}` with configurable TTL (default: 24h, set via `expires_in_hours` parameter)
 - **Additional usage**: Prices cached with TTL (`PRICE_TTL_SECONDS`), margin watch sets for monitoring open positions
+- **Minimum client**: redis-js v4.0+, redis-py v4.0+, or equivalent with v6 command support
 
 ### Node.js (v18+)
 
@@ -132,7 +138,7 @@ POST /v1/trades
 **How leverage is determined on the server:**
 
 1. Backend fetches the instrument's leverage from the database (e.g., EUR/USD has 50:1 leverage configured)
-2. If no instrument leverage exists, apply configured `defaultLeverage` (currently 1:1 fallback)
+2. If no instrument leverage exists, apply the jurisdiction's default maximum leverage (from jurisdiction-specific settings)
 3. Backend resolves any active user overrides from Redis (`leverage_override:{userId}:{assetClass}`)
 4. Backend maps instrument's asset class (Forex/Stock/Crypto/etc) to the user's jurisdiction
 5. Compares resolved leverage against jurisdiction limit (e.g., US/Stocks = 4:1 max)
@@ -290,16 +296,22 @@ If a trader receives this error, they should:
 
 ### Override not working
 
-### Redis connectivity behavior
+**Troubleshooting checklist**:
+
+- Verify Redis connection: `redis-cli ping` (should return "PONG")
+- Check admin API endpoints: `GET /admin/overrides` and `GET /admin/overrides/stats`
+- Example: `curl -H "Authorization: Bearer $JWT" http://localhost:4000/api/admin/overrides`
+- Verify override key format: `leverage_override:{userId}:{assetClass}`
+- Check TTL hasn't expired (look for `expires_at` in API response)
+- Ensure admin has SUPER_ADMIN or ADMIN role
+- Confirm asset class matching (FOREX vs STOCK vs CRYPTO)
+
+**Redis connectivity behavior**:
 
 - When Redis is unavailable:
   - **Leverage validation**: Fails closed — trades are rejected with 503 if overrides cannot be verified
   - **Price caching**: Fails open — fallback to database prices occurs
   - **Rationale**: Overrides may be compliance-critical; price cache is performance optimization
-- Check Redis connection status via logs in `apps/api/src/lib/redis.ts`
-- For production, ensure Redis has appropriate timeouts and retry logic configured
-- When Redis is unavailable, the system **fails open** for leverage validation — trades proceed without Redis-cached overrides
-- Price caching operations will fail silently; fallback to database prices occurs
 - Check Redis connection status via logs in `apps/api/src/lib/redis.ts`
 - For production, ensure Redis has appropriate timeouts and retry logic configured
 
@@ -354,7 +366,7 @@ To verify in code, check the override creation logic in the admin routes.
 - **Frontend**: Displays jurisdiction hint, Backend enforces limits
 - **Storage**: Overrides stored in Redis with auto-expiry (no DB migration needed)
 - **Audit**: ⚠️ **TODO** — Replace console logs with persistent audit trail:
-  - Add `override_audit` table with: `id`, `timestamp`, `admin_id`, `user_id`, `action` ("grant"|"revoke"), `asset_class`, `old_leverage`, `new_leverage`, `reason`, `request_id`
+  - Add `override_audit` table with: `id`, `timestamp`, `admin_id`, `user_id`, `action` ("GrantOverride"|"RevokeOverride"), `asset_class`, `old_leverage`, `new_leverage`, `reason`, `request_id`
   - Update `/admin/leverage-overrides` POST/DELETE routes to insert immutable audit row
   - Add composite indexes: `(user_id, timestamp)`, `(admin_id, timestamp)`, `(timestamp DESC)`
   - Add TTL policy: retain for 3 years (regulatory compliance)
@@ -370,14 +382,13 @@ To verify in code, check the override creation logic in the admin routes.
 
 🔴 **REQUIRED** before production deployment:
 
-1. **Persistent audit trail** — Implement `override_audit` table (see Architecture Notes for schema)
-   - Add `id`, `timestamp`, `admin_id`, `user_id`, `action` ("grant"|"revoke"), `asset_class`, `old_leverage`, `new_leverage`, `reason`, `request_id`
-   - Update `/admin/leverage-overrides` POST/DELETE routes to insert immutable audit rows
-   - Add composite indexes: `(user_id, timestamp)`, `(admin_id, timestamp)`, `(timestamp DESC)`
-   - Add TTL policy: retain for **3 years** (ESMA/CFTC/ASIC/DFSA regulatory compliance)
-   - Add tests verifying GrantOverride and RevokeOverride insert audit records
-   - Replace all `console.log()` calls for leverage overrides with calls to `insertAuditRecord()`
-2. **Regulatory compliance review** — Ensure all 7 frameworks (ESMA, FCA, SEC, CFTC, ASIC, DFSA, MiFID) are documented
+1. **Persistent audit trail** — See Architecture Notes → Audit section for complete schema and implementation requirements
+   - Implement immutable `override_audit` table with audit record insertion on all override operations
+   - Routes: `/admin/leverage-overrides` POST/DELETE must insert audit rows with admin_id, user_id, action ("GrantOverride"|"RevokeOverride"), asset_class, old_leverage, new_leverage, reason, request_id
+   - TTL: Retain **3 years** for ESMA, CFTC, ASIC, DFSA, FSA Seychelles, FSC Mauritius, and OTHER regulatory compliance
+   - Tests: Verify `GrantOverride` and `RevokeOverride` operations insert corresponding audit records
+   - All override operations must call `insertAuditRecord()` (remove `console.log()` calls)
+2. **Regulatory compliance review** — Ensure all 7 frameworks (EU/UK (ESMA), US (CFTC), ASIC, DFSA, FSA Seychelles, FSC Mauritius, OTHER) are documented
 3. **Security audit** — Verify RBAC enforcement and no privilege escalation vectors
 
 ## Next Steps (Optional Enhancements)

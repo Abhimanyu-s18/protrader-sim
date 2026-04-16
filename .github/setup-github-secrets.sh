@@ -1,5 +1,5 @@
-#!/bin/bash
-
+#!/bin/bash    done < "$file"
+}
 # ProTraderSim GitHub Secrets Setup Helper Script
 # Usage: bash setup-github-secrets.sh
 # Requires: GitHub CLI (gh) installed and authenticated
@@ -48,25 +48,23 @@ list_secrets() {
 generate_jwt_keys() {
     echo -e "${BLUE}🔐 Generating JWT RSA key pair...${NC}"
     
-    local jwt_dir="/tmp/jwt-keys-$$"
+    local jwt_dir="/tmp/jwt-keys-$"
     mkdir -p "$jwt_dir"
     
     # Cleanup trap to ensure directory removal on any exit
     trap "cd / && rm -rf \"$jwt_dir\"" EXIT INT TERM
     
-    cd "$jwt_dir"
-    
     # Generate private key
-    openssl genpkey -algorithm RSA -out jwt-private.pem -pkeyopt rsa_keygen_bits:2048
+    openssl genpkey -algorithm RSA -out "$jwt_dir/jwt-private.pem" -pkeyopt rsa_keygen_bits:2048
     echo -e "${GREEN}✓ Private key generated${NC}"
     
     # Extract public key
-    openssl rsa -pubout -in jwt-private.pem -out jwt-public.pem
+    openssl rsa -pubout -in "$jwt_dir/jwt-private.pem" -out "$jwt_dir/jwt-public.pem"
     echo -e "${GREEN}✓ Public key generated${NC}"
     
     # Format with escaped newlines
-    local private_key=$(cat jwt-private.pem | sed ':a;N;$!ba;s/\n/\\n/g')
-    local public_key=$(cat jwt-public.pem | sed ':a;N;$!ba;s/\n/\\n/g')
+    local private_key=$(sed ':a;N;$!ba;s/\n/\\n/g' "$jwt_dir/jwt-private.pem")
+    local public_key=$(sed ':a;N;$!ba;s/\n/\\n/g' "$jwt_dir/jwt-public.pem")
     
     # Display formatted keys
     echo -e "${YELLOW}⚠️  Copy these values to GitHub Secrets:${NC}"
@@ -110,13 +108,19 @@ set_secrets_from_file() {
     echo -e "${BLUE}📂 Reading secrets from: $file${NC}"
     
     # Skip comments and empty lines
-    while IFS='=' read -r name value; do
+    while IFS= read -r line; do
         # Skip empty lines and comments
-        [[ -z "$name" || "$name" =~ ^# ]] && continue
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
         
-        # Remove leading/trailing whitespace
+        # Split on first '=' only
+        name="${line%%=*}"
+        value="${line#*=}"
+        
+        # Remove leading/trailing whitespace from name
         name=$(echo "$name" | xargs)
-        value=$(echo "$value" | xargs)
+        
+        # Skip if name is empty
+        [[ -z "$name" ]] && continue
         
         # Skip if value is a token reference (will be prompted for)
         if [[ "$value" == "ASK" ]] || [[ -z "$value" ]]; then
@@ -126,38 +130,43 @@ set_secrets_from_file() {
         
         set_secret "$name" "$value"
     done < "$file"
-}
+
 
 # Interactive secret setup
 interactive_setup() {
     echo -e "${BLUE}🎯 Starting Interactive Setup${NC}"
     echo ""
     
-    local secrets=(
-        "TURBO_TOKEN:Get from https://vercel.com/account/tokens"
-        "TURBO_TEAM:Get from https://vercel.com/teams"
-        "DATABASE_URL:Get from Supabase/RDS dashboard"
-        "DIRECT_URL:Get from Supabase/RDS dashboard"
-        "JWT_PRIVATE_KEY_TEST:Run 'bash $0 --generate-jwt' to create"
-        "JWT_PUBLIC_KEY_TEST:Run 'bash $0 --generate-jwt' to create"
-        "NEXT_PUBLIC_API_URL:e.g. https://api-staging.railway.app"
-        "NEXT_PUBLIC_WS_URL:e.g. wss://api-staging.railway.app"
-        "RAILWAY_TOKEN:Get from https://railway.app/account/tokens"
-        "STAGING_API_URL:e.g. https://api-staging.railway.app/health"
-        "AWS_ACCESS_KEY_ID:Get from AWS IAM console"
-        "AWS_SECRET_ACCESS_KEY:Get from AWS IAM console"
-        "PROD_API_URL:e.g. https://api.protrader-sim.com/health"
-        "VERCEL_TOKEN:Get from https://vercel.com/account/tokens"
-        "VERCEL_ORG_ID:Get from https://vercel.com/account/settings"
+    # Hints for each secret
+    declare -A hints=(
+        [TURBO_TOKEN]="Get from https://vercel.com/account/tokens"
+        [TURBO_TEAM]="Get from https://vercel.com/teams"
+        [DATABASE_URL]="Get from Supabase/RDS dashboard"
+        [DIRECT_URL]="Get from Supabase/RDS dashboard"
+        [JWT_PRIVATE_KEY_TEST]="Run 'bash $0 --generate-jwt' to create"
+        [JWT_PUBLIC_KEY_TEST]="Run 'bash $0 --generate-jwt' to create"
+        [NEXT_PUBLIC_API_URL]="e.g. https://api-staging.railway.app"
+        [NEXT_PUBLIC_WS_URL]="e.g. wss://api-staging.railway.app"
+        [RAILWAY_TOKEN]="Get from https://railway.app/account/tokens"
+        [STAGING_API_URL]="e.g. https://api-staging.railway.app/health"
+        [AWS_ACCESS_KEY_ID]="Get from AWS IAM console"
+        [AWS_SECRET_ACCESS_KEY]="Get from AWS IAM console"
+        [PROD_API_URL]="e.g. https://api.protrader-sim.com/health"
+        [VERCEL_TOKEN]="Get from https://vercel.com/account/tokens"
+        [VERCEL_ORG_ID]="Get from https://vercel.com/account/settings"
+        [VERCEL_PROJECT_ID_WEB]="Run 'cd apps/web && vercel link' to get"
+        [VERCEL_PROJECT_ID_AUTH]="Run 'cd apps/auth && vercel link' to get"
+        [VERCEL_PROJECT_ID_PLATFORM]="Run 'cd apps/platform && vercel link' to get"
+        [VERCEL_PROJECT_ID_ADMIN]="Run 'cd apps/admin && vercel link' to get"
+        [VERCEL_PROJECT_ID_IB_PORTAL]="Run 'cd apps/ib-portal && vercel link' to get"
     )
     
-    for secret_info in "${secrets[@]}"; do
-        IFS=':' read -r name hint <<< "$secret_info"
-        
+    for name in "${expected_secrets[@]}"; do
         echo -e "${YELLOW}$name${NC}"
-        echo "  Hint: $hint"
+        echo "  Hint: ${hints[$name]}"
         
-        read -rp "  Enter value (or skip): " value
+        read -rsp "  Enter value (or skip): " value
+        echo ""  # Add newline after silent input
         
         if [ -n "$value" ]; then
             set_secret "$name" "$value"
@@ -189,28 +198,35 @@ delete_secret() {
     fi
 }
 
+# Define expected secrets (shared across script)
+expected_secrets=(
+    "TURBO_TOKEN"
+    "TURBO_TEAM"
+    "DATABASE_URL"
+    "DIRECT_URL"
+    "JWT_PRIVATE_KEY_TEST"
+    "JWT_PUBLIC_KEY_TEST"
+    "NEXT_PUBLIC_API_URL"
+    "NEXT_PUBLIC_WS_URL"
+    "RAILWAY_TOKEN"
+    "STAGING_API_URL"
+    "AWS_ACCESS_KEY_ID"
+    "AWS_SECRET_ACCESS_KEY"
+    "PROD_API_URL"
+    "VERCEL_TOKEN"
+    "VERCEL_ORG_ID"
+    "VERCEL_PROJECT_ID_WEB"
+    "VERCEL_PROJECT_ID_AUTH"
+    "VERCEL_PROJECT_ID_PLATFORM"
+    "VERCEL_PROJECT_ID_ADMIN"
+    "VERCEL_PROJECT_ID_IB_PORTAL"
+)
+
 # Verify secrets
 verify_secrets() {
     echo -e "${BLUE}✓ Current secrets in GitHub:${NC}"
     
     local count=0
-    local expected_secrets=(
-        "TURBO_TOKEN"
-        "TURBO_TEAM"
-        "DATABASE_URL"
-        "DIRECT_URL"
-        "JWT_PRIVATE_KEY_TEST"
-        "JWT_PUBLIC_KEY_TEST"
-        "NEXT_PUBLIC_API_URL"
-        "NEXT_PUBLIC_WS_URL"
-        "RAILWAY_TOKEN"
-        "STAGING_API_URL"
-        "AWS_ACCESS_KEY_ID"
-        "AWS_SECRET_ACCESS_KEY"
-        "PROD_API_URL"
-        "VERCEL_TOKEN"
-        "VERCEL_ORG_ID"
-    )
     
     local secrets_list=$(gh secret list --repo "$REPO" --json name -q ".[].name")
     
@@ -223,19 +239,22 @@ verify_secrets() {
         fi
     done
     
-    echo ""
-    echo -e "${BLUE}Status: $count/15 secrets configured${NC}"
     
-    if [ "$count" -eq 15 ]; then
+    local total=${#expected_secrets[@]}
+    echo ""
+    echo -e "${BLUE}Status: $count/$total secrets configured${NC}"
+    
+    if [ "$count" -eq "$total" ]; then
         echo -e "${GREEN}✓ All secrets configured!${NC}"
     else
-        echo -e "${YELLOW}⚠️  $((15 - count)) secrets still needed${NC}"
+        echo -e "${YELLOW}⚠️  $(($total - count)) secrets still needed${NC}"
     fi
 }
 
 # Display help
 show_help() {
-    cat << EOF
+  local total_expected="${#expected_secrets[@]}"
+  cat << EOF
 ${BLUE}ProTraderSim GitHub Secrets Manager${NC}
 
 Usage: bash $0 [COMMAND] [OPTIONS]
@@ -245,7 +264,7 @@ Commands:
   ${GREEN}--set${NC} NAME VALUE    Add or update a secret
   ${GREEN}--delete${NC} NAME       Delete a secret
   ${GREEN}--interactive${NC}       Interactive setup wizard (prompts for each secret)
-  ${GREEN}--verify${NC}            Show which secrets are configured (15 total)
+  ${GREEN}--verify${NC}            Show which secrets are configured (${total_expected} total)
   ${GREEN}--generate-jwt${NC}      Generate JWT RSA key pair
   ${GREEN}--from-file${NC} FILE   Load secrets from file (default: .github/secrets.env)
   ${GREEN}--help${NC}              Show this help message

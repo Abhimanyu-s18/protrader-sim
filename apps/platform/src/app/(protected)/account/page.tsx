@@ -71,6 +71,11 @@ const WithdrawSchema = z
 type DepositForm = z.infer<typeof DepositSchema>
 type WithdrawForm = z.infer<typeof WithdrawSchema>
 
+/** Converts a decimal USD amount to integer cents without floating-point drift. */
+function toCents(amount: number): number {
+  return Math.round(amount * 100)
+}
+
 // ── Sub-components ────────────────────────────────────────────────
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -169,7 +174,7 @@ export default function AccountPage() {
   const createDeposit = useMutation({
     mutationFn: (data: DepositForm) =>
       api.post<{ pay_address?: string; pay_amount?: string }>('/v1/deposits', {
-        amount_cents: Math.round(data.amount * 100),
+        amount_cents: toCents(data.amount),
         crypto_currency: data.crypto_currency,
       }),
     onMutate: () => {
@@ -194,7 +199,7 @@ export default function AccountPage() {
   const createWithdrawal = useMutation({
     mutationFn: (data: WithdrawForm) =>
       api.post<unknown>('/v1/withdrawals', {
-        amount_cents: Math.round(data.amount * 100),
+        amount_cents: toCents(data.amount),
         crypto_currency: data.crypto_currency,
         wallet_address: data.wallet_address,
       }),

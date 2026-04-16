@@ -221,7 +221,6 @@ model User {
   @@index([email])
   @@index([kycStatus, lastKycReminderSentAt])
   @@index([agentId])
-  @@index([jurisdiction])
   @@index([jurisdiction, accountStatus])
   @@map("users")
 }
@@ -555,7 +554,7 @@ model IbCommission {
 
   agent  Staff @relation("AgentCommissions", fields: [agentId], references: [id], onDelete: Restrict)
   trader User  @relation("TraderCommissions", fields: [traderId], references: [id], onDelete: Restrict)
-  trade  Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  trade  Trade @relation(fields: [tradeId], references: [id], onDelete: Restrict)
 
   @@index([agentId, status])
   @@index([traderId])

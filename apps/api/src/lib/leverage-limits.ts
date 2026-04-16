@@ -184,7 +184,7 @@ export function validateLeverage(
     return {
       allowed: false,
       maxLeverage: limit.maxLeverage,
-      message: `Invalid requestedLeverage: must be a positive number (integer), got ${requestedLeverage}`,
+      message: `Invalid requestedLeverage: must be a positive integer, got ${requestedLeverage}`,
     }
   }
 

@@ -177,7 +177,7 @@ cat jwt-private.pem | sed ':a;N;$!ba;s/\n/\\n/g'
 
 ```bash
 # Extract from existing private key
-openssl rsa -pubout -in jwt-private.pem -out jwt-public.pem
+openssl pkey -pubout -in jwt-private.pem -out jwt-public.pem
 
 # Format with escaped newlines
 cat jwt-public.pem | sed ':a;N;$!ba;s/\n/\\n/g'
@@ -426,6 +426,8 @@ For each app: run `vercel link` inside the app directory, follow the prompts, th
 ## Phase 6: Application Configuration
 
 ### Secret #17: NEXT_PUBLIC_API_URL
+
+**⚠️ SECURITY WARNING**: `NEXT_PUBLIC_*` environment variables are embedded in frontend JavaScript bundles and are client-visible. This variable must only contain the public API base URL and must never contain secrets, API keys, authentication tokens, or any sensitive data. Only non-sensitive configuration should be stored with the `NEXT_PUBLIC_` prefix. If you need to store sensitive values, use non-public environment variables or server-side-only secrets.
 
 **Staging Value**:
 
@@ -694,5 +696,5 @@ curl -I https://api.protrader-sim.com/health
 
 - [Detailed Setup Guide](./GITHUB_SECRETS_SETUP.md)
 - [Quick Reference](./GITHUB_SECRETS_QUICK_REF.md)
-- [CI Workflow](../workflows/ci.yml)
+- [CI Workflow](./workflows/ci.yml)
 - [Environment Template](../apps/api/.env.example)

@@ -1,6 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { type TradingContent, getTradingContent } from '../../../data/forex-trading'
+import { IconArrowRight } from '../../../components/icons'
+import {
+  type TradingContent,
+  getTradingContent,
+  resolveFeatureIcon,
+} from '../../../data/forex-trading'
 
 export const metadata: Metadata = {
   title: 'Forex Trading | ProTraderSim',
@@ -82,19 +87,7 @@ export default async function ForexPage() {
                 className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-6 py-3 font-semibold text-white transition-colors duration-200 hover:bg-primary-600"
               >
                 Start Trading Forex
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
+                <IconArrowRight width={20} height={20} />
               </Link>
               <Link
                 href={(() => {
@@ -183,20 +176,23 @@ export default async function ForexPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {features.map((f) => (
-              <div
-                key={f.title}
-                className="rounded-xl border border-surface-border bg-white p-6 shadow-card transition-shadow duration-200 hover:shadow-card-hover"
-              >
-                {f.icon && (
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500">
-                    <f.icon />
-                  </div>
-                )}
-                <h3 className="mb-2 text-base font-semibold text-dark-700">{f.title}</h3>
-                <p className="text-sm leading-relaxed text-gray-500">{f.description}</p>
-              </div>
-            ))}
+            {features.map((f) => {
+              const IconComponent = resolveFeatureIcon(f.iconId)
+              return (
+                <div
+                  key={f.title}
+                  className="rounded-xl border border-surface-border bg-white p-6 shadow-card transition-shadow duration-200 hover:shadow-card-hover"
+                >
+                  {IconComponent && (
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500">
+                      <IconComponent />
+                    </div>
+                  )}
+                  <h3 className="mb-2 text-base font-semibold text-dark-700">{f.title}</h3>
+                  <p className="text-sm leading-relaxed text-gray-500">{f.description}</p>
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -331,19 +327,7 @@ export default async function ForexPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-white px-8 py-3.5 font-semibold text-primary-600 transition-colors duration-200 hover:bg-orange-50"
             >
               Create Free Account
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
+              <IconArrowRight width={20} height={20} />
             </Link>
             <Link
               href="/trading/instruments"

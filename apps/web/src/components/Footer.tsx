@@ -232,7 +232,7 @@ export function Footer() {
             </p>
 
             {/* Risk warning — centre */}
-            <p className="flex-1 text-center text-xs leading-relaxed text-gray-400 lg:text-left">
+            <p className="flex-1 text-center text-xs font-medium leading-relaxed text-gray-300 lg:text-left">
               CFDs are complex instruments and come with a high risk of losing money rapidly due to
               leverage. 74% of retail investor accounts lose money when trading CFDs. You should
               consider whether you understand how CFDs work and whether you can afford to take the
@@ -240,7 +240,7 @@ export function Footer() {
             </p>
 
             {/* Simulation disclaimer */}
-            <p className="flex-shrink-0 whitespace-nowrap text-right text-xs text-gray-400">
+            <p className="flex-shrink-0 whitespace-nowrap text-right text-xs font-medium text-gray-300">
               ProTraderSim is a simulation platform
               <br className="hidden lg:block" /> for educational purposes only.
             </p>

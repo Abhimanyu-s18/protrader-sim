@@ -13,8 +13,41 @@ interface ErrorProps {
  */
 export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
+    // Log error for debugging and production monitoring
     console.error(error)
-    // TODO: Send to error reporting service (Sentry, DatadogRUM, etc.) when configured
+
+    interface WindowWithSentry extends Window {
+      Sentry?: { captureException: (err: Error) => void }
+    }
+
+    const windowWithSentry = window as WindowWithSentry
+    if (windowWithSentry.Sentry) {
+      try {
+        const Sentry = (window as unknown as { Sentry: { captureException: (err: Error) => void } })
+          .Sentry
+        Sentry.captureException(error)
+      } catch (err) {
+        // Silently handle reporting failures
+        // eslint-disable-next-line no-console
+        console.debug('Failed to report to Sentry:', err)
+      }
+    } else if (
+      (window as Window & { datadogRum?: { addError: (err: unknown, context?: unknown) => void } })
+        .datadogRum
+    ) {
+      try {
+        const datadogRum = (
+          window as unknown as {
+            datadogRum: { addError: (err: unknown, context?: unknown) => void }
+          }
+        ).datadogRum
+        datadogRum.addError(error, { source: 'ErrorBoundary' })
+      } catch (err) {
+        // Silently handle reporting failures
+        // eslint-disable-next-line no-console
+        console.debug('Failed to report to Datadog:', err)
+      }
+    }
   }, [error])
 
   return (
@@ -31,6 +64,7 @@ export default function Error({ error, reset }: ErrorProps) {
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={1.5}
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -41,8 +75,8 @@ export default function Error({ error, reset }: ErrorProps) {
         </div>
         <h1 className="text-2xl font-bold text-white">Something went wrong</h1>
         <p className="mt-3 text-sm text-gray-400">
-          An unexpected error occurred in the trading platform. Your positions and account data are
-          safe — please try again.
+          An unexpected error occurred in the trading platform. If you were in the middle of an
+          action, please verify your account status after retrying.
         </p>
         {error.digest && (
           <p className="mt-2 font-mono text-xs text-gray-600">Error ID: {error.digest}</p>

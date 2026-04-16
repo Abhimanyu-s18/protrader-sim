@@ -76,20 +76,31 @@ if (process.env['NODE_ENV'] !== 'test') {
             }
 
             // Notify the trader
-            await notificationQueue.add('entry-order-expired', {
-              userId: trade.userId.toString(),
-              type: 'ENTRY_ORDER_EXPIRED',
-              title: 'Entry Order Expired',
-              message: `Your ${trade.direction} entry order on ${trade.instrument.symbol} has expired and been cancelled.`,
-            })
+            try {
+              await notificationQueue.add('entry-order-expired', {
+                userId: trade.userId.toString(),
+                type: 'ENTRY_ORDER_EXPIRED',
+                title: 'Entry Order Expired',
+                message: `Your ${trade.direction} entry order on ${trade.instrument.symbol} has expired and been cancelled.`,
+              })
+            } catch (err) {
+              log.error(
+                { tradeId: trade.id.toString(), err },
+                'Failed to add notification to queue',
+              )
+            }
 
-            await emailQueue.add('entry-order-expired-email', {
-              type: 'ENTRY_ORDER_EXPIRED',
-              userId: trade.userId.toString(),
-              tradeId: trade.id.toString(),
-              symbol: trade.instrument.symbol,
-              direction: trade.direction,
-            })
+            try {
+              await emailQueue.add('entry-order-expired-email', {
+                type: 'ENTRY_ORDER_EXPIRED',
+                userId: trade.userId.toString(),
+                tradeId: trade.id.toString(),
+                symbol: trade.instrument.symbol,
+                direction: trade.direction,
+              })
+            } catch (err) {
+              log.error({ tradeId: trade.id.toString(), err }, 'Failed to add email to queue')
+            }
 
             expiredCount++
           } catch (err) {
@@ -112,4 +123,25 @@ if (process.env['NODE_ENV'] !== 'test') {
   entryOrderExpiryWorker.on('failed', (job, err) => {
     log.error({ jobId: job?.id, err }, 'Entry order expiry job failed')
   })
+
+  // Graceful shutdown — only registered outside test environments to avoid
+  // interfering with test runners that manage their own signal handling.
+  let isShuttingDown = false
+  const shutdown = async (signal: string) => {
+    if (isShuttingDown) return
+    isShuttingDown = true
+    log.info({ signal }, 'Received shutdown signal, closing worker...')
+    if (entryOrderExpiryWorker) {
+      try {
+        await entryOrderExpiryWorker.close()
+        log.info('Entry order expiry worker closed')
+      } catch (err) {
+        log.error({ err }, 'Error closing entry order expiry worker')
+      }
+    }
+    process.exit(0)
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
 }

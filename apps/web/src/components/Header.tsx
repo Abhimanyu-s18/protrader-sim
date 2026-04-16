@@ -498,7 +498,11 @@ function MobileNav({ items, onClose }: MobileNavProps) {
               }
 
               const isOpen = openSection === item.label
-              const safeId = item.label.replace(/[^a-z0-9_-]/gi, '-').toLowerCase()
+              const safeId = item.label
+                .replace(/[^a-z0-9_-]/gi, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '')
+                .toLowerCase()
               return (
                 <li key={item.label}>
                   <button

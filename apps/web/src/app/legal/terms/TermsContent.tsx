@@ -50,13 +50,17 @@ const SECTIONS = [
 
 export function TermsContent() {
   const [activeSection, setActiveSection] = useState('introduction')
-  const observerRef = useRef<IntersectionObserver | null>(null)
+  const ignoreObserverUntilRef = useRef(0)
 
   useEffect(() => {
     const visibleSections = new Set<string>()
+    const lastSectionId = SECTIONS[SECTIONS.length - 1]?.id
 
-    observerRef.current = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       (entries) => {
+        // Ignore observer updates if a recent manual selection is active (debounce window)
+        if (Date.now() < ignoreObserverUntilRef.current) return
+
         // Update the visible set based on intersection state
         for (const entry of entries) {
           const id = entry.target.id
@@ -86,10 +90,29 @@ export function TermsContent() {
 
     SECTIONS.forEach((s) => {
       const el = document.getElementById(s.id)
-      if (el) observerRef.current?.observe(el)
+      if (el) observer.observe(el)
     })
 
-    return () => observerRef.current?.disconnect()
+    // Detect scroll-to-end and activate the last section if applicable
+    const handleScroll = () => {
+      // Respect the debounce mechanism to prevent interference with programmatic scrolling
+      if (Date.now() < ignoreObserverUntilRef.current) return
+
+      if (lastSectionId) {
+        const scrolledToEnd =
+          document.documentElement.scrollHeight - window.innerHeight - window.scrollY <= 100
+        if (scrolledToEnd) {
+          setActiveSection(lastSectionId)
+        }
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('scroll', handleScroll)
+    }
   }, [])
 
   return (
@@ -113,7 +136,10 @@ export function TermsContent() {
                           ? 'bg-primary-500/10 font-medium text-primary-500'
                           : 'text-gray-600 hover:bg-surface-alt hover:text-dark-700'
                       }`}
-                      onClick={() => setActiveSection(s.id)}
+                      onClick={() => {
+                        setActiveSection(s.id)
+                        ignoreObserverUntilRef.current = Date.now() + 500
+                      }}
                     >
                       {s.title}
                     </a>

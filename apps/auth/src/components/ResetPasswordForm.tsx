@@ -72,7 +72,6 @@ export default function ResetPasswordForm() {
   }
 
   return (
-    <div className="bg-surface flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md space-y-4">
         <h1 className="text-dark text-2xl font-semibold">Set a new password</h1>
 
@@ -111,6 +110,5 @@ export default function ResetPasswordForm() {
           Back to login
         </Link>
       </Card>
-    </div>
   )
 }

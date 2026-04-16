@@ -24,31 +24,54 @@ export const safeStorage = {
 
   /**
    * Write a value to storage (preferLocal=true for localStorage, false for sessionStorage).
-   * Performs each storage operation independently to avoid leaving stale values on error.
+   * Attempts to write to preferred storage first; if that fails, falls back to the other storage.
+   * Only removes the counterpart entry if the write succeeded.
    * Silently no-ops if storage is unavailable.
    */
   set(key: string, value: string, preferLocal: boolean = true): void {
     if (preferLocal) {
       try {
         localStorage.setItem(key, value)
+        try {
+          sessionStorage.removeItem(key)
+        } catch {
+          // ignore
+        }
+        return
       } catch {
-        // localStorage unavailable — try sessionStorage
+        // localStorage write failed — try sessionStorage fallback
+        try {
+          localStorage.removeItem(key)
+        } catch {
+          // ignore
+        }
       }
       try {
-        sessionStorage.removeItem(key)
+        sessionStorage.setItem(key, value)
       } catch {
-        // ignore
+        // both storages unavailable — ignore
       }
     } else {
       try {
         sessionStorage.setItem(key, value)
+        try {
+          localStorage.removeItem(key)
+        } catch {
+          // ignore
+        }
+        return
       } catch {
-        // sessionStorage unavailable — ignore
+        // sessionStorage unavailable — try localStorage fallback
+        try {
+          sessionStorage.removeItem(key)
+        } catch {
+          // ignore
+        }
       }
       try {
-        localStorage.removeItem(key)
+        localStorage.setItem(key, value)
       } catch {
-        // ignore
+        // both storages unavailable — ignore
       }
     }
   },

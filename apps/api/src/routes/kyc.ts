@@ -11,11 +11,9 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 import crypto from 'crypto'
 import path from 'path'
 
-const validCategories = Object.values(KycDocumentCategory)
-
 /** Zod schema for multipart KYC document upload body fields */
 const UploadDocumentBodySchema = z.object({
-  document_category: z.enum(validCategories as [string, ...string[]]),
+  document_category: z.nativeEnum(KycDocumentCategory),
   document_type: z.string().min(1).optional(),
   is_primary: z.enum(['true', 'false']).optional(),
 })
@@ -52,12 +50,16 @@ const r2 = new S3Client({
 // GET /v1/kyc/status
 kycRouter.get('/status', async (req, res, next) => {
   try {
+    if (!req.user) {
+      next(Errors.unauthorized())
+      return
+    }
     const user = await prisma.user.findUnique({
-      where: { id: BigInt(req.user!.user_id) },
+      where: { id: BigInt(req.user.user_id) },
       select: { kycStatus: true },
     })
     const documents = await prisma.kycDocument.findMany({
-      where: { userId: BigInt(req.user!.user_id) },
+      where: { userId: BigInt(req.user.user_id) },
       select: {
         id: true,
         documentCategory: true,
@@ -90,8 +92,12 @@ kycRouter.post('/documents', upload.single('file'), async (req, res, next) => {
 
     const { document_category, document_type, is_primary = 'true' } = bodyParse.data
 
-    const category = document_category as KycDocumentCategory
-    const userId = BigInt(req.user!.user_id)
+    const category = document_category
+    if (!req.user) {
+      next(Errors.unauthorized())
+      return
+    }
+    const userId = BigInt(req.user.user_id)
     const ext = path.extname(req.file.originalname).toLowerCase()
     const r2Key = `kyc/${userId}/${category.toLowerCase()}/${crypto.randomUUID()}${ext}`
 
@@ -102,7 +108,7 @@ kycRouter.post('/documents', upload.single('file'), async (req, res, next) => {
         Key: r2Key,
         Body: req.file.buffer,
         ContentType: req.file.mimetype,
-        Metadata: { user_id: userId.toString(), category },
+        Metadata: { user_id: userId.toString(), category: category as string },
       }),
     )
 
@@ -139,8 +145,12 @@ kycRouter.post('/documents', upload.single('file'), async (req, res, next) => {
 // GET /v1/kyc/documents
 kycRouter.get('/documents', async (req, res, next) => {
   try {
+    if (!req.user) {
+      next(Errors.unauthorized())
+      return
+    }
     const documents = await prisma.kycDocument.findMany({
-      where: { userId: BigInt(req.user!.user_id) },
+      where: { userId: BigInt(req.user.user_id) },
       orderBy: { createdAt: 'desc' },
     })
     res.json(serializeBigInt(documents))
@@ -161,7 +171,7 @@ kycRouter.delete('/documents/:id', async (req, res, next) => {
     const doc = await prisma.kycDocument.findFirst({
       where: {
         id: BigInt(paramsParse.data.id),
-        userId: BigInt(req.user!.user_id),
+        userId: BigInt(req.user?.user_id || 0),
         status: 'UPLOADED',
       },
     })

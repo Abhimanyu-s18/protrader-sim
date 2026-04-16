@@ -20,12 +20,14 @@ export default function Error({ error, reset }: ErrorProps) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white p-4 text-center dark:bg-gray-900">
       <div className="max-w-md">
-        <h1 className="text-4xl font-bold text-gray-900">Something went wrong</h1>
-        <p className="mt-4 text-base text-gray-600">
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Something went wrong</h1>
+        <p className="mt-4 text-base text-gray-600 dark:text-gray-300">
           An unexpected error occurred. Please try again or contact support if the problem persists.
         </p>
         {error.digest && (
-          <p className="mt-2 font-mono text-xs text-gray-400">Error ID: {error.digest}</p>
+          <p className="mt-2 font-mono text-xs text-gray-400 dark:text-gray-400">
+            Error ID: {error.digest}
+          </p>
         )}
         <button
           onClick={reset}

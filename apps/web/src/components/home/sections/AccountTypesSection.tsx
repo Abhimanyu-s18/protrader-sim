@@ -15,14 +15,14 @@ function formatCommission(account: AccountType): string {
   return `$${account.commissionPerLot} / lot`
 }
 
-function formatMinDeposit(account: AccountType): string {
-  return `$${currencyFormatter.format(account.minDepositAmount)}`
-}
-
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 })
+
+function formatMinDeposit(account: AccountType): string {
+  return `$${currencyFormatter.format(account.minDepositAmount)}`
+}
 
 /**
  * AccountTypesSection - Account tier comparison

@@ -86,7 +86,11 @@ export default function AgentsPage() {
 
   // Show access restricted when the API returns 403 (server-enforced) OR when the
   // client-side role check fails. Using both ensures forged tokens are caught by the API.
-  const isAccessDenied = role !== 'IB_TEAM_LEADER' || (isError && (error as any)?.status === 403)
+  const errorStatus =
+    error && typeof error === 'object' && 'status' in error
+      ? (error as { status?: unknown }).status
+      : undefined
+  const isAccessDenied = role !== 'IB_TEAM_LEADER' || (isError && errorStatus === 403)
 
   if (isAccessDenied) {
     return (

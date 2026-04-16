@@ -24,6 +24,7 @@ const config: Config = {
           700: '#8C3D06',
           800: '#5E2904',
           900: '#2F1402',
+          tint: 'rgba(232, 101, 10, 0.1)',
         },
         dark: {
           DEFAULT: '#1A2332',
@@ -73,10 +74,6 @@ const config: Config = {
       boxShadow: {
         card: '0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1)',
         'card-hover': '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)',
-      },
-      // Semantic overlay token — 10% tint of the primary accent color
-      backgroundColor: {
-        'primary-tint': 'rgba(232, 101, 10, 0.1)',
       },
     },
   },

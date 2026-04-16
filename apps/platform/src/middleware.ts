@@ -24,6 +24,18 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('access_token')?.value
 
   if (!token) {
+    // In development with explicit opt-in, skip the server-side redirect so the page loads and
+    // the client-side AppShell can handle auth (reads token from cookie/storage
+    // after cross-port login). The AppShell still redirects to auth if missing.
+    if (
+      process.env.NODE_ENV === 'development' &&
+      process.env.SKIP_MIDDLEWARE_AUTH === 'true'
+    ) {
+      console.warn(
+        '[MIDDLEWARE] Skipping server-side auth check (SKIP_MIDDLEWARE_AUTH=true in development)',
+      )
+      return NextResponse.next()
+    }
     const url = new URL('/login', AUTH_URL)
     url.searchParams.set('returnTo', request.nextUrl.toString())
     return NextResponse.redirect(url.toString())

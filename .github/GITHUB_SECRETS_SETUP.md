@@ -145,8 +145,13 @@ TURBO_TOKEN=your_token TURBO_TEAM=your_team pnpm turbo build --cache-dir=.turbo
 - `DATABASE_URL`: Connection pooler (PgBouncer) for application queries
 - `DIRECT_URL`: Direct connection for Prisma migrations (direct DB endpoint that bypasses all pooling)
 
-**Pooling note**: Prisma migrations are incompatible with transaction pooling but can work with session pooling.  
-DIRECT_URL is intended to bypass all pooling (including session mode) so migrations run against a fully direct connection.
+**Connection Pooling**: DIRECT_URL must bypass all pooling (including session mode) so migrations run against a direct connection, while DATABASE_URL may use the pooled connection for normal runtime queries.
+
+**How to Configure for Supabase**:
+
+1. Settings → Database → Connection pooling
+2. Disable "Session mode" for DIRECT_URL (direct connection for migrations)
+3. Copy the pooled connection string for DATABASE_URL (runtime queries)
 
 **How to Obtain**:
 
@@ -170,28 +175,35 @@ Same as DATABASE_URL (RDS doesn't have pooler at this tier)
 
 #### 3.1 `JWT_PRIVATE_KEY_TEST`
 
-| Property      | Value                                   |
-| ------------- | --------------------------------------- |
-| **Type**      | GitHub Secret                           |
-| **Source**    | Generated (2048-bit RSA)                |
-| **Format**    | PEM with escaped newlines               |
-| **When Used** | Unit/integration tests in CI            |
-| **Rotate**    | Per test run (regenerate for each test) |
+| Property      | Value                                     |
+| ------------- | ----------------------------------------- |
+| **Type**      | GitHub Secret                             |
+| **Source**    | Generated (2048-bit RSA)                  |
+| **Format**    | PEM with escaped newlines                 |
+| **When Used** | Unit/integration tests in CI              |
+| **Rotate**    | Quarterly or On Demand (managed manually) |
 
 **How to Generate**:
 
 ```bash
 # Generate 2048-bit RSA key pair (PKCS#8 format)
 openssl genpkey -algorithm RSA -out jwt-private.pem -pkeyopt rsa_keygen_bits:2048
-openssl pkey -in jwt-private.pem -pubout -out jwt-public.pem
+openssl pkey -pubout -in jwt-private.pem -out jwt-public.pem
 
-# Display for copy-paste (with escaped newlines)
-cat jwt-private.pem | sed ':a;N;$!ba;s/\n/\\n/g'
+# Display for copy-paste (with escaped newlines) - cross-platform alternatives:
+# Option 1: Using awk (macOS/Linux/Windows Git Bash)
+cat jwt-private.pem | awk '{printf "%s\\n", $0}' | sed '$d' | tr '\n' ' ' | sed 's/ /\\n/g'
+
+# Option 2: Using tr+sed (macOS/Linux)
+cat jwt-private.pem | tr '\n' '§' | sed 's/§/\\n/g'
+
+# Option 3: Using Perl (if available)
+cat jwt-private.pem | perl -pe 's/\n/\\n/'
 
 # Expected output:
 # -----BEGIN PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n...\n-----END PRIVATE KEY-----
 
-# Copy the entire output (including \n) and paste as GitHub Secret
+# Copy the entire output (including \n) and paste as GitHub Secret: JWT_PRIVATE_KEY_TEST
 ```
 
 **Validation**:
@@ -212,25 +224,34 @@ console.log('✓ JWT generation successful')
 
 #### 3.2 `JWT_PUBLIC_KEY_TEST`
 
-| Property      | Value                                      |
-| ------------- | ------------------------------------------ |
-| **Type**      | GitHub Secret                              |
-| **Source**    | Generated from JWT_PRIVATE_KEY_TEST        |
-| **Format**    | PEM with escaped newlines                  |
-| **When Used** | Token verification in test routes          |
-| **Rotate**    | Per test run (regenerate with private key) |
+| Property      | Value                                     |
+| ------------- | ----------------------------------------- |
+| **Type**      | GitHub Secret                             |
+| **Source**    | Extracted from JWT_PRIVATE_KEY_TEST       |
+| **Format**    | PEM with escaped newlines                 |
+| **When Used** | Token verification in test routes         |
+| **Rotate**    | Quarterly or On Demand (with private key) |
 
 **How to Generate**:
 
 ```bash
-# Extract public key from private key
-openssl rsa -pubout -in jwt-private.pem -out jwt-public.pem
+# Extract public key from private key (using openssl pkey, the modern approach)
+openssl pkey -pubout -in jwt-private.pem -out jwt-public.pem
 
-# Display for copy-paste (with escaped newlines)
-cat jwt-public.pem | sed ':a;N;$!ba;s/\n/\\n/g'
+# Display for copy-paste (with escaped newlines) - cross-platform alternatives:
+# Option 1: Using awk (macOS/Linux/Windows Git Bash)
+cat jwt-public.pem | awk '{printf "%s\\n", $0}' | sed '$d' | tr '\n' ' ' | sed 's/ /\\n/g'
+
+# Option 2: Using tr+sed (macOS/Linux)
+cat jwt-public.pem | tr '\n' '§' | sed 's/§/\\n/g'
+
+# Option 3: Using Perl (if available)
+cat jwt-public.pem | perl -pe 's/\n/\\n/'
 
 # Expected output:
 # -----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...\n...\n-----END PUBLIC KEY-----
+
+# Copy the entire output (including \n) and paste as GitHub Secret: JWT_PUBLIC_KEY_TEST
 ```
 
 **Validation**:
@@ -544,7 +565,7 @@ done
 **Scope**: Frontend API endpoints  
 **Security**: Low (URLs are publicly known)
 
-#### 5.1 `NEXT_PUBLIC_API_URL`
+#### 6.1 `NEXT_PUBLIC_API_URL`
 
 | Property      | Value                                                        |
 | ------------- | ------------------------------------------------------------ |
@@ -571,7 +592,7 @@ done
 
 ---
 
-#### 5.2 `NEXT_PUBLIC_WS_URL`
+#### 6.2 `NEXT_PUBLIC_WS_URL`
 
 | Property      | Value                               |
 | ------------- | ----------------------------------- |
@@ -594,7 +615,7 @@ done
 
 ---
 
-#### 5.3 `STAGING_API_URL`
+#### 6.3 `STAGING_API_URL`
 
 | Property      | Value                                                           |
 | ------------- | --------------------------------------------------------------- |
@@ -614,7 +635,7 @@ done
 
 ---
 
-#### 5.4 `PROD_API_URL`
+#### 6.4 `PROD_API_URL`
 
 | Property      | Value                                                         |
 | ------------- | ------------------------------------------------------------- |
@@ -696,21 +717,40 @@ Follow this order to minimize CI failures:
 
 3. DATABASE_URL
 4. DIRECT_URL
-   **Phase 3: Authentication** (needed for tests) 5. JWT_PRIVATE_KEY_TEST 6. JWT_PUBLIC_KEY_TEST
 
-**Phase 4: Deployment Infrastructure** (for staging/prod) 7. RAILWAY_TOKEN 8. AWS_ACCESS_KEY_ID 9. AWS_SECRET_ACCESS_KEY 10. VERCEL_TOKEN 11. VERCEL_ORG_ID
+**Phase 3: Authentication** (needed for tests)
 
-**Phase 5: Vercel Project IDs** (one per frontend app — link each app first) 12. VERCEL_PROJECT_ID_WEB 13. VERCEL_PROJECT_ID_AUTH 14. VERCEL_PROJECT_ID_PLATFORM 15. VERCEL_PROJECT_ID_ADMIN 16. VERCEL_PROJECT_ID_IB_PORTAL
+5. JWT_PRIVATE_KEY_TEST
+6. JWT_PUBLIC_KEY_TEST
 
-**Phase 6: Application Configuration** (final) 17. NEXT_PUBLIC_API_URL 18. NEXT_PUBLIC_WS_URL 19. STAGING_API_URL 20. PROD_API_URL
+**Phase 4: Deployment Infrastructure** (for staging/prod)
+
+7. RAILWAY_TOKEN
+8. AWS_ACCESS_KEY_ID
+9. AWS_SECRET_ACCESS_KEY
+10. VERCEL_TOKEN
+11. VERCEL_ORG_ID
+
+**Phase 5: Vercel Project IDs** (one per frontend app — link each app first)
+
+12. VERCEL_PROJECT_ID_WEB
+13. VERCEL_PROJECT_ID_AUTH
+14. VERCEL_PROJECT_ID_PLATFORM
+15. VERCEL_PROJECT_ID_ADMIN
+16. VERCEL_PROJECT_ID_IB_PORTAL
+
+**Phase 6: Application Configuration** (final)
+
+17. NEXT_PUBLIC_API_URL
+18. NEXT_PUBLIC_WS_URL
+19. STAGING_API_URL
+20. PROD_API_URL
 
 ---
 
 ## Secrets Checklist
 
 - [ ] All external service accounts created (Vercel, Railway, AWS, Supabase)
-
-- [ ] All external service accounts created (Vercel, Railway, AWS, Supabase, Cloudflare, NowPayments)
 - [ ] All API keys and tokens generated and copied to safe location
 - [ ] JWT RSA key pair generated and formatted with `\n` escapes
 - [ ] Database URLs constructed and tested locally
@@ -819,13 +859,12 @@ git push -f origin develop
 
 ### Rotation Schedule
 
-| Secret                     | Frequency          | Procedure                                       |
-| -------------------------- | ------------------ | ----------------------------------------------- |
-| JWT production keys        | Annually           | Generate new pair, redeploy to all environments |
-| JWT test keys              | Per test run       | Regenerated automatically in CI                 |
-| AWS_ACCESS_KEY_ID / SECRET | 90 days            | Create new pair in IAM, update both in GitHub   |
-| JWT keys                   | Annually           | Generate new pair, redeploy to all environments |
-| DATABASE_URL / DIRECT_URL  | On password change | Update in GitHub, redeploy                      |
+| Secret                     | Frequency              | Procedure                                                         |
+| -------------------------- | ---------------------- | ----------------------------------------------------------------- |
+| JWT production keys        | Annually               | Generate new pair, redeploy to all environments                   |
+| JWT test keys              | Quarterly or On Demand | Manually generate with openssl, update GitHub Secrets when needed |
+| AWS_ACCESS_KEY_ID / SECRET | 90 days                | Create new pair in IAM, update both in GitHub                     |
+| DATABASE_URL / DIRECT_URL  | On password change     | Update in GitHub, redeploy                                        |
 
 ### Rotation Checklist
 

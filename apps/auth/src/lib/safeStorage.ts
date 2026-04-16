@@ -6,8 +6,18 @@
 export const safeStorage = {
   /** Get a value — tries localStorage first, then sessionStorage. Returns null on error or miss. */
   get(key: string): string | null {
+    if (typeof window === 'undefined') return null
+    let value: string | null = null
     try {
-      return localStorage.getItem(key) ?? sessionStorage.getItem(key)
+      value = localStorage.getItem(key)
+    } catch {
+      // localStorage unavailable
+    }
+    if (value !== null) {
+      return value
+    }
+    try {
+      return sessionStorage.getItem(key)
     } catch {
       return null
     }

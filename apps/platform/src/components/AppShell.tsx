@@ -5,10 +5,39 @@ import Sidebar from './Sidebar'
 import { useSocket } from '../hooks/useSocket'
 import { safeStorage } from '../lib/safeStorage'
 
-/** Reads the token from storage (client-side only). */
+/** Reads a cookie value by name. */
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escapedName}=([^;]*)`))
+  return match?.[1] ? decodeURIComponent(match[1]) : null
+}
+
+/**
+ * Reads the token — tries localStorage/sessionStorage first (same-origin),
+ * then falls back to a cookie (shared across ports on the same domain, set by
+ * the auth app after cross-origin login).
+ * When found in a cookie, mirrors it into sessionStorage so subsequent reads
+ * on this origin don't need to re-parse the cookie.
+ */
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  return safeStorage.get('access_token')
+
+  const stored = safeStorage.get('access_token')
+  if (stored) return stored
+
+  const fromCookie = getCookie('access_token')
+  if (fromCookie) {
+    // Mirror to sessionStorage so this origin's safeStorage works going forward
+    try {
+      safeStorage.set('access_token', fromCookie)
+    } catch (err) {
+      console.warn('Failed to mirror token to storage:', err)
+    }
+    return fromCookie
+  }
+
+  return null
 }
 
 function isTokenValid(token: string): boolean {

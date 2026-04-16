@@ -45,7 +45,18 @@ export default function LoginPage() {
       const token = response.access_token
       if (!token) throw new Error('Missing auth token from response')
 
-      safeStorage.set('access_token', token, data.remember_me ?? false)
+      try {
+        safeStorage.set('access_token', token, data.remember_me ?? false)
+      } catch {
+        throw new Error('Unable to save login session. Please check your browser settings.')
+      }
+
+      // Set a cookie so server-side middleware on other apps (platform, admin, ib-portal)
+      // can verify authentication. Cookie is scoped to the root domain so it's readable
+      // across ports on localhost and across subdomains in production.
+      const maxAge = data.remember_me ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60
+      const isSecure = window.location.protocol === 'https:'
+      document.cookie = `access_token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax${isSecure ? '; Secure' : ''}`
 
       const platformUrl = process.env.NEXT_PUBLIC_PLATFORM_URL || 'http://localhost:3002'
       window.location.href = `${platformUrl}/dashboard`
@@ -57,10 +68,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="bg-surface flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md space-y-4">
+    <div className="w-full max-w-md space-y-3">
+      <div className="mb-6 text-center">
+        <p className="text-dark-200 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium">
+          <span className="text-primary">✦</span> Trusted by 50,000+ traders worldwide
+        </p>
+      </div>
+      <Card className="w-full space-y-4">
         <h1 className="text-dark text-2xl font-semibold">Log in to ProTraderSim</h1>
-        <p className="text-dark-500 text-sm">Secure access to your trading dashboard.</p>
+        <p className="text-dark-400 text-sm">Access your trading dashboard.</p>
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <Input label="Email" type="email" {...register('email')} error={errors.email?.message} />
           <Input

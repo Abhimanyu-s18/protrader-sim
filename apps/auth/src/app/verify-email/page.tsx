@@ -43,7 +43,6 @@ export default function VerifyEmailPage() {
   }, [])
 
   return (
-    <div className="bg-surface flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md text-center">
         <h1 className="text-dark text-2xl font-semibold">Email verification</h1>
         <p
@@ -72,6 +71,5 @@ export default function VerifyEmailPage() {
           </Link>
         ) : null}
       </Card>
-    </div>
   )
 }

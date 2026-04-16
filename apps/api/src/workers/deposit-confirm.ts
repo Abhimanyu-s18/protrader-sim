@@ -1,5 +1,5 @@
 import { Worker, type Job } from 'bullmq'
-import type { Prisma, DepositStatus } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { getRedis } from '../lib/redis.js'
 import { notificationQueue, emailQueue } from '../lib/queues.js'
@@ -12,6 +12,7 @@ const NOWPAYMENTS_API_BASE = 'https://api.nowpayments.io/v1'
 
 const CONFIRMED_STATUSES = new Set(['finished', 'confirmed'])
 const PENDING_STATUSES = new Set(['waiting', 'confirming', 'sending', 'partially_paid'])
+const PRISMA_PENDING_STATUSES: Array<'PENDING' | 'CONFIRMING'> = ['PENDING', 'CONFIRMING']
 
 export let depositConfirmWorker: Worker | null = null
 
@@ -30,12 +31,15 @@ if (process.env['NODE_ENV'] !== 'test') {
       let processed = 0
       let confirmedCount = 0
 
+      const processedIds = new Set<bigint>()
+
       while (true) {
         const batch = await prisma.deposit.findMany({
           where: {
             status: { in: ['PENDING', 'CONFIRMING'] },
             nowpaymentsInvoiceId: { not: null },
             createdAt: { lte: tenMinutesAgo },
+            id: { notIn: Array.from(processedIds) },
           },
           orderBy: { createdAt: 'desc' },
           take: BATCH_SIZE,
@@ -43,10 +47,14 @@ if (process.env['NODE_ENV'] !== 'test') {
 
         if (batch.length === 0) break
 
+        for (const deposit of batch) {
+          processedIds.add(deposit.id)
+        }
+
         log.info({ batchSize: batch.length }, 'Polling batch of stalled deposits')
 
         for (const deposit of batch) {
-          if (!deposit.nowpaymentsInvoiceId) continue
+          if (!deposit.userId) continue
 
           try {
             const controller = new AbortController()
@@ -83,7 +91,7 @@ if (process.env['NODE_ENV'] !== 'test') {
             if (CONFIRMED_STATUSES.has(paymentStatus)) {
               await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
                 const fresh = await tx.deposit.findUnique({ where: { id: deposit.id } })
-                if (!fresh || fresh.status === 'COMPLETED') return
+                if (!fresh || fresh.status === 'COMPLETED' || !fresh.userId) return
 
                 await tx.deposit.update({
                   where: { id: fresh.id },
@@ -111,16 +119,13 @@ if (process.env['NODE_ENV'] !== 'test') {
                 })
 
                 if (fresh.bonusCents > 0n) {
-                  const [bal2] = await tx.$queryRaw<
-                    [{ balance_cents: bigint }]
-                  >`SELECT get_user_balance(${fresh.userId}) AS balance_cents`
                   await tx.ledgerTransaction.create({
                     data: {
                       userId: fresh.userId,
                       transactionType: 'BONUS',
                       amountCents: fresh.bonusCents,
                       balanceAfterCents:
-                        (bal2?.balance_cents ?? 0n) + fresh.amountCents + fresh.bonusCents,
+                        (bal?.balance_cents ?? 0n) + fresh.amountCents + fresh.bonusCents,
                       referenceId: fresh.id,
                       referenceType: 'DEPOSIT',
                       description: 'Deposit bonus',
@@ -143,7 +148,6 @@ if (process.env['NODE_ENV'] !== 'test') {
               })
 
               confirmedCount++
-              processed++
               log.info(
                 { depositId: deposit.id.toString() },
                 'Deposit confirmed via polling fallback',
@@ -153,7 +157,7 @@ if (process.env['NODE_ENV'] !== 'test') {
                 where: {
                   id: deposit.id,
                   status: {
-                    in: Array.from(PENDING_STATUSES) as DepositStatus[],
+                    in: PRISMA_PENDING_STATUSES,
                   },
                 },
                 data: { status: 'REJECTED' },

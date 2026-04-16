@@ -16,6 +16,7 @@ const PaginationSchema = z.object({
   limit: z
     .string()
     .transform((s) => parseInt(s, 10))
+    .refine((n) => Number.isFinite(n), 'limit must be a number')
     .refine((n) => n >= 1, 'limit must be >= 1')
     .optional(),
 })
@@ -79,8 +80,8 @@ ibRouter.get('/commissions', async (req, res, next) => {
     if (!query.success) {
       return next(Errors.validation(query.error.flatten().fieldErrors as Record<string, unknown>))
     }
-    const { status, cursor, limit = 50 } = query.data
-    const take = Math.min(limit, 200)
+    const { status, cursor, limit } = query.data
+    const take = Math.min(limit ?? 50, 200)
 
     const commissions = await prisma.ibCommission.findMany({
       where: {

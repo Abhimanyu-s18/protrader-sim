@@ -47,19 +47,54 @@ export function TermsSidebar() {
       const id = window.location.hash.substring(1)
       if (SECTIONS.some((s) => s.id === id)) setActiveSection(id)
     }
+
+    const visibleEntries = new Map<
+      string,
+      {
+        id: string
+        isIntersecting: boolean
+        intersectionRatio: number
+        boundingClientRect: DOMRect
+      }
+    >()
+
     const observer = new IntersectionObserver(
       (entries) => {
-        const sorted = [...entries].sort(
+        for (const entry of entries) {
+          visibleEntries.set(entry.target.id, {
+            id: entry.target.id,
+            isIntersecting: entry.isIntersecting,
+            intersectionRatio: entry.intersectionRatio,
+            boundingClientRect: entry.boundingClientRect,
+          })
+        }
+
+        // Query fresh bounding rects from DOM to avoid stale snapshots
+        const entriesWithFreshRects = [...visibleEntries.entries()].map(([id, entry]) => {
+          const element = document.getElementById(id)
+          const freshRect = element?.getBoundingClientRect()
+          return {
+            ...entry,
+            boundingClientRect: freshRect || entry.boundingClientRect,
+          }
+        })
+
+        // Update stored entries with fresh rects for next callback
+        entriesWithFreshRects.forEach((entry) => {
+          visibleEntries.set(entry.id, entry)
+        })
+
+        const sorted = entriesWithFreshRects.sort(
           (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
         )
         const topmost = sorted.find(
-          (entry) => entry.isIntersecting && entry.intersectionRatio > 0.5,
+          (entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5,
         )
-        if (topmost?.target.id) {
-          setActiveSection(topmost.target.id)
+        if (topmost) {
+          setActiveSection(topmost.id)
         }
       },
-      { threshold: [0.5, 0.75, 1] },
+      { threshold: [0, 0.5, 0.75, 1] },
     )
     SECTIONS.forEach((s) => {
       const el = document.getElementById(s.id)

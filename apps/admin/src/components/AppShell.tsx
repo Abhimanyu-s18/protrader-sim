@@ -10,7 +10,6 @@ import { safeStorage } from '../lib/safeStorage'
  * returning the token or null when window is undefined or the key is not found.
  */
 function getToken(): string | null {
-  if (typeof window === 'undefined') return null
   return safeStorage.get('access_token')
 }
 

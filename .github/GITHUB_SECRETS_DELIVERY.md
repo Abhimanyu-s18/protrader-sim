@@ -8,7 +8,7 @@
 
 ## 📦 What You've Received
 
-A **complete, production-ready documentation and tooling package** for setting up 15 GitHub repository secrets for ProTraderSim's CI/CD pipeline.
+A **complete, production-ready documentation and tooling package** for setting up 16 GitHub repository secrets and 4 variables for ProTraderSim's CI/CD pipeline.
 
 ### Documentation Files
 
@@ -100,27 +100,34 @@ A **complete, production-ready documentation and tooling package** for setting u
 
 ---
 
-## 📊 The 15 Secrets Overview
+## 📊 The 16 Secrets and 4 Variables Overview
 
-All secrets are mapped to their sources and implementation phases:
+All secrets and variables are mapped to their sources and implementation phases:
 
-| #   | Secret                | Category | Source       | Phase | Status |
-| --- | --------------------- | -------- | ------------ | ----- | ------ |
-| 1   | TURBO_TOKEN           | Build    | Vercel       | 1     | ☐      |
-| 2   | TURBO_TEAM            | Build    | Vercel       | 1     | ☐      |
-| 3   | DATABASE_URL          | Database | Supabase/RDS | 2     | ☐      |
-| 4   | DIRECT_URL            | Database | Supabase/RDS | 2     | ☐      |
-| 5   | JWT_PRIVATE_KEY_TEST  | Auth     | Generated    | 3     | ☐      |
-| 6   | JWT_PUBLIC_KEY_TEST   | Auth     | Generated    | 3     | ☐      |
-| 7   | NEXT_PUBLIC_API_URL   | Config   | App          | 4     | ☐      |
-| 8   | NEXT_PUBLIC_WS_URL    | Config   | App          | 4     | ☐      |
-| 9   | RAILWAY_TOKEN         | Deploy   | Railway      | 4     | ☐      |
-| 10  | STAGING_API_URL       | Config   | Railway      | 5     | ☐      |
-| 11  | AWS_ACCESS_KEY_ID     | Deploy   | AWS IAM      | 5     | ☐      |
-| 12  | AWS_SECRET_ACCESS_KEY | Deploy   | AWS IAM      | 5     | ☐      |
-| 13  | PROD_API_URL          | Config   | AWS/LB       | 5     | ☐      |
-| 14  | VERCEL_TOKEN          | Deploy   | Vercel       | 5     | ☐      |
-| 15  | VERCEL_ORG_ID         | Deploy   | Vercel       | 5     | ☐      |
+| #   | Secret                      | Type     | Category | Source       | Phase | Status |
+| --- | --------------------------- | -------- | -------- | ------------ | ----- | ------ |
+| 1   | TURBO_TOKEN                 | Secret   | Build    | Vercel       | 1     | ☐      |
+| 2   | TURBO_TEAM                  | Variable | Build    | Vercel       | 1     | ☐      |
+| 3   | DATABASE_URL                | Secret   | Database | Supabase/RDS | 2     | ☐      |
+| 4   | DIRECT_URL                  | Secret   | Database | Supabase/RDS | 2     | ☐      |
+| 5   | JWT_PRIVATE_KEY_TEST        | Secret   | Auth     | Generated    | 3     | ☐      |
+| 6   | JWT_PUBLIC_KEY_TEST         | Secret   | Auth     | Generated    | 3     | ☐      |
+| 7   | NEXT_PUBLIC_API_URL         | Variable | Config   | App          | 4     | ☐      |
+| 8   | NEXT_PUBLIC_WS_URL          | Variable | Config   | App          | 4     | ☐      |
+| 9   | RAILWAY_TOKEN               | Secret   | Deploy   | Railway      | 4     | ☐      |
+| 10  | STAGING_API_URL             | Secret   | Config   | Railway      | 5     | ☐      |
+| 11  | AWS_ACCESS_KEY_ID           | Secret   | Deploy   | AWS IAM      | 5     | ☐      |
+| 12  | AWS_SECRET_ACCESS_KEY       | Secret   | Deploy   | AWS IAM      | 5     | ☐      |
+| 13  | CLOUDFLARE_API_TOKEN        | Secret   | Deploy   | Cloudflare   | 5     | ☐      |
+| 14  | CLOUDFLARE_ACCOUNT_ID       | Secret   | Deploy   | Cloudflare   | 5     | ☐      |
+| 15  | PROD_API_URL                | Secret   | Config   | AWS/LB       | 5     | ☐      |
+| 16  | VERCEL_TOKEN                | Secret   | Deploy   | Vercel       | 5     | ☐      |
+| 17  | VERCEL_ORG_ID               | Variable | Deploy   | Vercel       | 5     | ☐      |
+| 18  | VERCEL_PROJECT_ID_WEB       | Secret   | Deploy   | Vercel       | 5     | ☐      |
+| 19  | VERCEL_PROJECT_ID_AUTH      | Secret   | Deploy   | Vercel       | 5     | ☐      |
+| 20  | VERCEL_PROJECT_ID_PLATFORM  | Secret   | Deploy   | Vercel       | 5     | ☐      |
+| 21  | VERCEL_PROJECT_ID_ADMIN     | Secret   | Deploy   | Vercel       | 5     | ☐      |
+| 22  | VERCEL_PROJECT_ID_IB_PORTAL | Secret   | Deploy   | Vercel       | 5     | ☐      |
 
 ---
 
@@ -206,14 +213,14 @@ Follow this 7-phase approach (estimated 60-90 min total):
 
 The **`.github/workflows/ci.yml`** file reads these secrets in these jobs:
 
-| Job                 | Secrets Used                                            | Purpose                           |
-| ------------------- | ------------------------------------------------------- | --------------------------------- |
-| `typecheck`         | TURBO_TOKEN, DATABASE_URL, DIRECT_URL                   | Turbo caching + Prisma generation |
-| `lint`              | TURBO_TOKEN                                             | Turbo caching                     |
-| `test`              | JWT_PRIVATE_KEY_TEST, JWT_PUBLIC_KEY_TEST, DATABASE_URL | Unit & integration tests          |
-| `build`             | TURBO_TOKEN, NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WS_URL    | Build all apps + frontend URLs    |
-| `deploy-staging`    | RAILWAY_TOKEN, STAGING_API_URL                          | Deploy to Railway + health check  |
-| `deploy-production` | `AWS_*`, `VERCEL_*`, PROD_API_URL                       | Deploy to ECS + Vercel            |
+| Job                 | Secrets Used                                              | Purpose                                     |
+| ------------------- | --------------------------------------------------------- | ------------------------------------------- |
+| `typecheck`         | TURBO_TOKEN, DATABASE_URL, DIRECT_URL                     | Turbo caching + Prisma generation           |
+| `lint`              | TURBO_TOKEN                                               | Turbo caching                               |
+| `test`              | JWT_PRIVATE_KEY_TEST, JWT_PUBLIC_KEY_TEST, DATABASE_URL   | Unit & integration tests                    |
+| `build`             | TURBO_TOKEN, NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WS_URL      | Build all apps + frontend URLs              |
+| `deploy-staging`    | RAILWAY_TOKEN, STAGING_API_URL                            | Deploy to Railway + health check            |
+| `deploy-production` | CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, PROD_API_URL | Deploy to production via Cloudflare Workers |
 
 ---
 
@@ -325,7 +332,7 @@ RAILWAY_TOKEN=xxx railway whoami
 ├── GITHUB_SECRETS_CHECKLIST.md           ← Interactive progress tracker
 ├── setup-github-secrets.sh               ← Bash automation script
 └── workflows/
-    └── ci.yml                            ← (unchanged, uses secrets)
+    └── ci.yml                            ← (modified: AWS ECS prod deployment replaced with Cloudflare placeholder)
 
 apps/api/
 └── .env.example                          ← Updated with all variables

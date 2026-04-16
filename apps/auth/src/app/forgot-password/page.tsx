@@ -37,7 +37,6 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="bg-surface flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md space-y-4">
         <h1 className="text-dark text-2xl font-semibold">Reset your password</h1>
         {!submitted ? (
@@ -65,6 +64,5 @@ export default function ForgotPasswordPage() {
           </div>
         )}
       </Card>
-    </div>
   )
 }

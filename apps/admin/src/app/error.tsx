@@ -15,7 +15,40 @@ export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
     // Log error for debugging and production monitoring
     console.error(error)
-    // TODO: Send to error reporting service (Sentry, DatadogRUM, etc.) when configured
+
+    // Send to error reporting service when configured (guards reporting behind config check)
+    if (process.env.NEXT_PUBLIC_ERROR_REPORTING_DSN) {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 3000)
+
+      // Example integration — replace with actual SDK call when service is configured:
+      // Sentry.captureException(error, { extra: { ...context } })
+      // or: datadogRum.addError(error, { ...context })
+      fetch('/api/errors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: error.message,
+          stack: error.stack,
+          digest: error.digest,
+          dsn: process.env.NEXT_PUBLIC_ERROR_REPORTING_DSN,
+        }),
+        signal: controller.signal,
+      })
+        .finally(() => clearTimeout(timeout))
+        .catch(() => {
+          // Silently fail — error reporting should not break the app
+        })
+
+      // Cleanup function to abort fetch and clear timeout on unmount or error change
+      return () => {
+        controller.abort()
+        clearTimeout(timeout)
+      }
+    }
+
+    // Return undefined when error reporting is not configured
+    return undefined
   }, [error])
 
   return (
@@ -43,7 +76,7 @@ export default function Error({ error, reset }: ErrorProps) {
           development team if the issue persists.
         </p>
         {error.digest && (
-          <p className="mt-2 font-mono text-xs text-gray-600">Error ID: {error.digest}</p>
+          <p className="mt-2 font-mono text-xs text-gray-500">Error ID: {error.digest}</p>
         )}
         <button
           onClick={reset}

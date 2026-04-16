@@ -835,7 +835,15 @@ tradesRouter.delete('/:id', async (req, res, next) => {
       return
     }
 
-    await prisma.trade.update({ where: { id: trade.id }, data: { status: 'CANCELLED' } })
+    const updated = await prisma.trade.updateMany({
+      where: { id: trade.id, status: 'PENDING' },
+      data: { status: 'CANCELLED' },
+    })
+
+    if (updated.count === 0) {
+      next(Errors.conflict('Trade already processed'))
+      return
+    }
 
     // Invalidate pending orders cache asynchronously (fire-and-forget)
     invalidatePendingOrdersCache(trade.instrument.id.toString()).catch((err) => {
