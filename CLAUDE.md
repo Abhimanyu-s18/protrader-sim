@@ -46,6 +46,8 @@ docker compose up -d   # Starts PostgreSQL 17, Redis 7, Mailhog, Redis Commander
 
 **Monorepo**: Turborepo + pnpm workspaces. Shared packages linked via `workspace:*`.
 
+Multi-asset offshore CFD simulation trading platform with IB (Introducing Broker) model.
+
 ### Apps
 
 | App         | Port | Description                     |
@@ -84,9 +86,46 @@ Middleware: `errorHandler.ts`, `auth.ts`, `requestLogger.ts`
 
 Core services: `socket.ts` (real-time price/trade updates), `redis.ts`, `prisma.ts`, `calculations.ts`, `queues.ts` (BullMQ)
 
+**Architecture note**: Most business logic currently lives directly in route files (e.g., `trades.ts` is ~750 lines). The `services/` directory only contains `market-data.ts`. Follow existing patterns for consistency; extract to service functions only for testability needs.
+
 **BullMQ Workers** (`apps/api/src/workers/`): `rollover.ts` (daily swap fees at 22:00 UTC, Wed triple), `email.ts` (13 email types via Resend + React Email), `notification.ts` (in-app + Socket.io), `kyc-reminder.ts` (daily, max 5 reminders). Missing: entry-order-expiry, deposit-confirm, p&l-snapshot, report-generator. All workers guard against test execution with `NODE_ENV !== 'test'`.
 
 **Rate limiting**: 100 req/min global; 10 req/15min per IP on auth endpoints.
+
+### Common Route Pattern
+
+```typescript
+import { Router } from 'express'
+import { prisma } from '../lib/prisma.js'
+import { requireAuth } from '../middleware/auth.js'
+import { serializeBigInt } from '../lib/calculations.js'
+import { z } from 'zod'
+
+export const XRouter = Router()
+XRouter.use(requireAuth)
+
+XRouter.get('/endpoint', async (req, res) => {
+  // 1. Validate with Zod
+  const parsed = z.object({ limit: z.string().optional() }).safeParse(req.query)
+  if (!parsed.success) return res.status(400).json({ error: 'Validation failed' })
+
+  // 2. Cursor-based pagination (take + 1 trick)
+  const take = Math.min(parseInt(parsed.data.limit ?? '50', 10), 200)
+  const items = await prisma.model.findMany({ take: take + 1 })
+  const hasMore = items.length > take
+
+  // 3. Always serialize BigInt before response
+  res.json({
+    data: serializeBigInt({ items: hasMore ? items.slice(0, take) : items, has_more: hasMore }),
+  })
+})
+```
+
+**Key patterns**:
+
+- `serializeBigInt()` — wrap every response containing BigInt fields or JSON serialization errors occur
+- **Prisma enums** — When handling string parameters that map to Prisma enum values, validate with Zod (`z.enum()` or `z.nativeEnum()`) before passing to Prisma. Use `as never` only after validation (e.g., `const validated = kycStatusSchema.parse(input); where: { kycStatus: validated as never }`) to maintain type safety. Avoid raw `as never` casts without validation.
+- `requireKYC` middleware must gate trading, deposits, and withdrawals — omitting it is a compliance bug
 
 ### Socket.io Real-Time (`apps/api/src/lib/socket.ts`)
 
@@ -113,7 +152,18 @@ PostgreSQL 17 with Prisma ORM. Key design principles:
 
 - **All monetary values**: BIGINT cents (never Decimal/Float)
 - **All prices**: BIGINT scaled ×100000 (5 decimal places)
-- **Balance**: NOT stored — computed from `ledger_transactions` table (`balanceAfterCents` is a snapshot for audit, not the source of truth)
+- **Balance**: NOT stored — computed via `get_user_balance(userId)` PostgreSQL function. `balanceAfterCents` on `ledger_transactions` is an audit snapshot only.
+
+```typescript
+// CORRECT
+const result = await prisma.$queryRaw`SELECT get_user_balance(${userId})`
+
+// WRONG — there is no balance column on users
+const user = await prisma.user.findUnique({ where: { id } })
+// user.balance does not exist
+```
+
+- **Ledger writes** must use `$transaction` with `withSerializableRetry()` to handle PostgreSQL SSI conflicts (error P2034/40001)
 - **4-role staff hierarchy**: SUPER_ADMIN → ADMIN → IB_TEAM_LEADER → AGENT
 - **IB commissions**: Tracked per trade in `ib_commissions` table with `rateBps`
 
@@ -130,13 +180,14 @@ All BigInt. Key constants:
 ```typescript
 PRICE_SCALE = 100000n // price storage multiplier
 BPS_SCALE = 10000n // 10000 bps = 100%
+CENTS = 100n
 ```
 
 Key formulas:
 
-- **Margin** = `(units × contractSize × openRateScaled × 100) / (leverage × 100000)`
-- **P&L BUY** = `(currentBidScaled - openRateScaled) × units × contractSize × 100 / 100000`
-- **P&L SELL** = `(openRateScaled - currentAskScaled) × units × contractSize × 100 / 100000`
+- **Margin** = `(units × contractSize × openRateScaled × CENTS) / (leverage × PRICE_SCALE)`
+- **P&L BUY** = `(currentBidScaled - openRateScaled) × units × contractSize × CENTS / PRICE_SCALE`
+- **P&L SELL** = `(openRateScaled - currentAskScaled) × units × contractSize × CENTS / PRICE_SCALE`
 - **Margin level** = `(equityCents × BPS_SCALE) / usedMarginCents` (null if no open positions)
 
 Key utilities: `priceToScaled(n)` — decimal → BigInt scaled; `serializeBigInt(obj)` — JSON-safe BigInt→string (use before every HTTP response); `validateEntryRate(scaled, bid, ask)` — checks pending entry orders are outside min buffer. Coverage for this file must stay at 100%.
@@ -147,6 +198,10 @@ Key patterns:
 
 - `prices:{symbol}` — latest mid/bid/ask, TTL 60s
 - `margin_watch:{instrumentId}` — sorted set of userIds with open positions (for margin call sweeps)
+
+`addMarginWatch`/`removeMarginWatch`/`getMarginWatchers` track users with open positions per instrument.
+
+Pending orders are cached in `market-data.ts`. Any code modifying pending orders MUST call `invalidatePendingOrdersCache()`.
 
 ### Key Type Conventions (`packages/types`)
 
@@ -170,12 +225,12 @@ Key patterns:
 
 **Critical env vars**:
 
-- `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` — RSA key pair (RS256), not symmetric
+- `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` — RSA key pair (RS256), not symmetric. Using a symmetric key will silently fail authentication.
 - `DATABASE_URL` — connection pooler URL (for Prisma queries)
 - `DIRECT_URL` — direct connection (for migrations only)
 - `REDIS_URL` — BullMQ backend
 - `NOWPAYMENTS_IPN_SECRET` — webhook signature verification; missing = server refuses to start
-- `TWELVE_DATA_API_KEY` / `TWELVE_DATA_WS_URL` — market data feed
+- `TWELVE_DATA_API_KEY` / `TWELVE_DATA_WS_URL` — market data feed; if WebSocket isn't running, trade creation fails with `MARKET_CLOSED`
 - `RESEND_API_KEY` — transactional email delivery
 - `CLOUDFLARE_R2_*` — KYC document storage (account ID, bucket, access/secret keys)
 
@@ -184,7 +239,29 @@ Key patterns:
 - TypeScript with strict mode, `noUncheckedIndexedAccess`, and `exactOptionalPropertyTypes`
 - ESLint: `@typescript-eslint/recommended` + type-checked rules
 - Prettier for formatting
-- All money/price calculations must use BigInt (see `packages/utils` helpers)
+- All money/price calculations must use BigInt (see `packages/utils` helpers). Division must always be last in BigInt arithmetic.
 - API routes return standardized `ApiResponse<T>` or `ApiError` shapes
 - Frontend apps use React Query for server state, Zustand for client state, react-hook-form for forms, lightweight-charts for TradingView charts
 - Platform Zustand stores: `accountStore` (AccountMetrics from WebSocket) and `priceStore` (live bid/ask by symbol) in `apps/platform/src/stores/`
+
+## Common Pitfalls
+
+- **Wednesday triple swap** — Rollover on Wednesday charges 3× the daily swap rate (Forex 3-day settlement). Do not flatten this to 1× in workers.
+- **KYC gate** — Trading, deposits, and withdrawals require `requireKYC` middleware. Routes missing it are a compliance bug.
+- **Ledger atomicity** — Any operation modifying balance must use `prisma.$transaction` wrapped in `withSerializableRetry()` to handle SSI conflicts.
+- **Pending orders cache** — After any order mutation, call `invalidatePendingOrdersCache()` or stale data will be served.
+- **Test coverage** — Only `calculations.ts` has tests currently. No route, service, or E2E tests exist yet.
+
+## Instruction Files
+
+Domain-specific coding patterns live in `.github/instructions/`:
+
+| File                                        | Covers                                      |
+| ------------------------------------------- | ------------------------------------------- |
+| `api-route-rules.instructions.md`           | Express route structure, validation, errors |
+| `socket-io-patterns.instructions.md`        | WebSocket rooms, auth, events               |
+| `worker-patterns.instructions.md`           | BullMQ job structure and enqueueing         |
+| `service-layer-patterns.instructions.md`    | Business logic extraction                   |
+| `zustand-store-patterns.instructions.md`    | Client state + Socket.io integration        |
+| `shared-utilities-patterns.instructions.md` | Formatting, conversions, API client         |
+| `e2e-trading-flows.instructions.md`         | End-to-end user journeys                    |

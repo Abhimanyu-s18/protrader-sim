@@ -190,6 +190,73 @@ XRouter.get('/endpoint', async (req, res) => {
 
 **Server emit helpers**: `emitToUser(io, userId, event, data)`, `emitPriceUpdate(io, symbol, data)`, `emitToAdmin(io, event, data)`
 
+**→ For detailed patterns**: Read [`.github/instructions/socket-io-patterns.instructions.md`](./.github/instructions/socket-io-patterns.instructions.md)
+
+### Background Jobs (BullMQ)
+
+Workers handle async tasks: email, notifications, daily rollover (swap fees), KYC reminders.
+
+**Pattern**: Route enqueues job → Worker processes asynchronously → Database updated
+
+**Important**: All workers skip processing during tests (`NODE_ENV !== 'test'`)
+
+**→ For detailed patterns**: Read [`.github/instructions/worker-patterns.instructions.md`](./.github/instructions/worker-patterns.instructions.md)
+
+---
+
+## Instruction Files & Skills Reference
+
+### Instruction Files
+
+These files contain code patterns and conventions for specific domains:
+
+| File | Applies To | Purpose |
+|------|-----------|---------|
+| [api-route-rules.instructions.md](./.github/instructions/api-route-rules.instructions.md) | `apps/api/src/routes/**/*.ts` | Express route structure, validation, errors |
+| [socket-io-patterns.instructions.md](./.github/instructions/socket-io-patterns.instructions.md) | `apps/api/src/lib/socket.ts`, frontend hooks | WebSocket room naming, authentication, events |
+| [worker-patterns.instructions.md](./.github/instructions/worker-patterns.instructions.md) | `apps/api/src/workers/**/*.ts` | BullMQ job structure, enqueueing, error handling |
+| [service-layer-patterns.instructions.md](./.github/instructions/service-layer-patterns.instructions.md) | `apps/api/src/services/**/*.ts` | Business logic extraction, testing, composition |
+| [zustand-store-patterns.instructions.md](./.github/instructions/zustand-store-patterns.instructions.md) | `apps/*/src/stores/**/*.ts` | Client state management, Socket.io integration |
+| [shared-utilities-patterns.instructions.md](./.github/instructions/shared-utilities-patterns.instructions.md) | `packages/utils/src/**/*.ts`, `packages/types/src/**/*.ts` | Formatting, conversions, API client, shared types |
+| [e2e-trading-flows.instructions.md](./.github/instructions/e2e-trading-flows.instructions.md) | Complete user journeys (register → trade → withdraw) | End-to-end workflows with frontend + backend code |
+| [prisma-schema-rules.instructions.md](./.github/instructions/prisma-schema-rules.instructions.md) | `packages/db/prisma/schema.prisma` | Table design, BIGINT fields, migrations |
+| [react-component-rules.instructions.md](./.github/instructions/react-component-rules.instructions.md) | `**/*.{tsx,jsx}` | Component structure, hooks, state management |
+| [test-file-rules.instructions.md](./.github/instructions/test-file-rules.instructions.md) | `**/*.test.{ts,tsx}` | Test structure, assertions, mocking |
+
+### Detailed Skills
+
+For comprehensive domain knowledge, see `.github/skills/`:
+
+**Financial Foundation** (required reading):
+- [`financial-calculations/SKILL.md`](./.github/skills/financial-calculations/SKILL.md) — All trading formulas (margin, P&L, equity, swaps) with BigInt
+- [`bigint-money-handling/SKILL.md`](./.github/skills/bigint-money-handling/SKILL.md) — Money conversion, validation, ledger patterns
+
+**API & Backend**:
+- [`api-route-creation/SKILL.md`](./.github/skills/api-route-creation/SKILL.md) — Route layering, auth, validation, errors
+- [`database-schema-design/SKILL.md`](./.github/skills/database-schema-design/SKILL.md) — Schema principles, relationships, indexes
+- [`authentication-jwt-flow/SKILL.md`](./.github/skills/authentication-jwt-flow/SKILL.md) — RS256 JWT implementation
+- [`socket-io-real-time/SKILL.md`](./.github/skills/socket-io-real-time/SKILL.md) — WebSocket architecture, scaling
+
+**Frontend**:
+- [`state-management-trading/SKILL.md`](./.github/skills/state-management-trading/SKILL.md) — Zustand + React Query + Socket.io integration
+- [`trading-ui-components/SKILL.md`](./.github/skills/trading-ui-components/SKILL.md) — CVA components, TradingView charts
+
+**Testing & Quality**:
+- [`testing-financial-features/SKILL.md`](./.github/skills/testing-financial-features/SKILL.md) — Financial test strategies, BigInt precision
+- [`api-integration-testing/SKILL.md`](./.github/skills/api-integration-testing/SKILL.md) — Route integration tests with real DB
+
+**Compliance & Security**:
+- [`kyc-compliance-flow/SKILL.md`](./.github/skills/kyc-compliance-flow/SKILL.md) — Document upload, file validation, PII
+- [`regulatory-compliance/SKILL.md`](./.github/skills/regulatory-compliance/SKILL.md) — FSC/FSA constraints, KYC gates
+- [`rbac-implementation/SKILL.md`](./.github/skills/rbac-implementation/SKILL.md) — Role hierarchy (SUPER_ADMIN → ADMIN → IB_TEAM_LEADER → AGENT)
+
+**Other**:
+- [`payment-integration/SKILL.md`](./.github/skills/payment-integration/SKILL.md) — NowPayments, IPN webhooks, idempotency
+- [`orm-query-optimization/SKILL.md`](./.github/skills/orm-query-optimization/SKILL.md) — N+1 prevention, indexes
+- [`error-handling-patterns/SKILL.md`](./.github/skills/error-handling-patterns/SKILL.md) — AppError class, standardized responses
+
+**Quick lookup**: All 30+ skills at [`.github/skills/README.md`](./.github/skills/README.md)
+
 ---
 
 ## Database (`packages/db`)
