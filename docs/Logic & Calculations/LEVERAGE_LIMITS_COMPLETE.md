@@ -378,10 +378,16 @@ If a trader needs leverage above their jurisdiction limit:
 → Ensure `packages/types/src/index.ts` has `jurisdiction: Jurisdiction` on User interface
 
 **Override not working**
-→ Use admin API endpoints: `GET /admin/overrides` and `GET /admin/overrides/stats`
-→ Example: `curl -H "Authorization: Bearer $JWT" http://localhost:4000/api/admin/overrides`
-→ Verify override hasn't expired (check `expires_at` timestamp in response)
-→ Ensure admin has SUPER_ADMIN or ADMIN role
+→ ⚠️ `GET /admin/overrides` and `GET /admin/overrides/stats` are not yet implemented (marked 🔴 TODO above); verify overrides via Redis CLI instead:
+→ **Running redis-cli**: Execute on the API server host or inside the Redis container (`docker exec redis-container redis-cli`). If Redis requires authentication, use `-a <password>` or appropriate `--user` for ACL.
+→ `redis-cli keys "leverage_override:*"` — list all active override keys
+→ `redis-cli get "leverage_override:{userId}:{assetClass}"` — inspect a specific override (returns override amount or nil if missing)
+→ `redis-cli ttl "leverage_override:{userId}:{assetClass}"` — check expiration:
+
+- Returns **remaining TTL in seconds** if key exists with expiry
+- Returns **-1** if key exists but has no expiration
+- Returns **-2** if key does not exist
+  → Ensure admin has SUPER_ADMIN or ADMIN role via `GET /admin/overrides` or `GET /admin/overrides/stats` endpoints for operational verification
 
 **Trader leverage still rejected after override**
 → Verify override was created for correct asset class (FOREX vs STOCK vs CRYPTO)
@@ -391,5 +397,5 @@ If a trader needs leverage above their jurisdiction limit:
 
 **Implementation Date**: April 14, 2026
 **Status**: ✅ FUNCTIONALLY COMPLETE — ⚠️ NOT PRODUCTION-READY (operational setup required)
-**Tests**: 95 passing
+**Tests**: 99 passing
 **TypeScript**: ✅ Strict mode compliant

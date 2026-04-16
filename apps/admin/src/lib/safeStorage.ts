@@ -3,6 +3,41 @@
  * In Safari private browsing and some enterprise policies, storage access throws a SecurityError.
  * These helpers silently fall back to null/no-op rather than crashing the app.
  */
+
+/**
+ * Helper function to write to preferred storage with fallback and cleanup logic.
+ * Preserves exact behavior: try preferred.setItem, remove from fallback on success,
+ * on preferred write failure attempt to remove preferred then try fallback.setItem.
+ */
+function writeWithFallback(
+  preferredStorage: Storage,
+  fallbackStorage: Storage,
+  key: string,
+  value: string,
+): void {
+  try {
+    preferredStorage.setItem(key, value)
+    try {
+      fallbackStorage.removeItem(key)
+    } catch {
+      // ignore
+    }
+    return
+  } catch {
+    // preferred storage write failed — try fallback
+    try {
+      preferredStorage.removeItem(key)
+    } catch {
+      // ignore
+    }
+  }
+  try {
+    fallbackStorage.setItem(key, value)
+  } catch {
+    // both storages unavailable — ignore
+  }
+}
+
 export const safeStorage = {
   /** Get a value — tries localStorage first, then sessionStorage. Returns null on error or miss. */
   get(key: string): string | null {
@@ -30,49 +65,9 @@ export const safeStorage = {
    */
   set(key: string, value: string, preferLocal: boolean = true): void {
     if (preferLocal) {
-      try {
-        localStorage.setItem(key, value)
-        try {
-          sessionStorage.removeItem(key)
-        } catch {
-          // ignore
-        }
-        return
-      } catch {
-        // localStorage write failed — try sessionStorage fallback
-        try {
-          localStorage.removeItem(key)
-        } catch {
-          // ignore
-        }
-      }
-      try {
-        sessionStorage.setItem(key, value)
-      } catch {
-        // both storages unavailable — ignore
-      }
+      this.writeWithFallback(localStorage, sessionStorage, key, value)
     } else {
-      try {
-        sessionStorage.setItem(key, value)
-        try {
-          localStorage.removeItem(key)
-        } catch {
-          // ignore
-        }
-        return
-      } catch {
-        // sessionStorage unavailable — try localStorage fallback
-        try {
-          sessionStorage.removeItem(key)
-        } catch {
-          // ignore
-        }
-      }
-      try {
-        localStorage.setItem(key, value)
-      } catch {
-        // both storages unavailable — ignore
-      }
+      this.writeWithFallback(sessionStorage, localStorage, key, value)
     }
   },
 

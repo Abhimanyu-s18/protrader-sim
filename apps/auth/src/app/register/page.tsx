@@ -26,7 +26,11 @@ const RegisterSchema = z
     phone: z
       .string()
       .min(1, 'Phone is required')
-      .regex(/^[+]?[\d\s\-()]*\d[\d\s\-()]*$/, 'Enter a valid phone number'),
+      .regex(/^[+]?[\d\s\-()]{6,}$/, 'Enter a valid phone number')
+      .refine(
+        (val) => (val.match(/\d/g) || []).length >= 7,
+        'Phone number must have at least 7 digits',
+      ),
     terms_accepted: z.boolean().refine((val) => val === true, {
       message: 'You must accept the terms and conditions',
     }),
@@ -183,19 +187,18 @@ export default function RegisterPage() {
           )}
         </div>
         <div className="inline-flex items-center gap-2 text-sm text-dark">
-          <label htmlFor="terms_accepted" className="inline-flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="terms_accepted"
-              {...register('terms_accepted')}
-              className="h-4 w-4 rounded border-primary"
-              aria-describedby={errors.terms_accepted ? 'terms-error' : undefined}
-            />
-            I agree to the{' '}
-            <Link href="/terms" className="text-primary hover:underline">
-              Terms of Service
-            </Link>
-          </label>
+          <input
+            type="checkbox"
+            id="terms_accepted"
+            {...register('terms_accepted')}
+            className="h-4 w-4 rounded border-primary"
+            aria-describedby={errors.terms_accepted ? 'terms-error' : undefined}
+            aria-label="I agree to the Terms of Service"
+          />
+          <span className="inline-flex items-center gap-1">I agree to the</span>
+          <Link href="/terms" className="text-primary hover:underline">
+            Terms of Service
+          </Link>
         </div>
         {errors.terms_accepted && (
           <p id="terms-error" role="alert" className="text-xs text-danger">

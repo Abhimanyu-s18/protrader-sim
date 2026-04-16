@@ -25,6 +25,7 @@ export const safeStorage = {
 
   /** Persist to localStorage (persist=true) or sessionStorage (persist=false). Silently no-ops on error. */
   set(key: string, value: string, persist: boolean): void {
+    if (typeof window === 'undefined') return
     try {
       if (persist) {
         localStorage.setItem(key, value)
@@ -40,6 +41,7 @@ export const safeStorage = {
 
   /** Remove a key from both storages. Silently no-ops on error. */
   remove(key: string): void {
+    if (typeof window === 'undefined') return
     try {
       localStorage.removeItem(key)
     } catch {

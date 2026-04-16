@@ -461,6 +461,8 @@ For each app: run `vercel link` inside the app directory, follow the prompts, th
 
 ### Secret #18: NEXT_PUBLIC_WS_URL
 
+**⚠️ SECURITY WARNING**: `NEXT_PUBLIC_*` environment variables are embedded in frontend JavaScript bundles and are client-visible. This variable must only contain the public WebSocket base URL (e.g., `wss://api.protrader-sim.com`) and must never contain secrets, API keys, authentication tokens, or any sensitive data. Only non-sensitive configuration should be stored with the `NEXT_PUBLIC_` prefix. If you need to store sensitive values, use non-public environment variables or server-side-only secrets.
+
 **Staging Value**:
 
 - [ ] Railway API deployed

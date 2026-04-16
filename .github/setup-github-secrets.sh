@@ -1,10 +1,19 @@
-#!/bin/bash    done < "$file"
-}
+#!/bin/bash
 # ProTraderSim GitHub Secrets Setup Helper Script
 # Usage: bash setup-github-secrets.sh
 # Requires: GitHub CLI (gh) installed and authenticated
 
 set -e
+
+# Check Bash version (associative arrays require Bash 4+)
+if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+    echo -e "\033[0;31m✗ This script requires Bash 4+ for associative arrays.\033[0m"
+    echo -e "\033[0;31m  Current Bash version: ${BASH_VERSION}\033[0m"
+    echo -e "\033[0;31m  Please upgrade Bash or run with a newer version.\033[0m"
+    echo -e "\033[0;31m  On macOS: brew install bash && /usr/local/bin/bash $0\033[0m"
+    echo -e "\033[0;31m  On Ubuntu/Debian: sudo apt-get install bash\033[0m"
+    exit 1
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -13,8 +22,32 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-REPO="${REPO:-krishan/protrader-sim}"
+REPO="${REPO:-Abhimanyu-s18/protrader-sim}"
 SECRETS_FILE="${SECRETS_FILE:-.github/secrets.env}"
+
+# Define expected secrets (shared across script)
+expected_secrets=(
+    "TURBO_TOKEN"
+    "TURBO_TEAM"
+    "DATABASE_URL"
+    "DIRECT_URL"
+    "JWT_PRIVATE_KEY_TEST"
+    "JWT_PUBLIC_KEY_TEST"
+    "NEXT_PUBLIC_API_URL"
+    "NEXT_PUBLIC_WS_URL"
+    "RAILWAY_TOKEN"
+    "STAGING_API_URL"
+    "AWS_ACCESS_KEY_ID"
+    "AWS_SECRET_ACCESS_KEY"
+    "PROD_API_URL"
+    "VERCEL_TOKEN"
+    "VERCEL_ORG_ID"
+    "VERCEL_PROJECT_ID_WEB"
+    "VERCEL_PROJECT_ID_AUTH"
+    "VERCEL_PROJECT_ID_PLATFORM"
+    "VERCEL_PROJECT_ID_ADMIN"
+    "VERCEL_PROJECT_ID_IB_PORTAL"
+)
 
 # Check prerequisites
 check_prerequisites() {
@@ -48,8 +81,7 @@ list_secrets() {
 generate_jwt_keys() {
     echo -e "${BLUE}🔐 Generating JWT RSA key pair...${NC}"
     
-    local jwt_dir="/tmp/jwt-keys-$"
-    mkdir -p "$jwt_dir"
+    local jwt_dir="/tmp/jwt-keys-$$"
     
     # Cleanup trap to ensure directory removal on any exit
     trap "cd / && rm -rf \"$jwt_dir\"" EXIT INT TERM
@@ -130,7 +162,7 @@ set_secrets_from_file() {
         
         set_secret "$name" "$value"
     done < "$file"
-
+}
 
 # Interactive secret setup
 interactive_setup() {
@@ -198,30 +230,6 @@ delete_secret() {
     fi
 }
 
-# Define expected secrets (shared across script)
-expected_secrets=(
-    "TURBO_TOKEN"
-    "TURBO_TEAM"
-    "DATABASE_URL"
-    "DIRECT_URL"
-    "JWT_PRIVATE_KEY_TEST"
-    "JWT_PUBLIC_KEY_TEST"
-    "NEXT_PUBLIC_API_URL"
-    "NEXT_PUBLIC_WS_URL"
-    "RAILWAY_TOKEN"
-    "STAGING_API_URL"
-    "AWS_ACCESS_KEY_ID"
-    "AWS_SECRET_ACCESS_KEY"
-    "PROD_API_URL"
-    "VERCEL_TOKEN"
-    "VERCEL_ORG_ID"
-    "VERCEL_PROJECT_ID_WEB"
-    "VERCEL_PROJECT_ID_AUTH"
-    "VERCEL_PROJECT_ID_PLATFORM"
-    "VERCEL_PROJECT_ID_ADMIN"
-    "VERCEL_PROJECT_ID_IB_PORTAL"
-)
-
 # Verify secrets
 verify_secrets() {
     echo -e "${BLUE}✓ Current secrets in GitHub:${NC}"
@@ -233,7 +241,7 @@ verify_secrets() {
     for secret in "${expected_secrets[@]}"; do
         if echo "$secrets_list" | grep -qx "$secret"; then
             echo -e "  ${GREEN}✓${NC} $secret"
-            ((count++))
+            count=$((count + 1))
         else
             echo -e "  ${RED}✗${NC} $secret (MISSING)"
         fi

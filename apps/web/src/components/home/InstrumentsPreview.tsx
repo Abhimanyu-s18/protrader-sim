@@ -223,13 +223,25 @@ export default function InstrumentsPreview() {
             onClick={() => setActiveTab(tab.key)}
             onKeyDown={(e) => {
               if (e.key === 'ArrowRight') {
+                e.preventDefault()
                 const nextIndex = (index + 1) % TABS.length
                 const nextTab = TABS[nextIndex]
-                if (nextTab) setActiveTab(nextTab.key)
+                if (nextTab) {
+                  setActiveTab(nextTab.key)
+                  // Move focus to the next tab button
+                  const nextButton = document.getElementById(`tab-${nextTab.key}`)
+                  nextButton?.focus()
+                }
               } else if (e.key === 'ArrowLeft') {
+                e.preventDefault()
                 const prevIndex = (index - 1 + TABS.length) % TABS.length
                 const prevTab = TABS[prevIndex]
-                if (prevTab) setActiveTab(prevTab.key)
+                if (prevTab) {
+                  setActiveTab(prevTab.key)
+                  // Move focus to the previous tab button
+                  const prevButton = document.getElementById(`tab-${prevTab.key}`)
+                  prevButton?.focus()
+                }
               }
             }}
             className={[

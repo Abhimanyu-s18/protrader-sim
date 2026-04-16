@@ -145,13 +145,12 @@ TURBO_TOKEN=your_token TURBO_TEAM=your_team pnpm turbo build --cache-dir=.turbo
 - `DATABASE_URL`: Connection pooler (PgBouncer) for application queries
 - `DIRECT_URL`: Direct connection for Prisma migrations (direct DB endpoint that bypasses all pooling)
 
-**Connection Pooling**: DIRECT_URL must bypass all pooling (including session mode) so migrations run against a direct connection, while DATABASE_URL may use the pooled connection for normal runtime queries.
+**Connection Pooling**: DIRECT_URL must use a direct database connection (bypassing any pooler) so migrations can execute DDL statements, while DATABASE_URL may use the pooled connection endpoint for normal runtime queries.
 
-**How to Configure for Supabase**:
+**How to Obtain for Supabase**:
 
-1. Settings → Database → Connection pooling
-2. Disable "Session mode" for DIRECT_URL (direct connection for migrations)
-3. Copy the pooled connection string for DATABASE_URL (runtime queries)
+1. For DIRECT_URL: Settings → Database → Connection string (direct connection, not pooler)
+2. For DATABASE_URL: Settings → Database → Connection pooling → Use session mode and copy the pooled connection string
 
 **How to Obtain**:
 
@@ -192,16 +191,16 @@ openssl pkey -pubout -in jwt-private.pem -out jwt-public.pem
 
 # Display for copy-paste (with escaped newlines) - cross-platform alternatives:
 # Option 1: Using awk (macOS/Linux/Windows Git Bash)
-cat jwt-private.pem | awk '{printf "%s\\n", $0}' | sed '$d' | tr '\n' ' ' | sed 's/ /\\n/g'
+cat jwt-private.pem | awk '{printf "%s\\n", $0}'
 
 # Option 2: Using tr+sed (macOS/Linux)
 cat jwt-private.pem | tr '\n' '§' | sed 's/§/\\n/g'
 
 # Option 3: Using Perl (if available)
-cat jwt-private.pem | perl -pe 's/\n/\\n/'
+cat jwt-private.pem | perl -pe 's/\n/\\n/g'
 
 # Expected output:
-# -----BEGIN PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n...\n-----END PRIVATE KEY-----
+# -----BEGIN PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n...\n-----END PRIVATE KEY-----\n
 
 # Copy the entire output (including \n) and paste as GitHub Secret: JWT_PRIVATE_KEY_TEST
 ```
@@ -240,16 +239,16 @@ openssl pkey -pubout -in jwt-private.pem -out jwt-public.pem
 
 # Display for copy-paste (with escaped newlines) - cross-platform alternatives:
 # Option 1: Using awk (macOS/Linux/Windows Git Bash)
-cat jwt-public.pem | awk '{printf "%s\\n", $0}' | sed '$d' | tr '\n' ' ' | sed 's/ /\\n/g'
+cat jwt-public.pem | awk '{printf "%s\\n", $0}'
 
 # Option 2: Using tr+sed (macOS/Linux)
 cat jwt-public.pem | tr '\n' '§' | sed 's/§/\\n/g'
 
 # Option 3: Using Perl (if available)
-cat jwt-public.pem | perl -pe 's/\n/\\n/'
+cat jwt-public.pem | perl -pe 's/\n/\\n/g'
 
 # Expected output:
-# -----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...\n...\n-----END PUBLIC KEY-----
+# -----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...\n...\n-----END PUBLIC KEY-----\n
 
 # Copy the entire output (including \n) and paste as GitHub Secret: JWT_PUBLIC_KEY_TEST
 ```

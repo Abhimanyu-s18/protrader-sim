@@ -13,6 +13,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const generatedId = React.useId()
     const inputId = id ?? generatedId
     const errorId = `${inputId}-error`
+    const hintId = `${inputId}-hint`
 
     return (
       <div className="flex flex-col gap-1">
@@ -30,7 +31,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             error && 'border-danger',
             className,
           )}
-          aria-describedby={error ? errorId : undefined}
+          aria-describedby={error ? errorId : hint ? hintId : undefined}
           aria-invalid={!!error}
           {...props}
         />
@@ -39,7 +40,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {error}
           </p>
         )}
-        {hint && !error && <p className="text-dark-400 text-xs">{hint}</p>}
+        {hint && !error && (
+          <p id={hintId} className="text-dark-400 text-xs">
+            {hint}
+          </p>
+        )}
       </div>
     )
   },

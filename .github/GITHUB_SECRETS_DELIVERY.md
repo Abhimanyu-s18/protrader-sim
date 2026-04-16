@@ -12,7 +12,7 @@ A **complete, production-ready documentation and tooling package** for setting u
 
 ### Documentation Files
 
-#### 1. **[GITHUB_SECRETS_INDEX.md](.github/GITHUB_SECRETS_INDEX.md)** ⭐ START HERE
+#### 1. **[GITHUB_SECRETS_INDEX.md](GITHUB_SECRETS_INDEX.md)** ⭐ START HERE
 
 - **Purpose**: Master index and quick-start guide
 - **Read Time**: 5 minutes
@@ -24,7 +24,7 @@ A **complete, production-ready documentation and tooling package** for setting u
   - Security guidelines
   - Troubleshooting quick links
 
-#### 2. **[GITHUB_SECRETS_SETUP.md](.github/GITHUB_SECRETS_SETUP.md)** — Comprehensive Reference
+#### 2. **[GITHUB_SECRETS_SETUP.md](GITHUB_SECRETS_SETUP.md)** — Comprehensive Reference
 
 - **Purpose**: Detailed technical guide
 - **Read Time**: 30-45 minutes
@@ -39,7 +39,7 @@ A **complete, production-ready documentation and tooling package** for setting u
   - Secret rotation schedule with procedures
 - **Use When**: You need to understand the "why" behind each secret
 
-#### 3. **[GITHUB_SECRETS_QUICK_REF.md](.github/GITHUB_SECRETS_QUICK_REF.md)** — Fast Lookup
+#### 3. **[GITHUB_SECRETS_QUICK_REF.md](GITHUB_SECRETS_QUICK_REF.md)** — Fast Lookup
 
 - **Purpose**: Quick reference during implementation
 - **Read Time**: 5-10 minutes
@@ -53,7 +53,7 @@ A **complete, production-ready documentation and tooling package** for setting u
   - Regeneration procedures
 - **Use When**: You're actively setting up secrets and need a quick lookup
 
-#### 4. **[GITHUB_SECRETS_CHECKLIST.md](.github/GITHUB_SECRETS_CHECKLIST.md)** — Interactive Tracker
+#### 4. **[GITHUB_SECRETS_CHECKLIST.md](GITHUB_SECRETS_CHECKLIST.md)** — Interactive Tracker
 
 - **Purpose**: Phase-by-phase implementation checklist
 - **Use When**: Actively implementing, need to track progress
@@ -66,7 +66,7 @@ A **complete, production-ready documentation and tooling package** for setting u
   - Sign-off section for audit trail
 - **Instructions**: Print or open in split-pane editor while working
 
-#### 5. **[.env.example](apps/api/.env.example)** — Updated Template
+#### 5. **[.env.example](../apps/api/.env.example)** — Updated Template
 
 - **Purpose**: Reference all required environment variables
 - **Contains**:
@@ -78,7 +78,7 @@ A **complete, production-ready documentation and tooling package** for setting u
 
 ### Scripts & Tools
 
-#### 6. **[setup-github-secrets.sh](.github/setup-github-secrets.sh)** — Automation Helper
+#### 6. **[setup-github-secrets.sh](setup-github-secrets.sh)** — Automation Helper
 
 - **Purpose**: Bash script to automate GitHub secrets setup
 - **Prerequisites**: GitHub CLI (`gh`) installed and authenticated
@@ -100,7 +100,7 @@ A **complete, production-ready documentation and tooling package** for setting u
 
 ---
 
-## 📊 The 16 Secrets and 4 Variables Overview
+## 📊 The 18 Secrets and 4 Variables Overview
 
 All secrets and variables are mapped to their sources and implementation phases:
 

@@ -110,8 +110,11 @@ export function ContactForm() {
       // triggering the catch block to set submitError for future network/validation errors.
       await new Promise((resolve) => setTimeout(resolve, 800))
       setSubmitted(true)
-    } catch {
+    } catch (err) {
       // Error handling retained for future real API submission (network failures, validation errors, etc.)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Contact form submission error:', err instanceof Error ? err.message : err)
+      }
       setSubmitError('Failed to send message. Please try again.')
     } finally {
       setIsSubmitting(false)

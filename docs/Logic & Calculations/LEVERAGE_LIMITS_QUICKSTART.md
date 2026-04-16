@@ -138,7 +138,7 @@ POST /v1/trades
 **How leverage is determined on the server:**
 
 1. Backend fetches the instrument's leverage from the database (e.g., EUR/USD has 50:1 leverage configured)
-2. If no instrument leverage exists, apply the jurisdiction's default maximum leverage (from jurisdiction-specific settings)
+2. If no instrument leverage exists, apply the jurisdiction's default maximum leverage for the asset class in that jurisdiction (e.g., 30:1 for EU Forex)
 3. Backend resolves any active user overrides from Redis (`leverage_override:{userId}:{assetClass}`)
 4. Backend maps instrument's asset class (Forex/Stock/Crypto/etc) to the user's jurisdiction
 5. Compares resolved leverage against jurisdiction limit (e.g., US/Stocks = 4:1 max)
@@ -365,12 +365,7 @@ To verify in code, check the override creation logic in the admin routes.
 - **Route layer**: `trades.ts` calls service, handles HTTP concerns
 - **Frontend**: Displays jurisdiction hint, Backend enforces limits
 - **Storage**: Overrides stored in Redis with auto-expiry (no DB migration needed)
-- **Audit**: ⚠️ **TODO** — Replace console logs with persistent audit trail:
-  - Add `override_audit` table with: `id`, `timestamp`, `admin_id`, `user_id`, `action` ("GrantOverride"|"RevokeOverride"), `asset_class`, `old_leverage`, `new_leverage`, `reason`, `request_id`
-  - Update `/admin/leverage-overrides` POST/DELETE routes to insert immutable audit row
-  - Add composite indexes: `(user_id, timestamp)`, `(admin_id, timestamp)`, `(timestamp DESC)`
-  - Add TTL policy: retain for 3 years (regulatory compliance)
-  - Add tests: verify GrantOverride and RevokeOverride insert audit records
+- **Audit**: ⚠️ **TODO** — Implement persistent audit trail per checklist below (section "Pre-Production Checklist → Persistent audit trail")
 
 ## Implemented Features
 
@@ -382,12 +377,12 @@ To verify in code, check the override creation logic in the admin routes.
 
 🔴 **REQUIRED** before production deployment:
 
-1. **Persistent audit trail** — See Architecture Notes → Audit section for complete schema and implementation requirements
-   - Implement immutable `override_audit` table with audit record insertion on all override operations
-   - Routes: `/admin/leverage-overrides` POST/DELETE must insert audit rows with admin_id, user_id, action ("GrantOverride"|"RevokeOverride"), asset_class, old_leverage, new_leverage, reason, request_id
-   - TTL: Retain **3 years** for ESMA, CFTC, ASIC, DFSA, FSA Seychelles, FSC Mauritius, and OTHER regulatory compliance
-   - Tests: Verify `GrantOverride` and `RevokeOverride` operations insert corresponding audit records
-   - All override operations must call `insertAuditRecord()` (remove `console.log()` calls)
+1. **Persistent audit trail** — Implement immutable `override_audit` table per schema below and integrate with admin routes:
+   - **Schema**: `override_audit` table with fields: `id` (BIGSERIAL), `timestamp` (TIMESTAMPTZ), `admin_id` (BIGINT FK→staff), `user_id` (BIGINT FK→users), `action` (ENUM: "grant_override"|"revoke_override"), `asset_class` (VARCHAR), `old_leverage` (INT), `new_leverage` (INT), `reason` (TEXT), `request_id` (VARCHAR)
+   - **Indexes**: Composite indexes on `(user_id, timestamp)`, `(admin_id, timestamp)`, and `(timestamp DESC)` for regulatory audit queries
+   - **Routes**: `/admin/leverage-overrides` POST/DELETE routes must call `insertAuditRecord()` with action="grant_override" or "revoke_override" and reference fields above
+   - **TTL**: Retain **3 years** for ESMA, CFTC, ASIC, DFSA, FSA Seychelles, FSC Mauritius, and OTHER regulatory compliance
+   - **Tests**: Verify grant_override and revoke_override operations insert corresponding immutable audit records; verify old records remain readable during rollout
 2. **Regulatory compliance review** — Ensure all 7 frameworks (EU/UK (ESMA), US (CFTC), ASIC, DFSA, FSA Seychelles, FSC Mauritius, OTHER) are documented
 3. **Security audit** — Verify RBAC enforcement and no privilege escalation vectors
 

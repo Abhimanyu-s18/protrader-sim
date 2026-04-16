@@ -71,9 +71,16 @@ const WithdrawSchema = z
 type DepositForm = z.infer<typeof DepositSchema>
 type WithdrawForm = z.infer<typeof WithdrawSchema>
 
-/** Converts a decimal USD amount to integer cents without floating-point drift. */
+/** Converts a decimal USD amount to integer cents safely. */
 function toCents(amount: number): number {
-  return Math.round(amount * 100)
+  // Round to nearest cent, then use string conversion to avoid
+  // floating-point precision issues in the final integer
+  const rounded = Math.round(amount * 100) / 100
+  const amountStr = rounded.toFixed(2)
+  const parts = amountStr.split('.')
+  const whole = parts[0] ?? '0'
+  const fraction = parts[1] ?? '00'
+  return parseInt(whole + fraction, 10)
 }
 
 // ── Sub-components ────────────────────────────────────────────────
@@ -81,7 +88,7 @@ function toCents(amount: number): number {
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
-      <h2 className="mb-4 text-sm font-semibold tracking-wide text-gray-400 uppercase">{title}</h2>
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">{title}</h2>
       {children}
     </div>
   )
@@ -303,7 +310,7 @@ export default function AccountPage() {
               <div className="rounded border border-green-700 bg-green-900/20 p-3">
                 <p className="text-xs font-medium text-green-400">Deposit initiated</p>
                 {depositResult.pay_address && (
-                  <p className="mt-1 font-mono text-xs break-all text-gray-300">
+                  <p className="mt-1 break-all font-mono text-xs text-gray-300">
                     Send to: {depositResult.pay_address}
                   </p>
                 )}
@@ -418,7 +425,7 @@ export default function AccountPage() {
                     <th
                       key={h}
                       scope="col"
-                      className="pr-3 pb-2 text-left text-xs font-medium text-gray-500 uppercase"
+                      className="pb-2 pr-3 text-left text-xs font-medium uppercase text-gray-500"
                     >
                       {h}
                     </th>
@@ -459,7 +466,7 @@ export default function AccountPage() {
                     <th
                       key={h}
                       scope="col"
-                      className="pr-3 pb-2 text-left text-xs font-medium text-gray-500 uppercase"
+                      className="pb-2 pr-3 text-left text-xs font-medium uppercase text-gray-500"
                     >
                       {h}
                     </th>

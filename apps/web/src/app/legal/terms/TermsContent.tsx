@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
+const DEBOUNCE_WINDOW_MS = 500
+const SCROLL_END_THRESHOLD_PX = 100
+
 const TERMS_EFFECTIVE_DATE = 'January 1, 2025'
 
 const SECTIONS = [
@@ -100,7 +103,8 @@ export function TermsContent() {
 
       if (lastSectionId) {
         const scrolledToEnd =
-          document.documentElement.scrollHeight - window.innerHeight - window.scrollY <= 100
+          document.documentElement.scrollHeight - window.innerHeight - window.scrollY <=
+          SCROLL_END_THRESHOLD_PX
         if (scrolledToEnd) {
           setActiveSection(lastSectionId)
         }
@@ -138,7 +142,7 @@ export function TermsContent() {
                       }`}
                       onClick={() => {
                         setActiveSection(s.id)
-                        ignoreObserverUntilRef.current = Date.now() + 500
+                        ignoreObserverUntilRef.current = Date.now() + DEBOUNCE_WINDOW_MS
                       }}
                     >
                       {s.title}

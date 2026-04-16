@@ -40,31 +40,7 @@ Application       17. NEXT_PUBLIC_API_URL              Staging/Prod   [ ]
 
 **⚠️ Security Note**: Never commit private keys to the repository. Generate in a secure location and delete local copies after adding to GitHub Secrets.
 
-Generate both keys using OpenSSL with these commands (see the detailed OpenSSL key generation example further down in this document):
-
-```bash
-# Generate 2048-bit RSA key pair (PKCS#8 format)
-openssl genpkey -algorithm RSA -out jwt-private.pem -pkeyopt rsa_keygen_bits:2048
-
-# Extract public key from the private key
-openssl pkey -pubout -in jwt-private.pem -out jwt-public.pem
-
-# Format with escaped newlines for GitHub Secrets (cross-platform alternative)
-# Option 1: Using awk (macOS/Linux/Windows Git Bash)
-cat jwt-private.pem | awk '{printf "%s\\n", $0}' | sed '$d' | tr '\n' ' ' | sed 's/ /\\n/g'
-
-# Option 2: Using tr+sed (macOS/Linux)
-cat jwt-private.pem | tr '\n' '§' | sed 's/§/\\n/g'
-
-# Option 3: Using Perl (if available)
-cat jwt-private.pem | perl -pe 's/\n/\\n/'
-```
-
-**⚠️ Important**:
-
-1. Copy the **first** output (from `cat jwt-private.pem | ...`) into GitHub Secrets as **`JWT_PRIVATE_KEY_TEST`**
-2. Copy the **second** output (from `cat jwt-public.pem | ...`) into GitHub Secrets as **`JWT_PUBLIC_KEY_TEST`**
-3. Include all `\n` escape sequences (do NOT interpret them as actual newlines)
+Generate both keys using OpenSSL with these commands:
 
 ---
 
@@ -325,7 +301,7 @@ gh secret set AWS_SECRET_ACCESS_KEY --body "..."
 ```bash
 # 1. Generate new key pair:
 openssl genpkey -algorithm RSA -out jwt-private.pem -pkeyopt rsa_keygen_bits:2048
-openssl rsa -pubout -in jwt-private.pem -out jwt-public.pem
+openssl pkey -pubout -in jwt-private.pem -out jwt-public.pem
 
 # 2. Update secrets with new keys
 # 3. Redeploy to all environments

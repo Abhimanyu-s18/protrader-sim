@@ -103,7 +103,7 @@ This document suite provides complete instructions for setting up **18 GitHub re
 - `test`: Uses `JWT_*_TEST` keys, `DATABASE_URL`
 - `build`: Uses `TURBO_*`, `NEXT_PUBLIC_*`
 - `deploy-staging`: Uses `RAILWAY_TOKEN`, `STAGING_API_URL`
-- `deploy-production`: ⚠️ Currently a placeholder — Cloudflare deployment not yet configured
+- `deploy-production`: ⚠️ Currently a placeholder — Cloudflare Workers/Pages is the intended production deployment target but is not yet configured. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are **not** used for Cloudflare deployments; they are retained for infrastructure management tasks like AWS RDS database operations, ECS task deployment and management, and IAM resource provisioning. These credentials remain active but unused during Cloudflare-based deployments.
 - `deploy-frontend` _(matrix — runs once per app)_: Uses `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID_WEB`, `VERCEL_PROJECT_ID_AUTH`, `VERCEL_PROJECT_ID_PLATFORM`, `VERCEL_PROJECT_ID_ADMIN`, `VERCEL_PROJECT_ID_IB_PORTAL`
 
 ---
@@ -167,8 +167,8 @@ For deploying a fix immediately:
 **Secrets (4)**:
 
 - `RAILWAY_TOKEN` - Railway (staging) authentication
-- `AWS_ACCESS_KEY_ID` - AWS credentials (production)
-- `AWS_SECRET_ACCESS_KEY` - AWS credentials (production)
+- `AWS_ACCESS_KEY_ID` - AWS credentials (infrastructure management / future AWS ECS production use — not used for Cloudflare production deployment)
+- `AWS_SECRET_ACCESS_KEY` - AWS credentials (infrastructure management / future AWS ECS production use — not used for Cloudflare production deployment)
 - `VERCEL_TOKEN` - Vercel frontend deployment (all 5 apps)
 
 **Variables (1)**:

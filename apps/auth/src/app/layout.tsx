@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import Link from 'next/link'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -14,7 +13,7 @@ const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'
 
 function Logo() {
   return (
-    <Link
+    <a
       href={WEB_URL}
       className="group inline-flex items-center gap-2.5"
       aria-label="ProTraderSim home"
@@ -33,7 +32,7 @@ function Logo() {
       <span className="text-xl font-bold tracking-tight text-white">
         ProTrader<span className="text-primary">Sim</span>
       </span>
-    </Link>
+    </a>
   )
 }
 
@@ -52,19 +51,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <footer className="pb-8 pt-2 text-center text-xs text-dark-400">
             © 2025 ProTraderSim · All rights reserved ·{' '}
-            <Link
+            <a
               href={`${WEB_URL}/legal/privacy`}
               className="transition-colors hover:text-dark-300"
+              aria-label="Privacy Policy"
             >
               Privacy Policy
-            </Link>{' '}
+            </a>{' '}
             ·{' '}
-            <Link
+            <a
               href={`${WEB_URL}/legal/terms`}
               className="transition-colors hover:text-dark-300"
+              aria-label="Terms"
             >
               Terms
-            </Link>
+            </a>
           </footer>
         </div>
       </body>

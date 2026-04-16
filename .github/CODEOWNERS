@@ -1,0 +1,5 @@
+# CODEOWNERS — Require compliance team review for append-only audit files.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Leverage compliance audit log — requires Compliance Officer approval on every PR
+docs/Compliance\ &\ Operations/Leverage_Updates_Log.md @protrader-sim/compliance

@@ -1,0 +1,27 @@
+#!/bin/sh
+# Pre-commit hook: enforce append-only constraint on Leverage_Updates_Log.md
+#
+# Install: git config core.hooksPath .githooks
+# (or symlink: ln -s ../../.githooks/pre-commit .git/hooks/pre-commit)
+
+TARGET_FILE="docs/Compliance & Operations/Leverage_Updates_Log.md"
+
+# Only check if the file is being changed in this commit
+if ! git diff --cached --name-only | grep -qF "$TARGET_FILE"; then
+  exit 0
+fi
+
+# Count deleted/modified lines (lines starting with '-' in the diff, excluding diff headers)
+DELETIONS=$(git diff --cached -- "$TARGET_FILE" | grep -c '^-[^-]' || true)
+
+if [ "$DELETIONS" -gt 0 ]; then
+  echo ""
+  echo "ERROR: pre-commit hook rejected commit."
+  echo "  File '$TARGET_FILE' is append-only (regulatory audit trail)."
+  echo "  $DELETIONS line(s) were deleted or modified in the staged diff."
+  echo "  Corrections must be added as new entries — do not edit existing lines."
+  echo ""
+  exit 1
+fi
+
+exit 0

@@ -2353,6 +2353,21 @@
         input.addEventListener('blur', saveSection)
       }
 
+      function renderTasksAndRestoreFocus(taskId, isSubtask = false, subtaskIdx = null) {
+        renderTasks()
+        // Restore focus after DOM recreation
+        setTimeout(() => {
+          const item = document.querySelector(`[data-task-id="${taskId}"]`)
+          if (!item) return
+          if (isSubtask && subtaskIdx !== null) {
+            const subtaskCheckboxes = item.querySelectorAll('.list-item-subtask .checkbox')
+            subtaskCheckboxes[subtaskIdx]?.focus()
+          } else {
+            item.querySelector(':scope > .checkbox')?.focus()
+          }
+        }, 0)
+      }
+
       function createListItem(task, section) {
         const item = document.createElement('div')
         item.className = 'list-item'
@@ -2385,21 +2400,6 @@
           markChanged()
           renderTasks()
         })
-        function renderTasksAndRestoreFocus(taskId, isSubtask = false, subtaskIdx = null) {
-          renderTasks()
-          // Restore focus after DOM recreation
-          setTimeout(() => {
-            const item = document.querySelector(`[data-task-id="${taskId}"]`)
-            if (!item) return
-            if (isSubtask && subtaskIdx !== null) {
-              const subtaskCheckboxes = item.querySelectorAll('.list-item-subtask .checkbox')
-              subtaskCheckboxes[subtaskIdx]?.focus()
-            } else {
-              item.querySelector(':scope > .checkbox')?.focus()
-            }
-          }, 0)
-        }
-
         checkbox.addEventListener('keydown', (e) => {
           if (e.key === ' ' || e.key === 'Enter') {
             e.preventDefault()
@@ -2465,9 +2465,8 @@
               if (e.key === ' ' || e.key === 'Enter') {
                 e.preventDefault()
                 st.checked = !st.checked
-                stCheckbox.setAttribute('aria-checked', st.checked ? 'true' : 'false')
                 markChanged()
-                renderTasks()
+                renderTasksAndRestoreFocus(task.id, true, idx)
               }
             })
 

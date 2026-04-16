@@ -51,7 +51,6 @@ export function TermsSidebar() {
     const visibleEntries = new Map<
       string,
       {
-        id: string
         isIntersecting: boolean
         intersectionRatio: number
         boundingClientRect: DOMRect
@@ -62,36 +61,21 @@ export function TermsSidebar() {
       (entries) => {
         for (const entry of entries) {
           visibleEntries.set(entry.target.id, {
-            id: entry.target.id,
             isIntersecting: entry.isIntersecting,
             intersectionRatio: entry.intersectionRatio,
             boundingClientRect: entry.boundingClientRect,
           })
         }
 
-        // Query fresh bounding rects from DOM to avoid stale snapshots
-        const entriesWithFreshRects = [...visibleEntries.entries()].map(([id, entry]) => {
-          const element = document.getElementById(id)
-          const freshRect = element?.getBoundingClientRect()
-          return {
-            ...entry,
-            boundingClientRect: freshRect || entry.boundingClientRect,
-          }
-        })
-
-        // Update stored entries with fresh rects for next callback
-        entriesWithFreshRects.forEach((entry) => {
-          visibleEntries.set(entry.id, entry)
-        })
-
-        const sorted = entriesWithFreshRects.sort(
-          (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
+        const sorted = [...visibleEntries.entries()].sort(
+          ([, a], [, b]) => a.boundingClientRect.top - b.boundingClientRect.top,
         )
+
         const topmost = sorted.find(
-          (entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5,
+          ([, entry]) => entry.isIntersecting && entry.intersectionRatio >= 0.5,
         )
         if (topmost) {
-          setActiveSection(topmost.id)
+          setActiveSection(topmost[0])
         }
       },
       { threshold: [0, 0.5, 0.75, 1] },
