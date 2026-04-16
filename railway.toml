@@ -1,0 +1,5 @@
+[build]
+buildCommand = "pnpm install && pnpm --filter @protrader/db db:generate && pnpm --filter @protrader/api build"
+
+[deploy]
+startCommand = "pnpm --filter @protrader/api start"
