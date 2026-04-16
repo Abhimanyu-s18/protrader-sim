@@ -39,6 +39,9 @@ if (process.env['NODE_ENV'] !== 'test') {
       let skipped = 0
       let totalMissingPrices = 0
 
+      // Declared outside the per-user loop so the post-loop summary log can access it
+      const skippedTradesBySymbol = new Map<string, { count: number; tradeIds: bigint[] }>()
+
       for (const { userId } of usersWithOpenTrades) {
         try {
           // Fetch open trades with instrument data
@@ -74,10 +77,19 @@ if (process.env['NODE_ENV'] !== 'test') {
             if (!cached) {
               skippedTrades++
               totalMissingPrices++
-              log.warn(
-                { symbol: trade.instrument.symbol, tradeId: trade.id },
-                'Skipped trade — no live price',
-              )
+
+              // Batch skipped trades by symbol (cap tradeIds to prevent unbounded growth)
+              const MAX_TRACKED_IDS = 10
+              const symbol = trade.instrument.symbol
+              const existing = skippedTradesBySymbol.get(symbol)
+              if (existing) {
+                existing.count++
+                if (existing.tradeIds.length < MAX_TRACKED_IDS) {
+                  existing.tradeIds.push(trade.id)
+                }
+              } else {
+                skippedTradesBySymbol.set(symbol, { count: 1, tradeIds: [trade.id] })
+              }
               continue
             }
 
@@ -129,7 +141,7 @@ if (process.env['NODE_ENV'] !== 'test') {
           } catch (insertErr) {
             log.warn(
               { userId: userId.toString(), insertErr },
-              'Failed to persist P&L snapshot to DB (table may not exist yet)',
+              'Failed to persist P&L snapshot to DB — possible missing table or unmigrated skipped_trades column',
             )
           }
 
@@ -141,6 +153,20 @@ if (process.env['NODE_ENV'] !== 'test') {
           log.error({ userId: userId.toString(), err }, 'Failed to snapshot P&L for user')
           skipped++
         }
+      }
+
+      // Emit summary logs for skipped trades by symbol
+      for (const [symbol, { count, tradeIds }] of skippedTradesBySymbol.entries()) {
+        const trimmedTradeIds = tradeIds.slice(0, 10) // Limit to first 10 trade IDs to avoid huge logs
+        log.warn(
+          {
+            symbol,
+            count,
+            tradeIds: trimmedTradeIds.map((id) => id.toString()),
+            totalTradeIds: tradeIds.length,
+          },
+          `Skipped ${count} trades for symbol — no live price`,
+        )
       }
 
       log.info({ processed, skipped, totalMissingPrices }, 'P&L snapshot run complete')

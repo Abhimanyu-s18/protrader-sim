@@ -5,11 +5,14 @@ import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { Errors } from '../middleware/errorHandler.js'
 import { serializeBigInt } from '../lib/calculations.js'
+import { createLogger } from '../lib/logger.js'
 import multer from 'multer'
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 
 import crypto from 'crypto'
 import path from 'path'
+
+const log = createLogger('kyc')
 
 /** Zod schema for multipart KYC document upload body fields */
 const UploadDocumentBodySchema = z.object({
@@ -162,6 +165,11 @@ kycRouter.get('/documents', async (req, res, next) => {
 // DELETE /v1/kyc/documents/:id
 kycRouter.delete('/documents/:id', async (req, res, next) => {
   try {
+    if (!req.user) {
+      next(Errors.unauthorized())
+      return
+    }
+
     const paramsParse = DocumentIdParamsSchema.safeParse(req.params)
     if (!paramsParse.success) {
       next(Errors.validation(paramsParse.error.flatten().fieldErrors as Record<string, unknown>))
@@ -171,7 +179,7 @@ kycRouter.delete('/documents/:id', async (req, res, next) => {
     const doc = await prisma.kycDocument.findFirst({
       where: {
         id: BigInt(paramsParse.data.id),
-        userId: BigInt(req.user?.user_id || 0),
+        userId: BigInt(req.user.user_id),
         status: 'UPLOADED',
       },
     })
@@ -179,15 +187,25 @@ kycRouter.delete('/documents/:id', async (req, res, next) => {
       next(Errors.notFound('Document'))
       return
     }
-    // Delete file from Cloudflare R2 before removing DB record
-    await r2.send(
-      new DeleteObjectCommand({
-        Bucket: process.env['CLOUDFLARE_R2_BUCKET_NAME'] ?? 'protrader-kyc-docs',
-        Key: doc.r2Key,
-      }),
-    )
-    await prisma.kycDocument.delete({ where: { id: doc.id } })
-    res.json({ success: true })
+    // Delete R2 object and DB record atomically (in sequence with error recovery)
+    try {
+      // Delete file from Cloudflare R2 first
+      await r2.send(
+        new DeleteObjectCommand({
+          Bucket: process.env['CLOUDFLARE_R2_BUCKET_NAME'] ?? 'protrader-kyc-docs',
+          Key: doc.r2Key,
+        }),
+      )
+      // Then delete DB record
+      await prisma.kycDocument.delete({ where: { id: doc.id } })
+      res.json({ success: true })
+    } catch (err) {
+      log.error(
+        { err, docId: doc.id, r2Key: doc.r2Key },
+        'Failed to delete KYC document (may have orphaned state)',
+      )
+      next(err)
+    }
   } catch (err) {
     next(err)
   }

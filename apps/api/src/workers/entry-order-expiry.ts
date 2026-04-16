@@ -133,8 +133,19 @@ if (process.env['NODE_ENV'] !== 'test') {
     log.info({ signal }, 'Received shutdown signal, closing worker...')
     if (entryOrderExpiryWorker) {
       try {
-        await entryOrderExpiryWorker.close()
-        log.info('Entry order expiry worker closed')
+        // Race the close operation against a 10 second timeout
+        const closePromise = entryOrderExpiryWorker.close()
+        let timerId: NodeJS.Timeout | undefined
+        const timeoutPromise = new Promise((_, reject) => {
+          timerId = setTimeout(() => reject(new Error('Worker close timeout after 10s')), 10000)
+        })
+
+        try {
+          await Promise.race([closePromise, timeoutPromise])
+          log.info('Entry order expiry worker closed')
+        } finally {
+          if (timerId) clearTimeout(timerId)
+        }
       } catch (err) {
         log.error({ err }, 'Error closing entry order expiry worker')
       }

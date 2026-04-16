@@ -105,8 +105,8 @@ webhooksRouter.post('/nowpayments', webhookLimiter, async (req, res, next) => {
           where: { nowpaymentsInvoiceId: order_id },
         })
 
-        // Return silently if deposit not found or already processed (idempotent)
-        if (!deposit || deposit.status === 'COMPLETED') return
+        // Return silently if deposit not found, already processed, or userId missing (idempotent)
+        if (!deposit || deposit.status === 'COMPLETED' || !deposit.userId) return
 
         const totalAmountCents = deposit.amountCents + deposit.bonusCents
 

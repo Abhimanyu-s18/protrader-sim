@@ -1,5 +1,5 @@
 import { Worker, type Job } from 'bullmq'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, Deposit } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { getRedis } from '../lib/redis.js'
 import { notificationQueue, emailQueue } from '../lib/queues.js'
@@ -28,27 +28,43 @@ if (process.env['NODE_ENV'] !== 'test') {
 
       const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000)
       const BATCH_SIZE = 100
+      const MAX_ITERATIONS = 100 // Safeguard: max 10,000 deposits per run
       let processed = 0
       let confirmedCount = 0
+      let iterations = 0
 
-      const processedIds = new Set<bigint>()
+      let lastSeenCreatedAt: Date | null = null
+      let lastSeenId: bigint | null = null
 
-      while (true) {
-        const batch = await prisma.deposit.findMany({
+      while (iterations < MAX_ITERATIONS) {
+        const batch: Deposit[] = await prisma.deposit.findMany({
           where: {
             status: { in: ['PENDING', 'CONFIRMING'] },
             nowpaymentsInvoiceId: { not: null },
             createdAt: { lte: tenMinutesAgo },
-            id: { notIn: Array.from(processedIds) },
+            ...(lastSeenCreatedAt && lastSeenId
+              ? {
+                  OR: [
+                    { createdAt: { lt: lastSeenCreatedAt } },
+                    {
+                      createdAt: lastSeenCreatedAt,
+                      id: { lt: lastSeenId },
+                    },
+                  ],
+                }
+              : {}),
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           take: BATCH_SIZE,
         })
 
         if (batch.length === 0) break
 
-        for (const deposit of batch) {
-          processedIds.add(deposit.id)
+        // Update cursor for next iteration
+        const lastDeposit: Deposit | undefined = batch[batch.length - 1]
+        if (lastDeposit) {
+          lastSeenCreatedAt = lastDeposit.createdAt
+          lastSeenId = lastDeposit.id
         }
 
         log.info({ batchSize: batch.length }, 'Polling batch of stalled deposits')
@@ -180,7 +196,16 @@ if (process.env['NODE_ENV'] !== 'test') {
         }
 
         processed += batch.length
+        iterations++
+
         if (batch.length < BATCH_SIZE) break // No more batches
+      }
+
+      if (iterations >= MAX_ITERATIONS) {
+        log.warn(
+          { processed, iterations, maxIterations: MAX_ITERATIONS },
+          'Reached maximum iterations limit for deposit polling - some deposits may be unprocessed',
+        )
       }
 
       log.info({ processed, confirmed: confirmedCount }, 'Deposit polling run complete')
